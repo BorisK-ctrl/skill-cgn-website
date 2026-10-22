@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Onlineabschluss — SKILL CGN</title>
+<meta name="description" content="Mitgliedschaft online abschließen. Drei Minuten, direkt im Mitgliedersystem.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://skill-studios.com/checkout.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="SKILL CGN">
+<meta property="og:title" content="Onlineabschluss — SKILL CGN">
+<meta property="og:description" content="Mitgliedschaft online abschließen. Drei Minuten, direkt im Mitgliedersystem.">
+<meta property="og:url" content="https://skill-studios.com/checkout.html">
+<meta property="og:image" content="https://skill-studios.com/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml"><link rel="icon" href="/img/favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<header class="nav"><div class="wrap">
+ <a class="logo" href="index.html" aria-label="SKILL CGN Startseite"><img src="/img/logo-white.svg" alt="SKILL CGN" onerror="this.replaceWith(document.createTextNode('SKILL CGN'))"></a>
+ <button class="burger" aria-expanded="false" aria-controls="mainnav">Menü</button>
+ <ul id="mainnav"><li><a href="index.html">Start</a></li><li><a href="classes.html">Classes</a></li><li><a href="memberships.html" aria-current="page">Memberships</a></li><li><a href="probetraining.html">Probetraining</a></li><li><a href="start39.html">START 39</a></li><li><a class="cta" href="start39.html">Start für 39 €</a></li></ul>
+</div></header>
+
+<section class="hero" style="padding-bottom:2rem"><div class="wrap">
+ <p class="kick">Onlineabschluss</p>
+ <h1 style="font-size:clamp(2.4rem,8vw,4.5rem)">Dein Vertrag.</h1>
+ <p class="lead">Drei Minuten. Du siehst alle Konditionen, bevor du zahlungspflichtig bestellst. Der Vertrag entsteht direkt in unserem Mitgliedersystem, die Bestätigung kommt per E-Mail.</p>
+</div></section>
+<section class="sec"><div class="wrap">
+ <div id="loading"><p class="mute">Angebot wird geladen …</p></div>
+ <form id="form" style="display:none" novalidate>
+  <div class="summary"><h2 id="sum-title" style="font-size:1.6rem"></h2><p id="sum-desc" class="mute"></p><p><b id="sum-price"></b></p><p class="small" id="sum-term"></p><p class="small">Einmalig: <span id="sum-fee"></span></p></div>
+
+  <div class="step"><h2>1. Laufzeit</h2><div id="terms"></div>
+   <label for="start">Vertragsbeginn</label><input id="start" name="start" type="date" required></div>
+
+  <div class="step"><h2>2. Deine Daten</h2>
+   <div class="two"><div><label for="firstname">Vorname</label><input id="firstname" name="firstname" required autocomplete="given-name"></div><div><label for="lastname">Nachname</label><input id="lastname" name="lastname" required autocomplete="family-name"></div></div>
+   <div class="two"><div><label for="dob">Geburtsdatum</label><input id="dob" name="dob" type="date" required autocomplete="bday"></div><div><label for="gender">Anrede, optional</label><select id="gender" name="gender"><option value="">Keine Angabe</option><option value="FEMALE">Frau</option><option value="MALE">Herr</option></select></div></div>
+   <label for="email">E-Mail</label><input id="email" name="email" type="email" required autocomplete="email">
+   <label for="phone">Handynummer</label><input id="phone" name="phone" type="tel" required autocomplete="tel" placeholder="+49 …">
+   <label>Bist du bereits Mitglied bei Urban Sports Club?</label>
+   <div class="btns" style="margin-top:.25rem"><label class="small chk" style="margin:0"><input type="radio" name="usc" value="nein" required>Nein</label><label class="small chk" style="margin:0"><input type="radio" name="usc" value="ja">Ja</label></div>
+  </div>
+
+  <div class="step"><h2>3. Adresse</h2>
+   <div class="two"><div><label for="street">Straße</label><input id="street" name="street" required autocomplete="address-line1"></div><div><label for="houseno">Hausnummer</label><input id="houseno" name="houseno" required></div></div>
+   <div class="two"><div><label for="zip">PLZ</label><input id="zip" name="zip" required inputmode="numeric" pattern="[0-9]{5}" autocomplete="postal-code"></div><div><label for="city">Ort</label><input id="city" name="city" required autocomplete="address-level2"></div></div>
+  </div>
+
+  <div class="step"><h2>4. Zahlung per SEPA-Lastschrift</h2>
+   <label for="holder">Kontoinhaber</label><input id="holder" name="holder" required>
+   <label for="iban">IBAN</label><input id="iban" name="iban" required autocomplete="off" placeholder="DE00 0000 0000 0000 0000 00" spellcheck="false">
+   <label>SEPA-Lastschriftmandat</label><div class="sepatext" id="sepatext">Ich ermächtige die Impetus Kraftkonzept UG (haftungsbeschränkt), Zahlungen von meinem Konto mittels Lastschrift einzuziehen. Zugleich weise ich mein Kreditinstitut an, die von der Impetus Kraftkonzept UG auf mein Konto gezogenen Lastschriften einzulösen. Hinweis: Ich kann innerhalb von acht Wochen, beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrages verlangen. Es gelten dabei die mit meinem Kreditinstitut vereinbarten Bedingungen.</div>
+   <label class="chk"><input type="checkbox" name="sepa" required><span>Ich erteile das SEPA-Lastschriftmandat.</span></label>
+  </div>
+
+  <div class="step"><h2>5. Unterschrift und Bestätigung</h2>
+   <p class="small mute">Unterschreibe mit dem Finger oder der Maus im Feld.</p>
+   <canvas id="sig" width="760" height="240" aria-label="Unterschriftsfeld"></canvas>
+   <div class="btns" style="margin-top:.6rem"><button class="btn ghost" type="button" id="sigclear">Löschen</button></div>
+   <label class="chk"><input type="checkbox" name="agb" required><span>Ich habe die <a href="agb.html" target="_blank">AGB</a> gelesen und akzeptiere sie.</span></label>
+   <label class="chk"><input type="checkbox" name="ds" required><span>Ich habe die <a href="datenschutz.html" target="_blank">Datenschutzerklärung</a> zur Kenntnis genommen.</span></label>
+   <label class="chk"><input type="checkbox" name="widerruf" required><span>Ich habe die Widerrufsbelehrung gelesen. Ich kann den Vertrag innerhalb von 14 Tagen ohne Angabe von Gründen widerrufen. Ich verlange ausdrücklich, dass die Leistung bereits vor Ablauf der Widerrufsfrist beginnt, und weiß, dass ich bei Widerruf den bis dahin genutzten Anteil zu zahlen habe.</span></label>
+   <label class="chk"><input type="checkbox" name="adult" required><span>Ich bin volljährig und schließe diesen Vertrag für mich selbst ab.</span></label>
+   <div class="btns"><button class="btn" type="submit" id="submit">Zahlungspflichtig bestellen</button></div>
+   <p id="err" class="small" style="color:#ff5c5c;margin-top:1rem;display:none;max-width:38rem"></p>
+   <p class="small mute" style="margin-top:1rem">Fragen vor dem Abschluss? <a href="https://wa.me/4917610877603" rel="noopener">WhatsApp</a> oder +49 221 70093636.</p>
+  </div>
+ </form>
+</div></section>
+<script>
+(function(){
+ var API='https://skillathletic.api.magicline.com/connect/v1', STUDIO=1210006110;
+ var OFFERS={
+  start39:{bundle:'START 39',title:'START 39',desc:'39 € je 4 Wochen. 4 Classes je 4 Wochen. Monatlich kündbar. Getränke, Dusche und Handtuch inklusive. Keine Gebühr. Nur online, nur Neukunden.',terms:null,value:39},
+  mitgliedschaft:{bundle:'SKILL Mitgliedschaft',title:'SKILL Mitgliedschaft',desc:'Gym ohne Limit, 6 Classes je vier Wochen, 3D Scan zum Start und alle 12 Wochen, Plan, Parken 2 mal pro Woche. 89 € alle vier Wochen bei 12 Monaten, 109 € monatlich kündbar.',value:89},
+  unlimited:{bundle:'SKILL Unlimited',title:'SKILL Unlimited',desc:'Gym ohne Limit, alle Classes, 3D Scan alle 8 Wochen, Coach Gespräch monatlich, Parken 3 mal pro Woche. 129 € alle vier Wochen bei 12 Monaten, 149 € monatlich kündbar.',value:129}
+ };
+ var q=new URLSearchParams(location.search), key=(q.get('offer')||'start39').toLowerCase(), OFFER=OFFERS[key]||OFFERS.start39;
+ var $=function(id){return document.getElementById(id)};
+ var bundle=null, term=null, sepaText='';
+ function euro(n){return (Math.round(n*100)/100).toLocaleString('de-DE',{minimumFractionDigits:2})+' €'}
+ function termLabel(t){ if(t.termValue===1&&t.termUnit==='MONTH') return 'Monatlich kündbar'; return t.termValue+' '+(t.termUnit==='MONTH'?'Monate':t.termUnit==='WEEK'?'Wochen':t.termUnit); }
+ function freq(t){ var u={WEEK:'Woche',MONTH:'Monat',DAY:'Tag',YEAR:'Jahr'}[t.paymentFrequencyUnit]||t.paymentFrequencyUnit; return t.paymentFrequencyValue===1?'je '+u:'je '+t.paymentFrequencyValue+' '+(u==='Woche'?'Wochen':u==='Monat'?'Monate':u); }
+ function fees(t){ return (t.flatFees||[]).map(function(f){return f.name+' '+euro(f.price)}).join(', ') || 'keine'; }
+ function today(){ var d=new Date(); return d.toISOString().slice(0,10); }
+ function renderTerms(){
+  var box=$('terms'); box.innerHTML='';
+  bundle.terms.forEach(function(t,i){
+   var id='t'+t.id, lab=document.createElement('label'); lab.className='termopt'; lab.setAttribute('for',id);
+   lab.innerHTML='<input type="radio" name="term" id="'+id+'" value="'+t.id+'" '+(i===0?'checked':'')+'><span><b>'+termLabel(t)+'</b><br><span class="mute small">'+euro(t.price)+' '+freq(t)+' · Einmalig: '+fees(t)+'</span></span>';
+   box.appendChild(lab);
+  });
+  box.addEventListener('change',function(){ term=bundle.terms.find(function(t){return String(t.id)===document.querySelector('input[name=term]:checked').value}); renderSummary(); });
+  term=bundle.terms[0]; renderSummary();
+ }
+ function renderSummary(){
+  $('sum-title').textContent=OFFER.title; $('sum-desc').textContent=OFFER.desc;
+  $('sum-price').textContent=euro(term.price)+' '+freq(term);
+  $('sum-term').textContent=termLabel(term)+', Kündigungsfrist '+(term.cancellationPeriod||1)+' '+({MONTH:'Monat',WEEK:'Wochen',DAY:'Tage'}[term.cancellationPeriodUnit]||'Monat');
+  $('sum-fee').textContent=fees(term);
+  $('start').min=today(); if(!$('start').value) $('start').value=term.defaultContractStartDate||today();
+ }
+ async function load(){
+  try{
+   var r=await fetch(API+'/rate-bundle?studioId='+STUDIO,{headers:{Accept:'application/json'}}); var all=await r.json();
+   bundle=all.find(function(b){return b.name.toLowerCase()===OFFER.bundle.toLowerCase()});
+   if(!bundle) throw new Error('Angebot nicht gefunden');
+   renderTerms();
+   try{ var s=await fetch(API+'/studio/'+STUDIO+'/rate/'+bundle.id+'/sepa/agreement?language=de-DE',{headers:{Accept:'application/json'}}); if(s.ok){ var sj=await s.json(); sepaText=(sj.text||sj.content||sj.agreement||JSON.stringify(sj)); $('sepatext').textContent=sepaText; } }catch(e){}
+   $('loading').style.display='none'; $('form').style.display='block';
+  }catch(e){ $('loading').innerHTML='<p class="small" style="color:#ff5c5c">Das Angebot konnte nicht geladen werden. Bitte lade die Seite neu oder schreib uns per <a href="'+WA+'">WhatsApp</a>.</p>'; }
+ }
+ // signature pad
+ var canvas=$('sig'), ctx=canvas.getContext('2d'), drawing=false, strokes=[], cur=[];
+ function pos(e){ var r=canvas.getBoundingClientRect(), p=e.touches?e.touches[0]:e; return [ (p.clientX-r.left)*canvas.width/r.width, (p.clientY-r.top)*canvas.height/r.height ]; }
+ function start(e){ drawing=true; cur=[pos(e)]; e.preventDefault(); }
+ function move(e){ if(!drawing) return; var p=pos(e); cur.push(p); ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.strokeStyle='#000'; ctx.beginPath(); var a=cur[cur.length-2]; ctx.moveTo(a[0],a[1]); ctx.lineTo(p[0],p[1]); ctx.stroke(); e.preventDefault(); }
+ function end(){ if(drawing&&cur.length>1) strokes.push(cur); drawing=false; }
+ ['mousedown','touchstart'].forEach(function(n){canvas.addEventListener(n,start)});
+ ['mousemove','touchmove'].forEach(function(n){canvas.addEventListener(n,move,{passive:false})});
+ ['mouseup','mouseleave','touchend'].forEach(function(n){canvas.addEventListener(n,end)});
+ $('sigclear').addEventListener('click',function(){ strokes=[]; ctx.clearRect(0,0,canvas.width,canvas.height); });
+ function sigSvg(){ var paths=strokes.map(function(s){return '<path d="M'+s.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1)}).join(' L')+'" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>'}).join('');
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+canvas.width+'" height="'+canvas.height+'" viewBox="0 0 '+canvas.width+' '+canvas.height+'">'+paths+'</svg>';
+  return btoa(unescape(encodeURIComponent(svg))); }
+ function ibanOk(v){ v=v.replace(/\s+/g,'').toUpperCase(); if(!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(v)) return false; var s=v.slice(4)+v.slice(0,4), n=''; for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); n+= c>=65? (c-55): s[i]; } var m=0; for(var j=0;j<n.length;j+=7){ m=parseInt(String(m)+n.substr(j,7),10)%97; } return m===1; }
+ $('iban').addEventListener('input',function(){ this.value=this.value.replace(/[^A-Za-z0-9 ]/g,'').toUpperCase().replace(/(.{4})(?=.)/g,'$1 ').replace(/\s+/g,' '); });
+ $('form').addEventListener('submit',async function(ev){
+  ev.preventDefault(); var err=$('err'); err.style.display='none';
+  var f=ev.target; if(!f.checkValidity()){ f.reportValidity(); return; }
+  var d=Object.fromEntries(new FormData(f).entries());
+  if(!ibanOk(d.iban)){ err.textContent='Die IBAN ist nicht gültig.'; err.style.display='block'; $('iban').focus(); return; }
+  if(strokes.length===0){ err.textContent='Bitte unterschreibe im Feld.'; err.style.display='block'; canvas.scrollIntoView({behavior:'smooth'}); return; }
+  var age=(new Date()-new Date(d.dob))/31557600000; if(age<18){ err.textContent='Der Onlineabschluss ist nur ab 18 Jahren möglich. Komm gerne mit einem Erziehungsberechtigten ins Studio.'; err.style.display='block'; return; }
+  var svg=sigSvg();
+  var payload={studioId:STUDIO,
+   contract:{rateBundleTermId:term.id,startDate:d.start,contractSignature:{base64Svg:svg},sepaSignature:{base64Svg:svg},
+     notes:('Onlineabschluss Website. USC Mitglied: '+d.usc+'. Angebot: '+OFFER.title).slice(0,300)},
+   customer:{firstname:d.firstname.trim(),lastname:d.lastname.trim(),email:d.email.trim(),telephone_mobile:d.phone.trim(),dateOfBirth:d.dob,
+     gender:d.gender||'UNISEX',street:d.street.trim(),houseNumber:d.houseno.trim(),zipCode:d.zip.trim(),city:d.city.trim(),countryCode:'DE',language:'de',locale:'de_DE',
+     paymentChoice:'DIRECT_DEBIT',bankAccount:{accountHolder:d.holder.trim(),iban:d.iban.replace(/\s+/g,'').toUpperCase()},
+     privacyConfiguration:{email:true,phone:true,textMessage:true,letter:false,mySportsMessage:true}}};
+  var btn=$('submit'); btn.disabled=true; btn.textContent='Vertrag wird angelegt …';
+  try{
+   var r=await fetch(API+'/rate-bundle',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});
+   var txt=await r.text(); var j={}; try{ j=JSON.parse(txt);}catch(x){}
+   if(!r.ok){ var msg=(j&&(j.message||j.errorMessage||j.error))||txt||('Fehler '+r.status); throw new Error(msg); }
+   var cid=j.contractId||j.id||(j.contract&&j.contract.id)||'';
+   if(window.fbq){ fbq('track','Purchase',{value:term.price,currency:'EUR',content_name:OFFER.title,content_type:'product'},{eventID:'purchase_'+(cid||Date.now())}); }
+   try{ sessionStorage.setItem('skill-contract',JSON.stringify({offer:OFFER.title,cid:cid,name:d.firstname,start:d.start,price:term.price})); }catch(x){}
+   location.href='danke.html?offer='+encodeURIComponent(OFFER.title)+(cid?'&vertrag='+encodeURIComponent(cid):'');
+  }catch(e){
+   btn.disabled=false; btn.textContent='Zahlungspflichtig bestellen';
+   err.textContent='Der Abschluss hat nicht geklappt: '+e.message+' Bitte prüfe deine Angaben oder schreib uns per WhatsApp, wir helfen sofort.'; err.style.display='block';
+   if(window.fbq) fbq('trackCustom','CheckoutError',{content_name:OFFER.title});
+  }
+ });
+ if(window.fbq) fbq('track','InitiateCheckout',{content_name:OFFER.title});
+ load();
+})();
+</script>
+
+<footer><div class="wrap">
+ <div class="cols">
+  <div><strong>SKILL CGN</strong><ul><li>Herzogstraße 16–20</li><li>50667 Köln</li><li><a href="https://maps.google.com/?q=Herzogstra%C3%9Fe+16-20,+50667+K%C3%B6ln" rel="noopener">Route in Google Maps</a></li></ul></div>
+  <div><strong>Kontakt</strong><ul><li><a href="tel:+4922170093636">+49 221 70093636</a></li><li><a href="https://wa.me/4917610877603" rel="noopener">WhatsApp</a></li><li><a href="mailto:info@skill-studios.com">info@skill-studios.com</a></li></ul></div>
+  <div><strong>Öffnungszeiten</strong><ul><li>Mo bis Do 07:00 bis 22:00</li><li>Fr 07:00 bis 20:00</li><li>Sa und So 09:00 bis 20:00</li></ul></div>
+  <div><strong>Mehr</strong><ul><li><a href="https://www.instagram.com/skill_cologne/" rel="noopener">Instagram</a></li><li><a href="https://www.facebook.com/skillcgn/" rel="noopener">Facebook</a></li><li><a class="cancel" href="kuendigung.html">Verträge hier kündigen</a></li></ul></div>
+ </div>
+ <div class="legalline"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a><a href="agb.html">AGB</a><a href="#" id="consent-reopen">Cookie-Einstellungen</a><span>© 2026 Impetus Kraftkonzept UG</span></div>
+</div></footer>
+<nav class="mbar" aria-label="Schnellkontakt"><a class="wa" href="https://wa.me/4917610877603" rel="noopener">WhatsApp</a><a href="start39.html">Start für 39 €</a></nav>
+<div class="consent" id="consent" role="dialog" aria-label="Cookie-Hinweis"><div class="wrap">
+ <p>Die Seite funktioniert ohne Marketing-Cookies. Das Meta-Pixel für Werbemessung laden wir erst, wenn du zustimmst. <a href="datenschutz.html">Datenschutz</a></p>
+ <div class="b"><button class="no" type="button">Nur notwendige</button><button class="ok" type="button">Marketing akzeptieren</button></div>
+</div></div>
+<script src="/assets/site.js" defer></script>
+</body></html>

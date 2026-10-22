@@ -1,0 +1,13 @@
+node_modules
+dist
+.netlify
+.DS_Store
+dist-ssr
+dist-debug
+.env
+.env.local
+
+# Große oder fremde Dateien, nicht ins Repository
+public/img/manus/drone-video-hyrox_be8a75c1.mp4
+manus-src/
+.claude/launch.json

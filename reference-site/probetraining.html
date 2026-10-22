@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kostenloses Probetraining — SKILL CGN Köln</title>
+<meta name="description" content="60 Minuten mit einem Coach. Kostenlos, unverbindlich, ohne Zahlung. Jetzt Termin wählen.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://skill-studios.com/probetraining.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="SKILL CGN">
+<meta property="og:title" content="Kostenloses Probetraining — SKILL CGN Köln">
+<meta property="og:description" content="60 Minuten mit einem Coach. Kostenlos, unverbindlich, ohne Zahlung. Jetzt Termin wählen.">
+<meta property="og:url" content="https://skill-studios.com/probetraining.html">
+<meta property="og:image" content="https://skill-studios.com/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml"><link rel="icon" href="/img/favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body data-fb-event="ViewContent" data-fb-params='{"content_name":"Probetraining"}'>
+<header class="nav"><div class="wrap">
+ <a class="logo" href="index.html" aria-label="SKILL CGN Startseite"><img src="/img/logo-white.svg" alt="SKILL CGN" onerror="this.replaceWith(document.createTextNode('SKILL CGN'))"></a>
+ <button class="burger" aria-expanded="false" aria-controls="mainnav">Menü</button>
+ <ul id="mainnav"><li><a href="index.html">Start</a></li><li><a href="classes.html">Classes</a></li><li><a href="memberships.html">Memberships</a></li><li><a href="probetraining.html" aria-current="page">Probetraining</a></li><li><a href="start39.html">START 39</a></li><li><a class="cta" href="start39.html">Start für 39 €</a></li></ul>
+</div></header>
+
+<section class="hero"><div class="wrap">
+ <p class="kick">Kostenlos und unverbindlich</p>
+ <h1>Probe-<br>training.</h1>
+ <p class="lead">Sechzig Minuten mit einem unserer Coaches. Lerne das Gym, die Geräte und den Freihantelbereich kennen. Keine Zahlung, keine Bindung.</p>
+ <div class="btns"><a class="btn" href="#buchen">Termin wählen</a><a class="btn ghost" href="https://wa.me/4917610877603?text=Hallo%2C%20ich%20m%C3%B6chte%20ein%20Probetraining%20buchen." rel="noopener">Per WhatsApp anfragen</a></div>
+</div></section>
+<section class="sec" id="buchen"><div class="wrap">
+ <h2>Termin wählen.</h2>
+ <p class="lead mute">Kurz eintragen, dann wählst du im nächsten Schritt Tag und Uhrzeit. Bestätigung kommt sofort per E-Mail.</p>
+ <form id="leadform" novalidate>
+  <label for="vn">Vorname</label><input id="vn" name="firstname" required autocomplete="given-name">
+  <label for="nn">Nachname</label><input id="nn" name="lastname" required autocomplete="family-name">
+  <label for="em">E-Mail</label><input id="em" name="email" type="email" required autocomplete="email">
+  <label for="tel">Handynummer</label><input id="tel" name="phone" type="tel" required autocomplete="tel" placeholder="+49 …">
+  <label>Bist du bereits Mitglied bei Urban Sports Club?</label>
+  <div class="btns" style="margin-top:.25rem"><label class="small" style="font-weight:400"><input type="radio" name="usc" value="nein" required style="width:auto;margin-right:.4rem">Nein</label><label class="small" style="font-weight:400"><input type="radio" name="usc" value="ja" style="width:auto;margin-right:.4rem">Ja</label></div>
+  <p class="small mute" style="margin-top:1rem">Mit dem Absenden stimmst du zu, dass wir dich zu deinem Probetraining per E-Mail und Telefon kontaktieren. <a href="datenschutz.html">Datenschutz</a></p>
+  <div class="btns"><button class="btn" type="submit" id="leadbtn">Weiter zur Terminwahl</button></div>
+  <p id="leaderr" class="small" style="color:#ff5c5c;margin-top:1rem;display:none"></p>
+ </form>
+</div></section>
+<section class="sec panel"><div class="wrap">
+ <h2>Gut zu wissen.</h2>
+ <div style="margin-top:2rem;max-width:44rem">
+  <details><summary>Was soll ich mitbringen?</summary><p>Sportkleidung und saubere Hallenschuhe. Handtuch und Getränke bekommst du von uns.</p></details>
+  <details><summary>Ich habe keine Erfahrung. Geht das?</summary><p>Ja. Das Probetraining ist genau dafür da. Der Coach passt alles an dein Level an.</p></details>
+  <details><summary>Ich habe eine Verletzung oder Einschränkung.</summary><p>Sag es dem Coach vorher. Wir finden Übungen, die passen, oder sagen dir ehrlich, wenn etwas nicht geht.</p></details>
+  <details><summary>Kann ich den Termin verschieben?</summary><p>Ja, über den Link in der Bestätigung oder kurz per WhatsApp.</p></details>
+ </div>
+</div></section>
+<script>
+(function(){
+ var f=document.getElementById('leadform'),b=document.getElementById('leadbtn'),e=document.getElementById('leaderr');
+ f.addEventListener('submit',async function(ev){
+  ev.preventDefault(); e.style.display='none';
+  if(!f.checkValidity()){ f.reportValidity(); return; }
+  b.disabled=true; b.textContent='Einen Moment …';
+  var d=Object.fromEntries(new FormData(f).entries());
+  var payload={studioId:1210006110,firstname:d.firstname.trim(),lastname:d.lastname.trim(),email:d.email.trim(),phone:d.phone.trim(),
+    notes:'Probetraining über Website. Urban Sports Club Mitglied: '+d.usc+'. Terminwahl über Google Kalender.',locale:'de_DE',countryCode:'DE',
+    privacyConfiguration:{email:true,phone:true,textMessage:true}};
+  try{ var r=await fetch('https://skillathletic.api.magicline.com/connect/v1/lead',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok && r.status!==409){ throw new Error('HTTP '+r.status); }
+  }catch(err){ console.warn('lead',err); }
+  if(window.fbq){ fbq('track','Lead',{content_name:'Probetraining'}); }
+  try{ sessionStorage.setItem('skill-lead',JSON.stringify(d)); }catch(x){}
+  window.location.href='https://calendar.google.com/calendar/appointments/schedules/AcZssZ10Q9b0R58FnSdP-dGHz83yuMPl6-TThwqGT7vfjM5tQvev-5VY4cVyRr1p1uO0ZihxqkxMAWt0';
+ });
+})();
+</script>
+
+<footer><div class="wrap">
+ <div class="cols">
+  <div><strong>SKILL CGN</strong><ul><li>Herzogstraße 16–20</li><li>50667 Köln</li><li><a href="https://maps.google.com/?q=Herzogstra%C3%9Fe+16-20,+50667+K%C3%B6ln" rel="noopener">Route in Google Maps</a></li></ul></div>
+  <div><strong>Kontakt</strong><ul><li><a href="tel:+4922170093636">+49 221 70093636</a></li><li><a href="https://wa.me/4917610877603" rel="noopener">WhatsApp</a></li><li><a href="mailto:info@skill-studios.com">info@skill-studios.com</a></li></ul></div>
+  <div><strong>Öffnungszeiten</strong><ul><li>Mo bis Do 07:00 bis 22:00</li><li>Fr 07:00 bis 20:00</li><li>Sa und So 09:00 bis 20:00</li></ul></div>
+  <div><strong>Mehr</strong><ul><li><a href="https://www.instagram.com/skill_cologne/" rel="noopener">Instagram</a></li><li><a href="https://www.facebook.com/skillcgn/" rel="noopener">Facebook</a></li><li><a class="cancel" href="kuendigung.html">Verträge hier kündigen</a></li></ul></div>
+ </div>
+ <div class="legalline"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a><a href="agb.html">AGB</a><a href="#" id="consent-reopen">Cookie-Einstellungen</a><span>© 2026 Impetus Kraftkonzept UG</span></div>
+</div></footer>
+<nav class="mbar" aria-label="Schnellkontakt"><a class="wa" href="https://wa.me/4917610877603" rel="noopener">WhatsApp</a><a href="start39.html">Start für 39 €</a></nav>
+<div class="consent" id="consent" role="dialog" aria-label="Cookie-Hinweis"><div class="wrap">
+ <p>Die Seite funktioniert ohne Marketing-Cookies. Das Meta-Pixel für Werbemessung laden wir erst, wenn du zustimmst. <a href="datenschutz.html">Datenschutz</a></p>
+ <div class="b"><button class="no" type="button">Nur notwendige</button><button class="ok" type="button">Marketing akzeptieren</button></div>
+</div></div>
+<script src="/assets/site.js" defer></script>
+</body></html>

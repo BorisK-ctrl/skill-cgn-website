@@ -1,0 +1,27 @@
+/* Alle Routen mit Metadaten. Quelle für Prerendering, Sitemap-Abgleich und Client-Meta. */
+export interface RouteMeta { path: string; title: string; description: string; robots?: string; priority?: number }
+export const SITE_URL = "https://skill-studios.com";
+export const ROUTES: RouteMeta[] = [
+  { path: "/", title: "SKILL CGN, Dein Coach. Dein Plan. Training mit System in der Kölner Innenstadt", description: "Betreutes Training mit Coach in jeder Class, 3D Körperscan und Plan. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt, Parken inklusive. Probetraining kostenlos.", priority: 1.0 },
+  { path: "/start39", title: "START 39: Fitnessstudio in Köln für 39 € je 4 Wochen — SKILL CGN", description: "Fitnessstudio Köln, Neumarkt: 39 € je 4 Wochen, 4 Classes je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr, 3D Scan inklusive. Nur online, nur Neukunden.", priority: 0.9 },
+  { path: "/back39", title: "BACK 39 — SKILL CGN", description: "Willkommen zurück. 39 € alle vier Wochen, dauerhaft. Nur für ehemalige Mitglieder. Keine Aktivierungsgebühr, kostenloser 3D Scan.", robots: "noindex,nofollow" },
+  { path: "/scan", title: "Kostenloser 3D Körperscan in Köln, SKILL CGN", description: "15 Minuten, keine Kosten, keine Verpflichtung. Du siehst, wo du stehst.", robots: "noindex,nofollow" },
+  { path: "/scan/danke", title: "Danke, Boris meldet sich — SKILL CGN", description: "Deine Scan-Anfrage ist da.", robots: "noindex,nofollow" },
+  { path: "/vor-ort", title: "Vor-Ort-Abschluss — SKILL CGN", description: "Vertrag direkt am Tresen abschließen (iPad).", robots: "noindex,nofollow" },
+  { path: "/classes", title: "Kurse in Köln: HYROX, SKILL, RAW, ATHX — SKILL CGN", description: "Gecoachte Kurse im Fitnessstudio Köln Neumarkt: HYROX, SKILL I und II, RAW, ATHX. Kursplan live, Buchung online, Probetraining kostenlos.", priority: 0.9 },
+  { path: "/memberships", title: "Fitnessstudio Mitgliedschaft in Köln — SKILL CGN", description: "Mitgliedschaft im Fitnessstudio Köln Neumarkt: START 39, SKILL Mitgliedschaft, SKILL Unlimited. 12 Monate oder monatlich kündbar, keine Gebühr, Parken inklusive. Online abschließen.", priority: 0.9 },
+  { path: "/probetraining", title: "Kostenloses Probetraining in Köln mit 3D Scan — SKILL CGN", description: "Probetraining im Fitnessstudio Köln Neumarkt: 60 Minuten mit Coach, 3D Körperscan inklusive. Kostenlos, unverbindlich. Jetzt Termin wählen.", priority: 0.8 },
+  { path: "/personal-training", title: "Personal Training in Köln mit Boris — SKILL CGN", description: "1:1 Training in der Kölner Innenstadt. Assessment, Anamnese und Programm immer inklusive. Erfolgsversprechen mit Geld-zurück-Garantie. Termin auf Anfrage per WhatsApp.", priority: 0.8 },
+  { path: "/shop", title: "Tickets und Pässe fürs Gym in Köln — SKILL CGN", description: "Drop In 20 €, Trial Pass 29 €, 5er und 10er Pass, Personal Training in Köln. Kein Abo, kein Account. Sicher bezahlen mit Apple Pay, Karte, SEPA oder Klarna.", priority: 0.8 },
+  { path: "/kursplan", title: "Kursplan & Buchung — SKILL CGN Köln", description: "Alle Classes der nächsten sieben Tage. Platz sichern mit E-Mail und Handynummer, ohne Login.", robots: "noindex,nofollow" },
+  { path: "/shop/danke", title: "Danke für deinen Kauf — SKILL CGN", description: "Dein Ticket ist bestätigt.", robots: "noindex,nofollow" },
+  { path: "/checkout", title: "Onlineabschluss — SKILL CGN", description: "Vertrag online abschließen. Drei Minuten, alle Konditionen vorab sichtbar.", robots: "noindex,nofollow" },
+  { path: "/danke", title: "Willkommen im Team — SKILL CGN", description: "Dein Vertrag ist angelegt.", robots: "noindex,nofollow" },
+  { path: "/kuendigung", title: "Vertrag kündigen — SKILL CGN", description: "Kündige deine Mitgliedschaft online. Bestätigung per E-Mail.", robots: "noindex,nofollow" },
+  { path: "/kuendigung-bestaetigt", title: "Kündigung eingegangen — SKILL CGN", description: "Bestätigung deiner Kündigung.", robots: "noindex,nofollow" },
+  { path: "/impressum", title: "Impressum — SKILL CGN", description: "Impressum der Impetus Kraftkonzept UG.", robots: "noindex,nofollow" },
+  { path: "/datenschutz", title: "Datenschutz — SKILL CGN", description: "Datenschutzerklärung der Impetus Kraftkonzept UG.", robots: "noindex,nofollow" },
+  { path: "/agb", title: "AGB — SKILL CGN", description: "Allgemeine Geschäftsbedingungen der Impetus Kraftkonzept UG.", robots: "noindex,nofollow" },
+  { path: "/brand", title: "Brand Book — SKILL CGN", description: "Das Markensystem von SKILL CGN.", robots: "noindex,nofollow" },
+  { path: "/404", title: "Seite nicht gefunden — SKILL CGN", description: "Diese Seite gibt es nicht.", robots: "noindex,nofollow" },
+];

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__2acd2719-4318-4d11-bd05-285859afdec5__stripe_api_write"
+    ]
+  }
+}
