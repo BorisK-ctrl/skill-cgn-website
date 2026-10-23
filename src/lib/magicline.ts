@@ -7,7 +7,7 @@ export const STUDIO_ID = 1210006110;
 export interface OfferIds { rateBundleId: number | null; term12Id: number | null; term1Id: number | null }
 export const OFFERS = {
   start39: { bundle: "START 39", title: "START 39", value: 39, prices: { year: null as number | null, monthly: 39 }, ids: null as OfferIds | null,
-    desc: "39 € je 4 Wochen. 4 Classes je 4 Wochen. Monatlich kündbar. Getränke, Dusche und Handtuch inklusive. Keine Gebühr. Nur online, nur Neukunden." },
+    desc: "39 € je 4 Wochen. 4 Classes im Monat. Monatlich kündbar. Getränke, Dusche und Handtuch inklusive. Keine Gebühr. Nur online, nur Neukunden." },
   mitgliedschaft: { bundle: "SKILL Mitgliedschaft", title: "SKILL Mitgliedschaft", value: 89, prices: { year: 89 as number | null, monthly: 109 }, ids: { rateBundleId: 1215083700, term12Id: 1215083720, term1Id: 1215083710 } as OfferIds | null,
     desc: "Gym ohne Limit, 6 Classes je vier Wochen, 3D Scan zum Start und alle 12 Wochen, Plan mit deinem Namen, Parken 2 mal pro Woche. 89 € alle vier Wochen bei 12 Monaten, 109 € monatlich kündbar. Keine Gebühr." },
   unlimited: { bundle: "SKILL Unlimited", title: "SKILL Unlimited", value: 129, prices: { year: 129 as number | null, monthly: 149 }, ids: { rateBundleId: 1215083701, term12Id: 1215083740, term1Id: 1215083711 } as OfferIds | null,

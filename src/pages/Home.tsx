@@ -66,7 +66,7 @@ const formatsLine = [["SKILL I", "format-skill-i"], ["SKILL II", "format-skill-i
 const faqItems = [
   { q: "Was passiert beim Probetraining?", a: "Du wählst online einen Termin, kommst ins Gym und trainierst 60 Minuten mit einem Coach. Der 3D Körperscan ist inklusive, du siehst deinen Startpunkt in Zahlen. Kostenlos und unverbindlich." },
   { q: "Ist SKILL CGN für Anfänger geeignet?", a: "Ja. Du musst nicht fit sein, um anzufangen. Der Coach passt jede Class an dein Level an. Wichtig ist nur, dass du anfängst." },
-  { q: "Welcher Tarif passt zu mir?", a: "START 39 ist der Einstieg für Neukunden, nur online: 39 € je 4 Wochen, 4 Classes je 4 Wochen, monatlich kündbar. Die SKILL Mitgliedschaft ist unser Standard mit Gym ohne Limit, 6 Classes je vier Wochen und Parken. SKILL Unlimited für alle Classes, Scan alle 8 Wochen und ein Coach Gespräch im Monat." },
+  { q: "Welcher Tarif passt zu mir?", a: "START 39 ist der Einstieg für Neukunden, nur online: 39 € je 4 Wochen, 4 Classes im Monat, monatlich kündbar. Die SKILL Mitgliedschaft ist unser Standard mit Gym ohne Limit, 6 Classes je vier Wochen und Parken. SKILL Unlimited für alle Classes, Scan alle 8 Wochen und ein Coach Gespräch im Monat." },
   { q: "Kann ich monatlich kündigen?", a: "Ja. SKILL Mitgliedschaft und SKILL Unlimited gibt es monatlich kündbar oder mit 12 Monaten Laufzeit, dann günstiger. START 39 ist monatlich kündbar, 1 Monat Mindestlaufzeit. Keine Gebühr, keine versteckten Klauseln." },
   { q: PARKING.faqQ, a: PARKING.faqA },
   { q: "Hat SKILL Cologne geschlossen?", a: "Nein. Wir sind im Mai in die Herzogstraße 16 bis 20 umgezogen, zwei Minuten vom Neumarkt, und haben täglich geöffnet." },

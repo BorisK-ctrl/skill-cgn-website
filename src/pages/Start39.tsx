@@ -27,7 +27,7 @@ const faqs = [
   ["Was kostet die Mitgliedschaft?", `${START39_OFFER} Keine Aufnahmegebühr. ${START39_RULE}`],
   ["Wie lange läuft der Vertrag?", "1 Monat Mindestlaufzeit, verlängert sich automatisch um jeweils 1 Monat zu 39 €, kündbar mit 1 Monat Frist zum Laufzeitende. Abgerechnet wird alle vier Wochen. 14 Tage Widerruf beim Onlineabschluss."],
   ["Gibt es eine Aufnahmegebühr?", "Nein. Bei START 39 zahlst du nur 39 € je 4 Wochen."],
-  ["Was ist drin?", "Volles Gym, vier gecoachte Classes je vier Wochen, Getränke an der Wasserbar, Duschen, Trainingshandtuch, der Scaneca 3D Scan zum Start mit Auswertung und ein Plan mit deinem Namen. Keine Aufnahmegebühr. Parken ist in START 39 nicht enthalten, ab der SKILL Mitgliedschaft ist es inklusive."],
+  ["Was ist drin?", "Volles Gym, vier gecoachte Classes im Monat, Getränke an der Wasserbar, Duschen, Trainingshandtuch, der Scaneca 3D Scan zum Start mit Auswertung und ein Plan mit deinem Namen. Keine Aufnahmegebühr. Parken ist in START 39 nicht enthalten, ab der SKILL Mitgliedschaft ist es inklusive."],
   ["Wer kann START 39 buchen?", "Volljährige Neukunden ohne aktive oder zukünftige SKILL-Mitgliedschaft, nur online. Das prüfen wir vor der Vertragsanlage."],
   [PARKING.faqQ, `In START 39 nicht. ${PARKING.faqA}`],
   ["Hat SKILL Cologne geschlossen?", "Nein. Wir sind im Mai in die Herzogstraße 16 bis 20 umgezogen, zwei Minuten vom Neumarkt, und haben täglich geöffnet."],
@@ -46,7 +46,7 @@ export function useResume(): ResumeData | null {
 }
 
 export default function Start39() {
-  usePageMeta("START 39: Fitnessstudio in Köln für 39 € je 4 Wochen — SKILL CGN", "Fitnessstudio Köln, Neumarkt: 39 € je 4 Wochen, 4 Classes je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr, 3D Scan inklusive. Nur online, nur Neukunden.");
+  usePageMeta("START 39: Fitnessstudio in Köln für 39 € je 4 Wochen — SKILL CGN", "Fitnessstudio Köln, Neumarkt: 39 € je 4 Wochen, 4 Classes im Monat, monatlich kündbar, keine Aufnahmegebühr, 3D Scan inklusive. Nur online, nur Neukunden.");
   const { bundles, error } = useRateBundles();
   const bundle = findBundle(bundles, "START 39");
   const term = bundle?.terms?.find(t => t.id === START39_TERM_ID) ?? bundle?.terms?.find(t => t.termUnit === "MONTH" && t.termValue === 1) ?? null;
@@ -66,7 +66,7 @@ export default function Start39() {
   return (
     <>
     <FaqJsonLd items={faqs} />
-    <OffersJsonLd offers={[{ name: "START 39", price: 39, path: "/start39", billingIncrement: "P4W", description: "4 Classes je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr" }]} />
+    <OffersJsonLd offers={[{ name: "START 39", price: 39, path: "/start39", billingIncrement: "P4W", description: "4 Classes im Monat, monatlich kündbar, keine Aufnahmegebühr" }]} />
     <CampaignLanding
       campaign="START 39"
       h1Sub="Fitnessstudio in Köln · 39 € je 4 Wochen"
@@ -74,10 +74,10 @@ export default function Start39() {
       subline="Dein Coach. Dein Plan."
       priceLine={`${price} € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr · nur online, nur Neukunden`}
       priceNote={<><span className="font-bold text-white">{START39_OFFER}</span> {START39_RULE} Kein Parken in START 39, <Link to="/memberships#parken" className="underline hover:text-[#FBFF00]">Parken ist ab der SKILL Mitgliedschaft inklusive</Link>.</>}
-      bullets={["Gym.", "4 Classes je 4 Wochen, Coach in jeder Class.", "3D Scan zum Start.", "Plan mit deinem Namen.", "Getränke, Dusche und Handtuch inklusive."]}
+      bullets={["Gym.", "4 Classes im Monat, Coach in jeder Class.", "3D Scan zum Start.", "Plan mit deinem Namen.", "Getränke, Dusche und Handtuch inklusive."]}
       included={[
         { label: "Volles Gym", sub: "Freibereich und Kraftgeräte von Technogym" },
-        { label: "4 Classes je 4 Wochen", sub: "Coach in jeder Class" },
+        { label: "4 Classes im Monat", sub: "Coach in jeder Class" },
         { label: "Getränke", sub: "Wasser und Mineraldrinks, zuckerfrei" },
         { label: "Duschen und Handtuch", sub: "Trainingshandtuch inklusive" },
         { label: "3D Scan zum Start", sub: "Körperfett, Muskelmasse, Haltung. Dein Before-and-After." },
@@ -97,7 +97,7 @@ export default function Start39() {
         <>
           <ExpressCheckout term={term} offerName="START 39" path="/start39" priceLine={`${price} € je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr`} />
           <StartCheckout term={term} offerName="START 39" path="/start39" priceLine={`${price} € je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr`} resume={resume}
-            summary={[{ label: "Tarif", value: "START 39" }, { label: "Laufzeit", value: "1 Monat, verlängert sich um je 1 Monat" }, { label: "Preis", value: `${price} € je 4 Wochen` }, { label: "Aufnahmegebühr", value: "0 €" }, { label: "Kündigung", value: "1 Monat Frist zum Laufzeitende" }, { label: "Classes", value: "4 Classes je vier Wochen" }, { label: "Parken", value: "Kein Parken" }]}
+            summary={[{ label: "Tarif", value: "START 39" }, { label: "Laufzeit", value: "1 Monat, verlängert sich um je 1 Monat" }, { label: "Preis", value: `${price} € je 4 Wochen` }, { label: "Aufnahmegebühr", value: "0 €" }, { label: "Kündigung", value: "1 Monat Frist zum Laufzeitende" }, { label: "Classes", value: "4 Classes im Monat" }, { label: "Parken", value: "Kein Parken" }]}
             cancelNote="Nur für Neukunden. 1 Monat Mindestlaufzeit, verlängert sich automatisch um jeweils 1 Monat zu 39 €, kündbar mit 1 Monat Frist zum Laufzeitende. Erste Abbuchung zum Startdatum." />
         </>
       )}

@@ -71,7 +71,7 @@ export default function CampaignLanding(p: LandingProps) {
   const toForm = () => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const frame = [
     { icon: ScanLine, n: "01", t: "SCAN ZUM START.", c: "Scaneca 3D-Körperscan mit Auswertung. Dein Nullpunkt, gemessen, nicht geschätzt." },
-    { icon: Users, n: "02", t: "PLAN DAZWISCHEN.", c: "Vier gecoachte Classes je vier Wochen, Gym, ein Plan mit deinem Namen drauf." },
+    { icon: Users, n: "02", t: "PLAN DAZWISCHEN.", c: "Vier gecoachte Classes im Monat, Gym, ein Plan mit deinem Namen drauf." },
     { icon: ClipboardList, n: "03", t: "SCAN ZUR KONTROLLE.", c: "Zweiter Scan nach ein paar Wochen, Vergleich mit dem Start, neuer Plan. Du bleibst, solange es dir etwas bringt. Monatlich kündbar." },
   ] as const;
 

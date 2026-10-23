@@ -3,7 +3,7 @@ export interface RouteMeta { path: string; title: string; description: string; r
 export const SITE_URL = "https://skill-studios.com";
 export const ROUTES: RouteMeta[] = [
   { path: "/", title: "SKILL CGN, Dein Coach. Dein Plan. Training mit System in der Kölner Innenstadt", description: "Betreutes Training mit Coach in jeder Class, 3D Körperscan und Plan. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt, Parken inklusive. Probetraining kostenlos.", priority: 1.0 },
-  { path: "/start39", title: "START 39: Fitnessstudio in Köln für 39 € je 4 Wochen — SKILL CGN", description: "Fitnessstudio Köln, Neumarkt: 39 € je 4 Wochen, 4 Classes je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr, 3D Scan inklusive. Nur online, nur Neukunden.", priority: 0.9 },
+  { path: "/start39", title: "START 39: Fitnessstudio in Köln für 39 € je 4 Wochen — SKILL CGN", description: "Fitnessstudio Köln, Neumarkt: 39 € je 4 Wochen, 4 Classes im Monat, monatlich kündbar, keine Aufnahmegebühr, 3D Scan inklusive. Nur online, nur Neukunden.", priority: 0.9 },
   { path: "/back39", title: "BACK 39 — SKILL CGN", description: "Willkommen zurück. 39 € alle vier Wochen, dauerhaft. Nur für ehemalige Mitglieder. Keine Aktivierungsgebühr, kostenloser 3D Scan.", robots: "noindex,nofollow" },
   { path: "/scan", title: "Kostenloser 3D Körperscan in Köln, SKILL CGN", description: "15 Minuten, keine Kosten, keine Verpflichtung. Du siehst, wo du stehst.", robots: "noindex,nofollow" },
   { path: "/scan/danke", title: "Danke, Boris meldet sich — SKILL CGN", description: "Deine Scan-Anfrage ist da.", robots: "noindex,nofollow" },

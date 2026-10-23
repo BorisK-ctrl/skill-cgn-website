@@ -11,9 +11,9 @@ export interface Tarif {
 }
 export const TARIFE: Tarif[] = [
   { key: "start39", name: "START 39", tagline: "Nur online, nur Neukunden", cta: "START 39 sichern", link: "/start39", newOnly: true,
-    gym: "Gym", classes: "4 Classes je vier Wochen", scan: "3D Scan zum Start", plan: "Plan mit deinem Namen", coachTalk: null, parkingPerWeek: 0,
+    gym: "Gym", classes: "4 Classes im Monat", scan: "3D Scan zum Start", plan: "Plan mit deinem Namen", coachTalk: null, parkingPerWeek: 0,
     terms: "Monatlich kündbar, 1 Monat Mindestlaufzeit",
-    features: ["Volles Gym", "4 Classes je 4 Wochen", "Getränke, Duschen, Trainingshandtuch", "3D Scan zum Start", "Plan mit deinem Namen", "Keine Aufnahmegebühr"] },
+    features: ["Volles Gym", "4 Classes im Monat", "Getränke, Duschen, Trainingshandtuch", "3D Scan zum Start", "Plan mit deinem Namen", "Keine Aufnahmegebühr"] },
   { key: "mitgliedschaft", name: "SKILL Mitgliedschaft", tagline: "Der Standard", cta: "Mitgliedschaft wählen", link: "/checkout?offer=mitgliedschaft", recommended: true,
     gym: "Gym ohne Limit", classes: "6 Classes je vier Wochen", scan: "3D Scan zum Start und alle 12 Wochen", plan: "Plan mit deinem Namen", coachTalk: null, parkingPerWeek: 2,
     terms: "12 Monate oder monatlich kündbar",
@@ -27,7 +27,7 @@ export const tarif = (key: OfferKey) => TARIFE.find(t => t.key === key)!;
 export const offerOf = (key: OfferKey) => OFFERS[key];
 
 /** Regel für START 39, steht im Preisblock, im Checkout vor der Unterschrift und in der FAQ. */
-export const START39_OFFER = "39 € je 4 Wochen. 4 Classes je 4 Wochen. Monatlich kündbar. Getränke, Dusche und Handtuch inklusive.";
+export const START39_OFFER = "39 € je 4 Wochen. 4 Classes im Monat. Monatlich kündbar. Getränke, Dusche und Handtuch inklusive.";
 export const START39_RULE = "Nur für Neukunden. 1 Monat Mindestlaufzeit, verlängert sich automatisch um jeweils 1 Monat zu 39 €, kündbar mit 1 Monat Frist zum Laufzeitende.";
 export const START39_RULE_SHORT = "monatlich kündbar, 1 Monat Mindestlaufzeit";
 
