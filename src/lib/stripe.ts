@@ -7,7 +7,7 @@ export const MEMBERSHIP_PAYMENT_LINKS: Record<string, string> = {
 };
 /** Angebote mit Stripe-Preis für den Express-Abschluss (Serverseite: netlify/functions/lib/stripe.ts PRICES). */
 /* Angebote mit Stripe-Preis für den Express-Abschluss. SKILL Mitgliedschaft und SKILL Unlimited kommen dazu, sobald Boris die vier Preise in Stripe angelegt hat (VITE_EXPRESS_OFFERS + STRIPE_PRICE_* in Netlify). */
-const EXPRESS_OFFERS = (import.meta.env.VITE_EXPRESS_OFFERS || "START 39,BACK 39").split(",").map((s: string) => s.trim()).filter(Boolean);
+const EXPRESS_OFFERS = String(import.meta.env.VITE_EXPRESS_OFFERS ?? "START 39,BACK 39").split(",").map((s: string) => s.trim()).filter(Boolean);
 export const expressAvailable = (offerName: string) => !!STRIPE_PK && EXPRESS_OFFERS.includes(offerName);
 
 export function membershipPaymentLink(offerName: string, token: string, email: string) {
