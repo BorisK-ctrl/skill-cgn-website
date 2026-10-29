@@ -9,7 +9,7 @@ import { json, normEmail, addDays, berlinDate } from "./lib/util";
 import { getTicket, saveTicket, seenEvent, markEvent } from "./lib/store";
 import type { TicketAccount } from "./lib/types";
 import { getCheckoutLead, saveCheckoutLead, saveAlert } from "./lib/store";
-import { sendStaffAlert } from "./lib/notify";
+import { sendStaffAlert, sendShopMails } from "./lib/notify";
 import { completeMembership } from "./lib/membership";
 import { stripe, stripeConfigured } from "./lib/stripe";
 
@@ -62,10 +62,21 @@ async function handleSubscriptionDeleted(sub: any) {
   return { ok: true, mailed, token: l?.token };
 }
 
-const PRODUCTS: Record<string, { credits: number; pt: number; validDays: number }> = {
-  "trial-pass": { credits: 3, pt: 0, validDays: 21 }, "drop-in": { credits: 1, pt: 0, validDays: 30 }, "5-pass": { credits: 5, pt: 0, validDays: 42 }, "10-pass": { credits: 10, pt: 0, validDays: 84 },
-  "pt-single": { credits: 0, pt: 1, validDays: 60 }, "pt-5er": { credits: 0, pt: 5, validDays: 120 }, "pt-10er": { credits: 0, pt: 10, validDays: 240 },
+const PRODUCTS: Record<string, { name: string; credits: number; pt: number; validDays: number; link: string; amount: number }> = {
+  "trial-pass": { name: "Trial Pass", credits: 3, pt: 0, validDays: 21, link: "plink_14A00j5bZ4wn6vKc1x5EY00", amount: 2900 },
+  "drop-in": { name: "Drop In", credits: 1, pt: 0, validDays: 30, link: "plink_8x27sLdIv0g7cU86Hd5EY04", amount: 2000 },
+  "5-pass": { name: "5 Pass", credits: 5, pt: 0, validDays: 42, link: "plink_4gM14ncEr4wn2fuc1x5EY01", amount: 9000 },
+  "10-pass": { name: "10 Pass", credits: 10, pt: 0, validDays: 84, link: "plink_8x28wP0VJ9QH7zO9Tp5EY05", amount: 17000 },
+  "pt-single": { name: "Personal Training Einzelstunde", credits: 0, pt: 1, validDays: 60, link: "plink_3cIcN50VJd2TcU8d5B5EY06", amount: 12000 },
+  "pt-5er": { name: "Personal Training 5er-Karte", credits: 0, pt: 5, validDays: 120, link: "plink_bJe8wPdIvgf51bq3v15EY02", amount: 50000 },
+  "pt-10er": { name: "Personal Training 10er-Karte", credits: 0, pt: 10, validDays: 240, link: "plink_4gM9AT9sffb107m9Tp5EY03", amount: 90000 },
 };
+/* Produkt zur Checkout-Sitzung: Metadaten des Payment Links, sonst Betrag (die Beträge sind eindeutig). */
+function productFor(s: any): string {
+  const md = s.metadata || {}; if (md.product_id && PRODUCTS[md.product_id]) return md.product_id;
+  const total = Number(s.amount_total); const byAmount = Object.entries(PRODUCTS).find(([, p]) => p.amount === total);
+  return byAmount ? byAmount[0] : "";
+}
 function verify(payload: string, header: string, secret: string): boolean {
   const parts = Object.fromEntries(header.split(",").map(p => p.split("=") as [string, string]));
   const ts = parts.t; const sig = parts.v1; if (!ts || !sig) return false;
@@ -98,10 +109,11 @@ export default async (req: Request) => {
     const m = await handleMembership(s); await markEvent(event.id);
     return json({ received: true, membership: m });
   }
-  const product = PRODUCTS[md.product_id];
-  if (md.purchase_type !== "shop" || !product || s.payment_status !== "paid") { await markEvent(event.id); return json({ received: true, ignored: "not a paid shop purchase" }); }
+  const productId = productFor(s); const product = PRODUCTS[productId];
+  if (s.mode === "subscription" || !product || s.payment_status !== "paid") { await markEvent(event.id); console.log(`stripe-webhook ignoriert ${s.id}: mode=${s.mode} product=${productId || "-"} status=${s.payment_status}`); return json({ received: true, ignored: "not a paid shop purchase" }); }
+  /* Käuferdaten aus der Stripe-Sitzung (customer_details), nicht aus Formularfeldern */
   const email = normEmail(s.customer_details?.email || s.customer_email || "");
-  if (!email) { await markEvent(event.id); return json({ received: true, ignored: "no email" }); }
+  if (!email) { await markEvent(event.id); await sendStaffAlert(`Shop-Verkauf ohne E-Mail: ${product.name}`, [`Stripe-Sitzung ${s.id}, Betrag ${(s.amount_total || 0) / 100} €`, `Bitte in Stripe nachsehen, wer gezahlt hat.`]).catch(() => false); return json({ received: true, ignored: "no email" }); }
   const name = String(s.customer_details?.name || "").trim(); const [firstName, ...rest] = name.split(/\s+/);
   const today = berlinDate(new Date()); const validUntil = addDays(today, product.validDays);
   const t: TicketAccount = (await getTicket(email)) || { email, firstName: firstName || "", lastName: rest.join(" "), phone: "", credits: 0, ptCredits: 0, validUntil: null, purchases: [], updatedAt: "" };
@@ -111,6 +123,8 @@ export default async (req: Request) => {
   t.purchases.push({ product: md.product_id, sessionId: s.id, credits: product.credits + product.pt, at: new Date().toISOString() });
   t.updatedAt = new Date().toISOString();
   await saveTicket(t); await markEvent(event.id);
-  return json({ received: true, email, credits: t.credits, ptCredits: t.ptCredits, validUntil: t.validUntil });
+  const mails = await sendShopMails({ productId, productName: product.name, amount: (s.amount_total ?? product.amount) / 100, name, email, phone: String(s.customer_details?.phone || ""), sessionId: s.id, credits: t.credits, ptCredits: t.ptCredits, validUntil: t.validUntil }).catch(e => { console.log("shop mail error", String(e)); return { staff: false, customer: false }; });
+  console.log(`stripe-webhook shop ${productId} ${email} mail staff=${mails.staff} customer=${mails.customer}`);
+  return json({ received: true, email, credits: t.credits, ptCredits: t.ptCredits, validUntil: t.validUntil, mails });
 };
 export const config: Config = { path: "/api/stripe/webhook" };

@@ -57,26 +57,27 @@ export default function Danke() {
     } catch {}
   }, [ready]);
 
-  /* Kauf messen, nur mit Consent: Google Ads Conversion und Meta Purchase. Sofort bei Consent, sonst beim Erteilen auf dieser Seite. Nur einmal je Vertrag. */
+  /* Kauf messen am echten Erfolgspunkt (Vertragsnummer liegt vor). Google Ads Conversion sofort (Consent Mode v2, ohne Zustimmung cookielos),
+     Meta Purchase nur mit Zustimmung, sofort oder beim Erteilen auf dieser Seite. Beide mit derselben ID (Vertragsnummer), je Vertrag nur einmal. */
   useEffect(() => {
     if (!ready) return;
+    let c: any = null; try { c = JSON.parse(sessionStorage.getItem("skill-contract") || "null"); } catch {}
+    /* Echter Vertragswert aus dem Abschluss (39, 89, 109, 129 oder 149); fehlt er, Listenpreis des Tarifs aus OFFERS. Vertragsnummer als transaction_id. */
+    const listPrice = Object.values(OFFERS).find(o => o.title === c?.offer)?.value ?? 39;
+    const value = typeof c?.price === "number" && c.price > 0 ? c.price : listPrice;
+    const cid: string | undefined = c?.cid || undefined;
+    if (cid) gadsConversion({ value, currency: "EUR", transactionId: cid });
     let fired = false;
     const fire = () => {
-      if (fired) return; fired = true;
-      let c: any = null; try { c = JSON.parse(sessionStorage.getItem("skill-contract") || "null"); } catch {}
-      /* Echter Vertragswert aus dem Abschluss (39, 89, 109, 129 oder 149); fehlt er, Listenpreis des Tarifs aus OFFERS. Vertragsnummer als transaction_id. */
-      const listPrice = Object.values(OFFERS).find(o => o.title === c?.offer)?.value ?? 39;
-      const value = typeof c?.price === "number" && c.price > 0 ? c.price : listPrice;
-      const cid: string | undefined = c?.cid || undefined;
-      gadsConversion({ value, currency: "EUR", transactionId: cid });
+      if (fired || !cid) return; fired = true;
       /* Meta Purchase: Pixel lädt nach Consent asynchron, daher kurz warten, bis fbq da ist. Sperre je Vertrag gegen Doppelzählung. */
-      const key = "skill-meta-purchase-" + (cid || "last");
+      const key = "skill-meta-purchase-" + cid;
       let done = false; try { done = !!sessionStorage.getItem(key); } catch {}
       if (!done) {
         let tries = 0;
         const send = () => {
           /* event_id = Vertragsnummer (Dublettenschutz bei Meta, gleiche ID wie transaction_id bei Google) */
-          if (window.fbq) { track("Purchase", { value, currency: "EUR", content_name: c?.offer || "SKILL Mitgliedschaft", content_type: "product", ...utmParams() }, { eventID: cid || "purchase_" + Date.now() }); try { sessionStorage.setItem(key, "1"); } catch {} }
+          if (window.fbq) { track("Purchase", { value, currency: "EUR", content_name: c?.offer || "SKILL Mitgliedschaft", content_type: "product", ...utmParams() }, { eventID: cid }); try { sessionStorage.setItem(key, "1"); } catch {} }
           else if (++tries < 20) setTimeout(send, 300);
         };
         send();

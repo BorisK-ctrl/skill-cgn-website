@@ -6,6 +6,7 @@ import type { Config } from "@netlify/functions";
 import { json, normEmail, validEmail } from "./lib/util";
 import { getCheckoutLead, saveCheckoutLead, type CheckoutLead } from "./lib/store";
 import { sendPurchase, capiConfigured } from "./lib/meta-capi";
+import { sendContractMails } from "./lib/notify";
 
 const TOKEN = /^[a-z0-9]{16,48}$/;
 export default async (req: Request) => {
@@ -29,7 +30,14 @@ export default async (req: Request) => {
     const l = await getCheckoutLead(token);
     if (!l) return json({ ok: true });
     const already = l.done && l.capi?.sent;
+    const firstDone = !l.done && !!b.contractId;
     l.done = true; if (b.contractId) l.contractId = String(b.contractId).slice(0, 40);
+    /* SEPA-Weg (Vertrag im Browser angelegt): "Neuer Vertrag" ans Team und Willkommensmail, nur beim ersten Abschluss-Aufruf */
+    if (firstDone && l.contractId) {
+      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.campaign, price: Number(b.value) > 0 ? Number(b.value) : 39, startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
+      (l as any).mails = { at: new Date().toISOString(), ...mails };
+      console.log(`checkout-lead done ${l.token} Vertrag ${l.contractId}: mail staff=${mails.staff} customer=${mails.customer}`);
+    }
     /* Meta Conversions API: nur mit bestätigter Vertragsnummer, nur einmal, nur mit Cookie-Zustimmung
        (META_CAPI_ALWAYS=true sendet auch ohne, nachdem die Datenschutzerklärung den Hinweis enthält). */
     const consentOk = b.consent === "accepted" || process.env.META_CAPI_ALWAYS === "true";

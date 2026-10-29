@@ -63,9 +63,12 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
   const [fill, setFill] = useState<Person>(empty);
   const [missing, setMissing] = useState<PKey[]>([]);
   const [fillError, setFillError] = useState("");
+  /* Pflichtfelder vor dem Wallet-Knopf: Name, E-Mail und Handy kommen immer aus dem Formular, nie nur aus der Wallet */
+  const [who, setWho] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [whoError, setWhoError] = useState<Partial<Record<"firstName" | "lastName" | "email" | "phone", string>>>({});
   const sig = useSignaturePad(status !== "loading" && status !== "none", () => setSigError(""));
   const mountRef = useRef<HTMLDivElement>(null);
-  const live = useRef({ birthDate, term, agb, widerruf, fill, missing }); live.current = { birthDate, term, agb, widerruf, fill, missing };
+  const live = useRef({ birthDate, term, agb, widerruf, fill, missing, who }); live.current = { birthDate, term, agb, widerruf, fill, missing, who };
   const enabled = expressAvailable(offerName);
   const dbg = (m: string, d?: unknown) => { try { ((window as any).__skillExpress ||= []).push([new Date().toISOString().slice(11, 23), m, d ?? null]); } catch {} };
   /* Diagnose ins Protokoll (Netlify Blobs checkout-log): welche Wallets Stripe auf dem Gerät meldet, Ladefehler. Scheitert still. */
@@ -74,6 +77,12 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
   /* Vor dem Sheet: Alter, Unterschrift, Kästchen, nachgefragte Felder. Ohne resolve() öffnet das Sheet nicht, die Fehler stehen am Feld. */
   const validate = () => {
     const c = live.current; let ok = true;
+    const we: typeof whoError = {};
+    if (!c.who.firstName.trim()) we.firstName = "Bitte Vornamen eingeben";
+    if (!c.who.lastName.trim()) we.lastName = "Bitte Nachnamen eingeben";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(c.who.email.trim())) we.email = "Bitte gültige E-Mail eingeben";
+    if (c.who.phone.replace(/\D/g, "").length < 8) we.phone = "Bitte Handynummer eingeben";
+    setWhoError(we); if (Object.keys(we).length) ok = false;
     if (!c.birthDate) { setDobError("Bitte Geburtsdatum eingeben"); ok = false; }
     else if ((Date.now() - new Date(c.birthDate).getTime()) / 31557600000 < 18) { setDobError(MINOR_TEXT); setMinor(true); ok = false; }
     else { setDobError(""); setMinor(false); }
@@ -103,14 +112,16 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
         setErrMsg("");
         trackOnce("ic-" + path, "InitiateCheckout", { content_name: offerName, content_category: "Membership", value: price, currency: "EUR", payment: "express", ...utmParams() });
         trackCustomOnce("express-" + path, "ExpressClick", { content_name: offerName, wallet: event?.expressPaymentType || "" });
-        event.resolve({ emailRequired: true, phoneNumberRequired: true, billingAddressRequired: true, business: { name: "SKILL CGN" } });
+        event.resolve({ emailRequired: false, phoneNumberRequired: false, billingAddressRequired: true, business: { name: "SKILL CGN" } });
       });
       ece.on("confirm", async (event: any) => {
         setStatus("pending"); setErrMsg("");
         const c = live.current; const t = c.term!;
         /* Wallet-Daten plus nachgefragte Felder; fehlt noch etwas, Sheet schließen und nachfragen */
         const w = fromWallet(event?.billingDetails);
-        const person: Person = { ...w }; for (const k of c.missing) if (c.fill[k]?.trim()) person[k] = c.fill[k].trim();
+        /* Name, E-Mail, Handy aus den Pflichtfeldern (haben Vorrang), Adresse aus der Wallet, Rest aus der Nachfrage */
+        const person: Person = { ...w, firstName: c.who.firstName.trim(), lastName: c.who.lastName.trim(), email: c.who.email.trim(), phone: c.who.phone.trim() };
+        for (const k of c.missing) if (c.fill[k]?.trim()) person[k] = c.fill[k].trim();
         const gaps = missingKeys(person);
         if (gaps.length) {
           try { event.paymentFailed({ reason: "fail" }); } catch {}
@@ -166,8 +177,17 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
         <p className="campaign-mono flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]"><Zap className="h-3.5 w-3.5" /> Express-Abschluss</p>
         <h2 className="campaign-display mt-2 text-3xl uppercase leading-none md:text-4xl">In einer Minute Mitglied.</h2>
         <p className="mt-2 text-xs text-white/50">{offerName} · {priceLine}</p>
-        <p className="mt-4 text-sm leading-relaxed text-white/70">Deine Daten kommen aus der Wallet, fehlende fragen wir kurz nach. Hier brauchen wir nur dein Geburtsdatum und deine Unterschrift.</p>
+        <p className="mt-4 text-sm leading-relaxed text-white/70">Name, E-Mail und Handy trägst du hier ein, die Adresse kommt aus der Wallet. Dazu Geburtsdatum und Unterschrift.</p>
         <div className="mt-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {([["firstName", "Vorname", "given-name", "text"], ["lastName", "Nachname", "family-name", "text"], ["email", "E-Mail", "email", "email"], ["phone", "Handy", "tel", "tel"]] as const).map(([k, l, ac, type]) => (
+              <div key={k} className={k === "email" || k === "phone" ? "col-span-2 sm:col-span-1" : ""}>
+                <label className={`mb-1.5 block ${label}`} htmlFor={`express-who-${k}`}>{l}</label>
+                <input id={`express-who-${k}`} type={type} inputMode={k === "phone" ? "tel" : k === "email" ? "email" : "text"} autoComplete={ac} required value={who[k]} onChange={e => { setWho(w => ({ ...w, [k]: e.target.value })); setWhoError(er => ({ ...er, [k]: undefined })); }} className={`campaign-field min-h-[48px] text-base ${whoError[k] ? "!border-[#FBFF00]" : ""}`} />
+                {whoError[k] && <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-[#FBFF00]"><AlertCircle className="h-3 w-3" /> {whoError[k]}</p>}
+              </div>
+            ))}
+          </div>
           <div>
             <label className={`mb-1.5 block ${label}`} htmlFor="express-dob">Geburtsdatum</label>
             <input id="express-dob" type="date" autoComplete="bday" placeholder="TT.MM.JJJJ" value={birthDate} min="1920-01-01" max={today()} onChange={e => { setBirthDate(e.target.value); setDobError(""); setMinor(false); }} className={`campaign-field campaign-date min-h-[52px] text-base ${dobError ? "!border-[#FBFF00]" : ""}`} />

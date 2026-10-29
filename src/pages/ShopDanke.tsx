@@ -18,17 +18,18 @@ export default function ShopDanke() {
   const sessionId = params.get("session_id") || "";
 
   useEffect(() => {
-    if (!product) return;
+    if (!product || !sessionId) return;
+    const value = product.price / 100;
+    /* Google Ads sofort (Consent Mode v2), Stripe-Sitzung als transaction_id gegen Doppelzählung */
+    gadsConversion({ value, currency: "EUR", transactionId: sessionId });
     let fired = false;
     const fire = () => {
       if (fired) return; fired = true;
-      const key = "skill-shop-purchase-" + (sessionId || product.id);
+      const key = "skill-shop-purchase-" + sessionId;
       try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, "1"); } catch {}
-      const value = product.price / 100;
-      gadsConversion({ value, currency: "EUR", transactionId: sessionId || undefined });
       let tries = 0;
       const send = () => {
-        if (window.fbq) track("Purchase", { value, currency: "EUR", content_name: product.name, content_type: "product" }, { eventID: "shop_" + (sessionId || Date.now()) });
+        if (window.fbq) track("Purchase", { value, currency: "EUR", content_name: product.name, content_type: "product" }, { eventID: "shop_" + sessionId });
         else if (++tries < 20) setTimeout(send, 300);
       };
       send();
