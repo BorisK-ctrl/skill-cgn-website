@@ -195,7 +195,13 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   const submitStep1 = () => {
     const e = validate(1); setErrors(e); if (Object.keys(e).length) return;
     const tok = token || newToken(); setToken(tok);
-    if (isPos) { setStep(2); return; }
+    /* Am Tresen ebenfalls als Interessent anlegen: so taucht jeder Abschluss in Magicline unter Interessenten → Eingang auf und wird mit dem Vertrag "Gewonnen". */
+    if (isPos) {
+      if (!lead.uuid) createLead({ firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), notes: `${offerName} vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}` })
+        .then(l => { if (l.uuid) setLead({ uuid: l.uuid, customerNumber: l.customerNumber }); log("lead", { response: { status: l.status, customerNumber: l.customerNumber, uuid: !!l.uuid } }); })
+        .catch(e => log("lead-error", { error: String(e?.message || e) }));
+      setStep(2); return;
+    }
     /* Interessent in Magicline, einmal je Sitzung. Notiz mit Quelle; die uuid macht ihn in Schritt 3 zum Mitglied. */
     if (!lead.uuid) {
       createLead({ firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), notes: `${offerName} Website, Schritt 1 abgeschickt, Quelle: ${utmSource()}` })
