@@ -15,7 +15,7 @@ export default function Layout() {
       {hideChrome ? <Outlet /> : <main className={ownTopPadding ? "" : "pt-20"}><Outlet /></main>}
       {!hideChrome && <Footer />}
       {!hideChrome && <MobileContactBar />}
-      <CookieConsent />
+      {pathname !== "/vor-ort" && <CookieConsent />}
     </>
   );
 }

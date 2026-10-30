@@ -87,7 +87,7 @@ export interface SummaryRow { label: string; value: string }
 export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
   /** Zusammenfassung vor der Unterschrift: Tarif, Laufzeit, Preis, Classes, Parken. */ summary?: SummaryRow[]; cancelNote?: string;
   /** Vor-Ort-Modus (iPad): kein Interessent, kein Tracking, keine Abbrecher-Mail, Startdatum aus der Auswahl, Erfolg inline statt /danke. */
-  pos?: PosOptions; onSuccess?: (r: ContractResult) => void }) {
+  pos?: PosOptions; onSuccess?: (r: ContractResult, info: { firstName: string; lastName: string; email: string }) => void }) {
   const KEY = "skill-checkout-" + path.slice(1);
   const isPos = !!pos;
   const navigate = useNavigate();
@@ -263,7 +263,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       });
       /* Nur mit Vertrags-ID von Magicline geht es weiter. createContract wirft sonst. */
       log("contract-ok", { request: { ...request, consent: consent(), fbp: !!cookie("_fbp"), fbc: !!cookie("_fbc") }, response: { status: r.status, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, paymentUrl: r.paymentUrl, followUpActionToken: r.followUpActionToken, raw: r.raw } });
-      if (isPos) { try { sessionStorage.removeItem(KEY); } catch {} setForm(emptyForm()); setStepRaw(1); setToken(""); clearSig(); onSuccess?.(r); return; }
+      if (isPos) { const info = { firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim() }; try { sessionStorage.removeItem(KEY); } catch {} setForm(emptyForm()); setStepRaw(1); setToken(""); clearSig(); onSuccess?.(r, info); return; }
       /* Vertrag bestätigt: Abbrecher-Token schließen und Purchase serverseitig (Conversions API) mit derselben event_id anstoßen */
       if (token) fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, done: true, contractId: r.contractId, customerNumber: r.customerNumber, startDate: form.startDate, value: term.price, consent: consent(), sourceUrl: location.href, zip: form.zipCode.trim(), city: form.city.trim(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }), keepalive: true }).catch(() => {});
       try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: r.contractId, customer: r.customerNumber, name: form.firstName.trim(), start: form.startDate, price: term.price })); sessionStorage.removeItem(KEY); } catch {}
@@ -363,7 +363,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
             {apiError && (
               <div className="border-2 border-[#FBFF00] bg-[#FBFF00]/5 px-4 py-4">
                 <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#FBFF00]" /><div><p className="text-sm font-bold text-white">Der Vertrag wurde nicht angelegt.</p><p className="mt-1 text-xs leading-relaxed text-white/70">Magicline meldet: {apiError}{apiErrorCustomer ? ` Deine Daten sind als Interessent gespeichert (${apiErrorCustomer}), es wurde nichts abgebucht.` : " Es wurde nichts abgebucht."}</p></div></div>
-                <a href={`${WHATSAPP}?text=${encodeURIComponent(`Hi Boris, mein Abschluss ${offerName} auf der Website hat nicht geklappt: ${apiError}`)}`} target="_blank" rel="noopener noreferrer" className="campaign-button mt-3 inline-flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black hover:bg-white">Boris per WhatsApp schreiben</a>
+                {!isPos && <a href={`${WHATSAPP}?text=${encodeURIComponent(`Hi Boris, mein Abschluss ${offerName} auf der Website hat nicht geklappt: ${apiError}`)}`} target="_blank" rel="noopener noreferrer" className="campaign-button mt-3 inline-flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black hover:bg-white">Boris per WhatsApp schreiben</a>}
               </div>
             )}
             <button type="button" onClick={submit} disabled={pending} className={btn}>{pending ? <><Loader2 className="h-4 w-4 animate-spin" /> {payMethod === "card" ? "Weiter zu Stripe …" : "Wird angelegt …"}</> : payMethod === "card" ? `Weiter zur Kartenzahlung, ${price} €` : `Vertrag abschließen für ${price} €`}</button>
@@ -373,7 +373,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
         )}
       </div>
 
-      {idle && step >= 2 && (
+      {idle && step >= 2 && !isPos && (
         <p className="mt-5 border-t border-white/10 pt-4 text-xs text-white/55">Hakt etwas? Schreib Boris kurz per <a href={`${WHATSAPP}?text=${encodeURIComponent("Hi Boris, ich hänge beim Start fest.")}`} target="_blank" rel="noopener noreferrer" className="font-bold text-[#FBFF00] underline">WhatsApp</a>.</p>
       )}
       {/* ViewContent, InitiateCheckout, Lead, AddPaymentInfo, Schritt2, Schritt3 feuern hier je einmal pro Sitzung; Purchase auf /danke. */}
