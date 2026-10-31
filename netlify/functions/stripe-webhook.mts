@@ -9,7 +9,9 @@ import { json, normEmail, addDays, berlinDate } from "./lib/util";
 import { getTicket, saveTicket, seenEvent, markEvent } from "./lib/store";
 import type { TicketAccount } from "./lib/types";
 import { getCheckoutLead, saveCheckoutLead, saveAlert } from "./lib/store";
-import { sendStaffAlert, sendShopMails } from "./lib/notify";
+import { sendStaffAlert, sendShopMails, sendBlackMonthMails } from "./lib/notify";
+import { createLeadServer } from "./lib/connect";
+import { getStore } from "@netlify/blobs";
 import { completeMembership } from "./lib/membership";
 import { stripe, stripeConfigured } from "./lib/stripe";
 
@@ -70,7 +72,21 @@ const PRODUCTS: Record<string, { name: string; credits: number; pt: number; vali
   "pt-single": { name: "Personal Training Einzelstunde", credits: 0, pt: 1, validDays: 60, link: "plink_3cIcN50VJd2TcU8d5B5EY06", amount: 12000 },
   "pt-5er": { name: "Personal Training 5er-Karte", credits: 0, pt: 5, validDays: 120, link: "plink_bJe8wPdIvgf51bq3v15EY02", amount: 50000 },
   "pt-10er": { name: "Personal Training 10er-Karte", credits: 0, pt: 10, validDays: 240, link: "plink_4gM9AT9sffb107m9Tp5EY03", amount: 90000 },
+  "black-month": { name: "Black Month: 6 Monate Gym", credits: 0, pt: 0, validDays: 182, link: "", amount: 14900 },
 };
+/* Aktion Black Month: kein Ticket-Guthaben, sondern Interessent in Magicline mit Notiz, Bestätigung an Käufer und Team. */
+async function handleBlackMonth(s: any, eventId: string) {
+  const email = normEmail(s.customer_details?.email || s.customer_email || "");
+  const name = String(s.customer_details?.name || "").trim(); const [firstName, ...rest] = name.split(/\s+/); const lastName = rest.join(" ") || firstName || "Black Month";
+  const phone = String(s.customer_details?.phone || "");
+  let lead = { ok: false, status: 0, uuid: "", customerNumber: "" };
+  try { lead = await createLeadServer({ firstname: firstName || "Black", lastname: lastName, email, phone, notes: `Black Month 6 Monate Gym 149 € bezahlt, Stripe ${s.id}` }); } catch (e) { console.log("black-month lead error", String(e)); }
+  try { const st = getStore({ name: "blackmonth", consistency: "strong" }); await st.setJSON(s.id, { at: new Date().toISOString(), email, name, phone, amount: (s.amount_total ?? 14900) / 100, sessionId: s.id, customerId: s.customer || null, magicline: lead.customerNumber || null, magiclineStatus: lead.status }); } catch (e) { console.log("black-month store error", String(e)); }
+  const mails = await sendBlackMonthMails({ name, email, phone, amount: (s.amount_total ?? 14900) / 100, sessionId: s.id, magicline: lead.customerNumber }).catch(e => { console.log("black-month mail error", String(e)); return { staff: false, customer: false }; });
+  await markEvent(eventId);
+  console.log(`stripe-webhook black-month ${email} magicline=${lead.status}/${lead.customerNumber || "-"} mail staff=${mails.staff} customer=${mails.customer}`);
+  return json({ received: true, blackMonth: true, email, magicline: lead.customerNumber || "", mails });
+}
 /* Produkt zur Checkout-Sitzung: Metadaten des Payment Links, sonst Betrag (die Beträge sind eindeutig). */
 function productFor(s: any): string {
   const md = s.metadata || {}; if (md.product_id && PRODUCTS[md.product_id]) return md.product_id;
@@ -111,6 +127,7 @@ export default async (req: Request) => {
   }
   const productId = productFor(s); const product = PRODUCTS[productId];
   if (s.mode === "subscription" || !product || s.payment_status !== "paid") { await markEvent(event.id); console.log(`stripe-webhook ignoriert ${s.id}: mode=${s.mode} product=${productId || "-"} status=${s.payment_status}`); return json({ received: true, ignored: "not a paid shop purchase" }); }
+  if (productId === "black-month") return handleBlackMonth(s, event.id);
   /* Käuferdaten aus der Stripe-Sitzung (customer_details), nicht aus Formularfeldern */
   const email = normEmail(s.customer_details?.email || s.customer_email || "");
   if (!email) { await markEvent(event.id); await sendStaffAlert(`Shop-Verkauf ohne E-Mail: ${product.name}`, [`Stripe-Sitzung ${s.id}, Betrag ${(s.amount_total || 0) / 100} €`, `Bitte in Stripe nachsehen, wer gezahlt hat.`]).catch(() => false); return json({ received: true, ignored: "no email" }); }

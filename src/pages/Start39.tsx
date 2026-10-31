@@ -9,7 +9,6 @@ import { useSearchParams } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import CampaignLanding from "@/components/CampaignLanding";
 import StartCheckout, { type ResumeData } from "@/components/StartCheckout";
-import ExpressCheckout from "@/components/ExpressCheckout";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT } from "@/lib/pixel";
 import { useRateBundles, findBundle, fmtPrice } from "@/lib/useRateBundles";
@@ -95,7 +94,6 @@ export default function Start39() {
         </div>
       ) : (
         <>
-          <ExpressCheckout term={term} offerName="START 39" path="/start39" priceLine={`${price} € je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr statt 89 €`} />
           <StartCheckout term={term} offerName="START 39" path="/start39" priceLine={`${price} € je 4 Wochen, monatlich kündbar, keine Aufnahmegebühr statt 89 €`} resume={resume}
             summary={[{ label: "Tarif", value: "START 39" }, { label: "Laufzeit", value: "1 Monat, verlängert sich um je 1 Monat" }, { label: "Preis", value: `${price} € je 4 Wochen` }, { label: "Aufnahmegebühr", value: "0 € statt 89 €" }, { label: "Kündigung", value: "1 Monat Frist zum Laufzeitende" }, { label: "Classes", value: "4 Classes im Monat" }, { label: "Parken", value: "Kein Parken" }]}
             cancelNote="Nur für Neukunden. 1 Monat Mindestlaufzeit, verlängert sich automatisch um jeweils 1 Monat zu 39 €, kündbar mit 1 Monat Frist zum Laufzeitende. Erste Abbuchung zum Startdatum." />

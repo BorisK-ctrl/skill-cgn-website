@@ -40,7 +40,7 @@ export default function Shop() {
   const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => { track("ViewContent", { content_name: "Shop", content_category: "Tickets" }); }, []);
 
-  const tickets = SHOP_PRODUCTS.filter(p => p.category !== "pt");
+  const tickets = SHOP_PRODUCTS.filter(p => p.category !== "pt" && p.category !== "aktion");
   const pt = SHOP_PRODUCTS.filter(p => p.category === "pt");
   const product = SHOP_PRODUCTS.find(p => p.id === selected) || null;
   const waText = product ? `Hallo, ich möchte ${product.name} (${shopPrice(product.price)}) kaufen.` : "";

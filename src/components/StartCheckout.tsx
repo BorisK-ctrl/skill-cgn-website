@@ -105,7 +105,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   const [sigError, setSigError] = useState("");
   const [idle, setIdle] = useState(false);
   /* Zahlart: SEPA über Magicline oder Karte/Wallet über Stripe (nur wenn ein Payment Link für das Angebot existiert, nicht vor Ort) */
-  const cardAvailable = !pos && !!membershipPaymentLink(offerName, "x", "");
+  /* Entscheidung 2026-10-31: Mitgliedschaften online nur per SEPA-Lastschrift. Karte und Apple Pay gibt es nur für Einmalkäufe im Shop. */
+  const cardAvailable = false as boolean;
   const [payMethod, setPayMethod] = useState<"sepa" | "card">("sepa");
   const [restored, setRestored] = useState(false);
   const userNav = useRef(false);

@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Check, ShieldCheck } from "lucide-react";
 import CampaignLanding from "@/components/CampaignLanding";
 import StartCheckout from "@/components/StartCheckout";
-import ExpressCheckout from "@/components/ExpressCheckout";
 import { useResume } from "@/pages/Start39";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT } from "@/lib/pixel";
@@ -80,7 +79,6 @@ export default function Back39() {
     </div></div></div>
   ) : (
     <>
-      <ExpressCheckout term={term} offerName="BACK 39" path="/back39" months={months} priceLine={`${price} € alle vier Wochen, ${months === 12 ? "12 Monate + Recovery Bonus" : "monatlich kündbar"}, keine Gebühr`} />
       <StartCheckout term={term} offerName="BACK 39" path="/back39" months={months} priceLine={`${price} € alle vier Wochen, ${months === 12 ? "12 Monate + Recovery Bonus" : "monatlich kündbar"}, keine Gebühr`} resume={resume} />
     </>
   );

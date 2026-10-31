@@ -123,3 +123,26 @@ export async function sendContractFailedMails(c: Omit<ContractMail, "contractId"
 <p>Wenn du Fragen hast oder direkt loslegen willst: <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp +49 176 10877603</a>.</p>`), STAFF_EMAIL) : false;
   return { staff, customer };
 }
+
+/* ---------- Black Month: Bestätigung an Käufer, Info ans Team ---------- */
+export async function sendBlackMonthMails(o: { name: string; email: string; phone: string; amount: number; sessionId: string; magicline?: string }) {
+  const first = o.name.split(" ")[0] || "";
+  const staff = await send(STAFF_EMAIL, `Black Month gebucht: ${o.name || o.email}`, wrap(`<h1 style="font-size:24px;margin:0 0 12px">Black Month, 6 Monate Gym</h1>
+<table style="border-collapse:collapse;color:#fff;font-size:14px">
+<tr><td style="padding:4px 12px 4px 0;color:#888">Name</td><td><strong>${o.name || "—"}</strong></td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">E-Mail</td><td>${o.email || "—"}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Telefon</td><td>${o.phone || "—"}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Betrag</td><td>${eur(o.amount)} einmalig</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Magicline</td><td>${o.magicline ? `Interessent ${o.magicline}, Notiz "Black Month 6 Monate Gym 149 € bezahlt"` : "Interessent konnte nicht angelegt werden, bitte von Hand"}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Stripe-Sitzung</td><td style="font-family:monospace;font-size:12px">${o.sessionId}</td></tr>
+</table><p style="margin-top:16px">Beim ersten Besuch den Gym-Zugang für sechs Monate einrichten.</p>`));
+  const customer = o.email ? await send(o.email, `Dein Black Month bei SKILL CGN${first ? ", " + first : ""}`, wrap(`<h1 style="font-size:28px;margin:0 0 8px">Black Month gebucht.</h1>
+<p style="font-size:18px;margin:0 0 16px">Danke${first ? ", " + first : ""}. Deine Zahlung über <strong>${eur(o.amount)}</strong> ist da: sechs Monate Gym bei SKILL CGN, einmalig, kein Abo.</p>
+<p><strong>So geht es weiter</strong></p>
+<p>1. Komm zu den Öffnungszeiten in die Herzogstraße 16–20, zwei Minuten vom Neumarkt.</p>
+<p>2. Nenn am Empfang deine E-Mail-Adresse, wir richten deinen Zugang ein. Deine sechs Monate starten mit diesem ersten Besuch.</p>
+<p>3. Handtuch und Getränke gibt es bei uns, Hallenschuhe und Sportkleidung bringst du mit.</p>
+<p>Fragen? <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp +49 176 10877603</a></p>
+<p style="color:#888;font-size:12px;margin-top:16px">Die Rechnung kommt separat von Stripe. Classes sind nicht enthalten.</p>`), STAFF_EMAIL) : false;
+  return { staff, customer };
+}

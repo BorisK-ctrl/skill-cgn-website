@@ -6,10 +6,13 @@
  */
 export interface ShopProduct {
   id: string; name: string; description: string; price: number; originalPrice?: number;
-  category: "trial" | "ticket" | "pass" | "pt"; features: string[]; popular?: boolean; oneTimeOnly?: boolean; perUnit?: string;
+  category: "trial" | "ticket" | "pass" | "pt" | "aktion"; features: string[]; popular?: boolean; oneTimeOnly?: boolean; perUnit?: string;
   paymentLink: string;
 }
 export const SHOP_PRODUCTS: ShopProduct[] = [
+  /* Aktion Black Month (2.11. bis 30.11.2026): Einmalzahlung, eigene Seite /blackmonth, nicht im Shop-Raster. Link aus .env VITE_STRIPE_LINK_BLACKMONTH (scripts/stripe-blackmonth.mjs legt ihn an). */
+  { id: "black-month", name: "Black Month: 6 Monate Gym", description: "ONLY GYM. 6 Monate Gym für 149 € Einmalzahlung, buchbar 2.11. bis 30.11.2026.", price: 14900, category: "aktion",
+    features: ["6 Monate Gym", "149 € einmalig, keine Folgekosten", "Nur Gym, keine Classes", "Buchbar 2. bis 30. November 2026"], paymentLink: (import.meta.env.VITE_STRIPE_LINK_BLACKMONTH || "").trim() },
   { id: "trial-pass", name: "Trial Pass", description: "3 Kurse zum Kennenlernen. Teste SKILL ohne Abo, einmalig pro Person.", price: 2900, originalPrice: 6000, category: "trial", oneTimeOnly: true,
     features: ["3 Kurse deiner Wahl", "Alle Formate verfügbar", "Coaching durch unsere Trainer", "Gültig für 3 Wochen", "Nur 9,67 € pro Kurs"], paymentLink: "https://buy.stripe.com/14A00j5bZ4wn6vKc1x5EY00" },
   { id: "drop-in", name: "Drop In", description: "1 Kurs deiner Wahl. Flexibel, spontan, ohne Bindung.", price: 2000, category: "ticket",
