@@ -8,21 +8,27 @@ const FROM = process.env.BOOKING_FROM_EMAIL || "SKILL CGN <buchung@skill-studios
 const TEST_FROM = "SKILL CGN <onboarding@resend.dev>";
 export const mailConfigured = () => !!process.env.RESEND_API_KEY;
 
-async function post(from: string, to: string, subject: string, html: string, replyTo?: string) {
-  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to, subject, html, reply_to: replyTo }) });
+/* MAIL_DRY_RUN=1 (nur lokal): nichts senden, Mail ins Protokoll schreiben. */
+const DRY = process.env.MAIL_DRY_RUN === "1";
+async function post(from: string, to: string | string[], subject: string, html: string, replyTo?: string, text?: string) {
+  if (DRY) { console.log(`[mail dry-run] von ${from} an ${Array.isArray(to) ? to.join(", ") : to}: "${subject}"\n${text || html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400)}`); return { ok: true, status: 200, body: "" }; }
+  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to, subject, html, text, reply_to: replyTo }) });
   const body = r.ok ? "" : (await r.text().catch(() => "")).slice(0, 200);
   return { ok: r.ok, status: r.status, body };
 }
-export async function send(to: string, subject: string, htmlBody: string, replyTo?: string) {
+/** Mail mit wählbarem Absender, optional Textfassung. Team-Mails fallen bei abgelehntem Absender auf den Testabsender (nur an info@) zurück. */
+export async function sendFrom(from: string, to: string | string[], subject: string, htmlBody: string, opts: { replyTo?: string; text?: string } = {}) {
   if (!mailConfigured()) { console.log(`mail übersprungen (RESEND_API_KEY fehlt): ${subject}`); return false; }
-  let r = await post(FROM, to, subject, htmlBody, replyTo);
-  if (!r.ok && (r.status === 403 || r.status === 422) && to.toLowerCase() === STAFF_EMAIL.toLowerCase()) {
-    console.log(`mail: Absender ${FROM} abgelehnt (${r.status} ${r.body}), Team-Mail über Testabsender`);
-    r = await post(TEST_FROM, to, subject, htmlBody, replyTo);
+  const list = Array.isArray(to) ? to : [to];
+  let r = await post(from, list, subject, htmlBody, opts.replyTo, opts.text);
+  if (!r.ok && (r.status === 403 || r.status === 422) && list.some(t => t.toLowerCase() === STAFF_EMAIL.toLowerCase())) {
+    console.log(`mail: Absender ${from} abgelehnt (${r.status} ${r.body}), Team-Mail über Testabsender`);
+    r = await post(TEST_FROM, STAFF_EMAIL, subject, htmlBody, opts.replyTo, opts.text);
   }
-  console.log(`mail ${r.ok ? "gesendet" : "FEHLER " + r.status + " " + r.body}: "${subject}" an ${to}`);
+  console.log(`mail ${r.ok ? "gesendet" : "FEHLER " + r.status + " " + r.body}: "${subject}" an ${list.join(", ")}`);
   return r.ok;
 }
+export const send = (to: string, subject: string, htmlBody: string, replyTo?: string) => sendFrom(FROM, to, subject, htmlBody, { replyTo });
 const wrap = (inner: string) => `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#000;color:#fff;padding:32px"><p style="color:#FBFF00;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:0 0 16px">SKILL CGN</p>${inner}<p style="color:#888;font-size:12px;margin-top:32px">SKILL CGN · Herzogstraße 16–20 · 50667 Köln · <a href="${SITE}" style="color:#FBFF00">skill-studios.com</a></p></div>`;
 
 export async function sendBookingMails(b: Booking) {
@@ -124,25 +130,70 @@ export async function sendContractFailedMails(c: Omit<ContractMail, "contractId"
   return { staff, customer };
 }
 
-/* ---------- Black Month: Bestätigung an Käufer, Info ans Team ---------- */
-export async function sendBlackMonthMails(o: { name: string; email: string; phone: string; amount: number; sessionId: string; magicline?: string }) {
-  const first = o.name.split(" ")[0] || "";
-  const staff = await send(STAFF_EMAIL, `Black Month gebucht: ${o.name || o.email}`, wrap(`<h1 style="font-size:24px;margin:0 0 12px">Black Month, 6 Monate Gym</h1>
-<table style="border-collapse:collapse;color:#fff;font-size:14px">
-<tr><td style="padding:4px 12px 4px 0;color:#888">Name</td><td><strong>${o.name || "—"}</strong></td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#888">E-Mail</td><td>${o.email || "—"}</td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#888">Telefon</td><td>${o.phone || "—"}</td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#888">Betrag</td><td>${eur(o.amount)} einmalig</td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#888">Magicline</td><td>${o.magicline ? `Interessent ${o.magicline}, Notiz "Black Month 6 Monate Gym 149 € bezahlt"` : "Interessent konnte nicht angelegt werden, bitte von Hand"}</td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#888">Stripe-Sitzung</td><td style="font-family:monospace;font-size:12px">${o.sessionId}</td></tr>
-</table><p style="margin-top:16px">Beim ersten Besuch den Gym-Zugang für sechs Monate einrichten.</p>`));
-  const customer = o.email ? await send(o.email, `Dein Black Month bei SKILL CGN${first ? ", " + first : ""}`, wrap(`<h1 style="font-size:28px;margin:0 0 8px">Black Month gebucht.</h1>
-<p style="font-size:18px;margin:0 0 16px">Danke${first ? ", " + first : ""}. Deine Zahlung über <strong>${eur(o.amount)}</strong> ist da: sechs Monate Gym bei SKILL CGN, einmalig, kein Abo.</p>
-<p><strong>So geht es weiter</strong></p>
-<p>1. Komm zu den Öffnungszeiten in die Herzogstraße 16–20, zwei Minuten vom Neumarkt.</p>
-<p>2. Nenn am Empfang deine E-Mail-Adresse, wir richten deinen Zugang ein. Deine sechs Monate starten mit diesem ersten Besuch.</p>
-<p>3. Handtuch und Getränke gibt es bei uns, Hallenschuhe und Sportkleidung bringst du mit.</p>
-<p>Fragen? <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp +49 176 10877603</a></p>
-<p style="color:#888;font-size:12px;margin-top:16px">Die Rechnung kommt separat von Stripe. Classes sind nicht enthalten.</p>`), STAFF_EMAIL) : false;
-  return { staff, customer };
+/* ---------- Black Month (Aktion 2. bis 30.11.2026): drei Kundenmails von info@, Info je Kauf an Boris ---------- */
+export interface BlackMonthBuyer { name: string; email: string; phone: string; amount: number; sessionId: string; magicline?: string | null; appointmentAt?: string | null }
+const BM_FROM = CHECKOUT_FROM; // SKILL CGN <info@skill-studios.com>
+const BM_NOTIFY = (process.env.BLACKMONTH_NOTIFY_EMAIL || "Boris.K@skill-studios.com").split(",").map((x: string) => x.trim()).filter(Boolean);
+const BOOKING_URL = (process.env.BOOKING_URL || "").trim();
+const BM_WA = "Schreib Boris per WhatsApp an 0151 41277708 mit deinem Wunschtag.";
+const BM_ADDRESS = "SKILL CGN, Herzogstraße 16, 50667 Köln, zwei Minuten vom Neumarkt.";
+const firstName = (name: string) => name.trim().split(/\s+/)[0] || "";
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const bmDate = (iso: string) => new Date(iso).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
+const bmTime = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
+/** Textfassung ist die Quelle, die HTML-Fassung entsteht daraus (Absätze, Links klickbar). */
+function bmHtml(paragraphs: string[]) {
+  const link = (t: string) => esc(t).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" style="color:#FBFF00">$1</a>');
+  return wrap(paragraphs.map(p => `<p style="margin:0 0 14px;font-size:15px;line-height:1.5">${link(p).replace(/\n/g, "<br>")}</p>`).join(""));
+}
+const bookingLine = () => BOOKING_URL ? `Such dir hier deinen Starttermin aus: ${BOOKING_URL}` : BM_WA;
+const bmSignature = ["Bis bald im Studio\nBoris Kurowski\nSKILL CGN"];
+
+/** Mail 1, sofort nach Zahlung. */
+export async function sendBlackMonthWelcome(o: BlackMonthBuyer) {
+  const first = firstName(o.name);
+  const paragraphs = [
+    `Hi${first ? " " + first : ""},`,
+    "deine Zahlung ist angekommen, du bist dabei. Dein Black Month bei SKILL CGN: 6 Monate Gym, die Zeit läuft ab deinem ersten Trainingstag.",
+    "Start bis spätestens 15.12.2026. " + bookingLine(),
+    "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch.",
+    "Adresse: " + BM_ADDRESS,
+    "Die Rechnung kommt separat von Stripe. AGB und Widerruf findest du unter skill-studios.com/agb.",
+    ...bmSignature,
+  ];
+  return sendFrom(BM_FROM, o.email, "Du bist dabei, dein Black Month bei SKILL CGN", bmHtml(paragraphs), { replyTo: "info@skill-studios.com", text: paragraphs.join("\n\n") });
+}
+/** Mail 2, drei Tage nach Kauf ohne Termin im Kalender. */
+export async function sendBlackMonthNudge(o: BlackMonthBuyer) {
+  const first = firstName(o.name);
+  const paragraphs = [
+    `Hi${first ? " " + first : ""},`,
+    "dein Black Month wartet. Du hast noch keinen Starttermin, dabei beginnen deine 6 Monate erst mit dem ersten Training. Je früher du startest, desto mehr hast du davon.",
+    "Start bis spätestens 15.12.2026. " + bookingLine(),
+    "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch. Adresse: " + BM_ADDRESS,
+    ...bmSignature,
+  ];
+  return sendFrom(BM_FROM, o.email, "Dein Starttermin fehlt noch, Black Month bei SKILL CGN", bmHtml(paragraphs), { replyTo: "info@skill-studios.com", text: paragraphs.join("\n\n") });
+}
+/** Mail 3, am Tag vor dem Termin. */
+export async function sendBlackMonthReminder(o: BlackMonthBuyer & { appointmentAt: string }) {
+  const first = firstName(o.name);
+  const paragraphs = [
+    `Hi${first ? " " + first : ""},`,
+    `morgen geht es los: ${bmDate(o.appointmentAt)} um ${bmTime(o.appointmentAt)} Uhr ist dein Starttermin bei SKILL CGN. Komm bitte 10 Minuten früher, wir richten deinen Zugang ein und zeigen dir das Studio.`,
+    "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch.",
+    "Adresse: " + BM_ADDRESS,
+    "Falls es nicht passt, schreib Boris kurz per WhatsApp an 0151 41277708.",
+    ...bmSignature,
+  ];
+  return sendFrom(BM_FROM, o.email, "Morgen geht es los, dein Start bei SKILL CGN", bmHtml(paragraphs), { replyTo: "info@skill-studios.com", text: paragraphs.join("\n\n") });
+}
+/** Info je Kauf an Boris (BLACKMONTH_NOTIFY_EMAIL, Standard Boris.K@skill-studios.com) und ans Team-Postfach. */
+export async function sendBlackMonthStaff(o: BlackMonthBuyer & { duplicate?: boolean; leadStatus?: number }) {
+  const rows: [string, string][] = [["Name", o.name || "unbekannt"], ["Telefon", o.phone || "keine Angabe"], ["E-Mail", o.email || "keine Angabe"], ["Betrag", eur(o.amount)], ["Session ID", o.sessionId],
+    ["Magicline", o.duplicate ? "Käufer war schon bekannt (E-Mail oder Telefon), kein neuer Interessent" : o.magicline ? `Interessent ${o.magicline} angelegt` : o.leadStatus === 409 ? "Kunde existiert bereits in Magicline" : "Interessent konnte nicht angelegt werden, bitte von Hand anlegen"]];
+  const html = wrap(`<h1 style="font-size:24px;margin:0 0 12px">Black Month gekauft</h1><table style="border-collapse:collapse;color:#fff;font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#888">${k}</td><td>${esc(v)}</td></tr>`).join("")}</table>`);
+  const text = "Black Month gekauft\n\n" + rows.map(([k, v]) => `${k}: ${v}`).join("\n");
+  const to = [...new Set([...BM_NOTIFY, STAFF_EMAIL])];
+  return sendFrom(BM_FROM, to, `Black Month gekauft: ${o.name || o.email}, ${eur(o.amount)}`, html, { text });
 }

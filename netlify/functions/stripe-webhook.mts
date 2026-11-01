@@ -2,16 +2,19 @@
    1. Shop (metadata.purchase_type = shop): Ticket-Guthaben je E-Mail anlegen oder aufstocken.
    2. Membership per Karte (mode = subscription, client_reference_id = Checkout-Token): Magicline-Vertrag für den Interessenten
       anlegen (Zahlart BANK_TRANSFER, Stripe zieht das Abo ein), Purchase serverseitig an Meta.
-   Signaturprüfung mit STRIPE_WEBHOOK_SECRET (Netlify-Umgebungsvariable). */
+   3. Black Month (metadata.campaign blackmonth_2026 oder Payment Link plink_1UX2n6HMQZbugHGZViuXdvsC): Interessent, Mail 1, Info an Boris, Meta CAPI.
+   Signaturprüfung mit STRIPE_WEBHOOK_SECRET (Netlify-Umgebungsvariable). Lokaler Test: scripts/test-blackmonth-webhook.mjs. */
 import type { Config } from "@netlify/functions";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { json, normEmail, addDays, berlinDate } from "./lib/util";
 import { getTicket, saveTicket, seenEvent, markEvent } from "./lib/store";
 import type { TicketAccount } from "./lib/types";
-import { getCheckoutLead, saveCheckoutLead, saveAlert } from "./lib/store";
-import { sendStaffAlert, sendShopMails, sendBlackMonthMails } from "./lib/notify";
+import { getCheckoutLead, saveCheckoutLead, saveAlert, getBlackMonth, saveBlackMonth, findBlackMonthByContact } from "./lib/store";
+import type { BlackMonthRecord } from "./lib/store";
+import { sendStaffAlert, sendShopMails, sendBlackMonthWelcome, sendBlackMonthStaff } from "./lib/notify";
 import { createLeadServer } from "./lib/connect";
-import { getStore } from "@netlify/blobs";
+import { sendPurchase, capiConfigured } from "./lib/meta-capi";
+import { SITE } from "./lib/util";
 import { completeMembership } from "./lib/membership";
 import { stripe, stripeConfigured } from "./lib/stripe";
 
@@ -74,18 +77,37 @@ const PRODUCTS: Record<string, { name: string; credits: number; pt: number; vali
   "pt-10er": { name: "Personal Training 10er-Karte", credits: 0, pt: 10, validDays: 240, link: "plink_4gM9AT9sffb107m9Tp5EY03", amount: 90000 },
   "black-month": { name: "Black Month: 6 Monate Gym", credits: 0, pt: 0, validDays: 182, link: "", amount: 14900 },
 };
-/* Aktion Black Month: kein Ticket-Guthaben, sondern Interessent in Magicline mit Notiz, Bestätigung an Käufer und Team. */
+/* Aktion Black Month (2. bis 30.11.2026, 149 € einmalig). Erkennung: metadata.campaign "blackmonth_2026" oder der Payment Link, zur Sicherheit Produkt/Betrag.
+   Je Kauf: Interessent in Magicline (Dublette über E-Mail oder Telefon wird nicht neu angelegt), Mail 1 an den Käufer, Info an Boris, Purchase an Meta (CAPI, event_id = Sitzung). */
+const BLACK_MONTH = { campaign: "blackmonth_2026", paymentLink: "plink_1UX2n6HMQZbugHGZViuXdvsC", amount: 14900, name: "Black Month" };
+export const isBlackMonth = (s: any) => s?.mode !== "subscription" && (s?.metadata?.campaign === BLACK_MONTH.campaign || s?.payment_link === BLACK_MONTH.paymentLink || productFor(s) === "black-month");
 async function handleBlackMonth(s: any, eventId: string) {
   const email = normEmail(s.customer_details?.email || s.customer_email || "");
   const name = String(s.customer_details?.name || "").trim(); const [firstName, ...rest] = name.split(/\s+/); const lastName = rest.join(" ") || firstName || "Black Month";
-  const phone = String(s.customer_details?.phone || "");
-  let lead = { ok: false, status: 0, uuid: "", customerNumber: "" };
-  try { lead = await createLeadServer({ firstname: firstName || "Black", lastname: lastName, email, phone, notes: `Black Month 6 Monate Gym 149 € bezahlt, Stripe ${s.id}` }); } catch (e) { console.log("black-month lead error", String(e)); }
-  try { const st = getStore({ name: "blackmonth", consistency: "strong" }); await st.setJSON(s.id, { at: new Date().toISOString(), email, name, phone, amount: (s.amount_total ?? 14900) / 100, sessionId: s.id, customerId: s.customer || null, magicline: lead.customerNumber || null, magiclineStatus: lead.status }); } catch (e) { console.log("black-month store error", String(e)); }
-  const mails = await sendBlackMonthMails({ name, email, phone, amount: (s.amount_total ?? 14900) / 100, sessionId: s.id, magicline: lead.customerNumber }).catch(e => { console.log("black-month mail error", String(e)); return { staff: false, customer: false }; });
-  await markEvent(eventId);
-  console.log(`stripe-webhook black-month ${email} magicline=${lead.status}/${lead.customerNumber || "-"} mail staff=${mails.staff} customer=${mails.customer}`);
-  return json({ received: true, blackMonth: true, email, magicline: lead.customerNumber || "", mails });
+  const phone = String(s.customer_details?.phone || ""); const amount = (s.amount_total ?? BLACK_MONTH.amount) / 100;
+  const existing = await getBlackMonth(s.id);
+  if (existing) { await markEvent(eventId); return json({ received: true, blackMonth: true, duplicateSession: true }); }
+  const rec: BlackMonthRecord = { sessionId: s.id, at: new Date().toISOString(), name, email, phone, amount, customerId: typeof s.customer === "string" ? s.customer : null, ref: String(s.client_reference_id || "").slice(0, 200) || undefined, mails: {}, appointmentAt: null };
+  /* Magicline-Interessent, Notiz mit Sitzung und Datum. Gleiche E-Mail oder Telefon aus einem früheren Kauf: kein zweiter Interessent. */
+  const dup = await findBlackMonthByContact(email, phone);
+  if (dup) rec.duplicateOf = dup;
+  else {
+    const date = berlinDate(new Date()).split("-").reverse().join(".");
+    try { const lead = await createLeadServer({ firstname: firstName || "Black", lastname: lastName, email, phone, notes: `Black Month 149 € bezahlt, Stripe ${s.id}, ${date}` }); rec.magicline = lead.customerNumber || null; rec.magiclineStatus = lead.status; }
+    catch (e) { rec.magiclineStatus = 0; console.log("black-month lead error", String(e)); }
+  }
+  await saveBlackMonth(rec);
+  /* Mail 1 an den Käufer, Info an Boris */
+  if (email) rec.mails.welcome = (await sendBlackMonthWelcome(rec).catch(e => { console.log("black-month welcome error", String(e)); return false; })) ? new Date().toISOString() : "failed";
+  rec.mails.staff = (await sendBlackMonthStaff({ ...rec, duplicate: !!rec.duplicateOf, leadStatus: rec.magiclineStatus }).catch(e => { console.log("black-month staff error", String(e)); return false; })) ? new Date().toISOString() : "failed";
+  /* Purchase serverseitig an Meta, event_id = Stripe-Sitzung, dedupliziert mit dem Browser-Event auf /blackmonth/danke */
+  if (capiConfigured() && email) {
+    try { const r = await sendPurchase({ eventId: s.id, value: amount, contentName: BLACK_MONTH.name, sourceUrl: `${SITE}/blackmonth/danke`, email, phone, firstName, lastName: rest.join(" "), userAgent: "stripe-server" }); rec.capi = { at: new Date().toISOString(), sent: r.sent, note: r.skipped || r.body?.slice(0, 120) }; }
+    catch (e) { rec.capi = { at: new Date().toISOString(), sent: false, note: String(e).slice(0, 120) }; }
+  }
+  await saveBlackMonth(rec); await markEvent(eventId);
+  console.log(`stripe-webhook black-month ${s.id} ${email} magicline=${rec.duplicateOf ? "dublette" : (rec.magiclineStatus + "/" + (rec.magicline || "-"))} welcome=${rec.mails.welcome} staff=${rec.mails.staff} capi=${rec.capi?.sent ?? "aus"}`);
+  return json({ received: true, blackMonth: true, sessionId: s.id, magicline: rec.magicline || null, duplicateOf: rec.duplicateOf || null, mails: rec.mails, capi: rec.capi?.sent ?? null });
 }
 /* Produkt zur Checkout-Sitzung: Metadaten des Payment Links, sonst Betrag (die Beträge sind eindeutig). */
 function productFor(s: any): string {
@@ -125,9 +147,13 @@ export default async (req: Request) => {
     const m = await handleMembership(s); await markEvent(event.id);
     return json({ received: true, membership: m });
   }
+  /* Black Month: nur bezahlte Sitzungen */
+  if (isBlackMonth(s)) {
+    if (s.payment_status !== "paid") { await markEvent(event.id); console.log(`stripe-webhook black-month unbezahlt ${s.id}: ${s.payment_status}`); return json({ received: true, ignored: "black month not paid" }); }
+    return handleBlackMonth(s, event.id);
+  }
   const productId = productFor(s); const product = PRODUCTS[productId];
   if (s.mode === "subscription" || !product || s.payment_status !== "paid") { await markEvent(event.id); console.log(`stripe-webhook ignoriert ${s.id}: mode=${s.mode} product=${productId || "-"} status=${s.payment_status}`); return json({ received: true, ignored: "not a paid shop purchase" }); }
-  if (productId === "black-month") return handleBlackMonth(s, event.id);
   /* Käuferdaten aus der Stripe-Sitzung (customer_details), nicht aus Formularfeldern */
   const email = normEmail(s.customer_details?.email || s.customer_email || "");
   if (!email) { await markEvent(event.id); await sendStaffAlert(`Shop-Verkauf ohne E-Mail: ${product.name}`, [`Stripe-Sitzung ${s.id}, Betrag ${(s.amount_total || 0) / 100} €`, `Bitte in Stripe nachsehen, wer gezahlt hat.`]).catch(() => false); return json({ received: true, ignored: "no email" }); }

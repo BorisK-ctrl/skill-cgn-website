@@ -71,3 +71,25 @@ export async function saveCheckoutLog(entry: { at: string; token: string; stage:
 export interface StripeAlert { at: string; kind: "payment_failed" | "subscription_deleted"; token?: string; customerNumber?: string; contractId?: string; name?: string; email?: string; amount?: number; attempts?: number; subscriptionId?: string; mailed: boolean; magicline: string }
 export async function saveAlert(a: StripeAlert) { await setJSON("stripe-alerts", `${a.at}_${a.kind}`, a); }
 export async function listAlerts(): Promise<StripeAlert[]> { const keys = await listKeys("stripe-alerts", ""); const out: StripeAlert[] = []; for (const k of keys.sort().reverse().slice(0, 100)) { const a = await getJSON<StripeAlert>("stripe-alerts", k); if (a) out.push(a); } return out; }
+
+/* ---------- Black Month (Aktion 2026): ein Datensatz je Stripe-Sitzung, Index je E-Mail und Telefon für die Dubletten-Prüfung ---------- */
+export interface BlackMonthRecord { sessionId: string; at: string; name: string; email: string; phone: string; amount: number; customerId?: string | null; ref?: string;
+  magicline?: string | null; magiclineStatus?: number; duplicateOf?: string; mails: { welcome?: string; staff?: string; nudge?: string; reminder?: string }; appointmentAt?: string | null; capi?: { at: string; sent: boolean; note?: string } }
+const phoneKey = (p: string) => { let d = p.replace(/\D/g, ""); if (d.startsWith("00")) d = d.slice(2); else if (d.startsWith("0")) d = "49" + d.slice(1); return d; };
+export async function getBlackMonth(sessionId: string) { return getJSON<BlackMonthRecord>("blackmonth", "s/" + sessionId); }
+export async function saveBlackMonth(r: BlackMonthRecord) {
+  await setJSON("blackmonth", "s/" + r.sessionId, r);
+  if (r.email) await setJSON("blackmonth", "idx/email/" + r.email.toLowerCase(), { sessionId: r.sessionId });
+  const pk = phoneKey(r.phone || ""); if (pk.length >= 8) await setJSON("blackmonth", "idx/phone/" + pk, { sessionId: r.sessionId });
+}
+/** Frühere Sitzung mit gleicher E-Mail oder Telefonnummer (Dubletten-Prüfung vor dem Magicline-Interessenten). */
+export async function findBlackMonthByContact(email: string, phone: string): Promise<string | null> {
+  if (email) { const e = await getJSON<{ sessionId: string }>("blackmonth", "idx/email/" + email.toLowerCase()); if (e?.sessionId) return e.sessionId; }
+  const pk = phoneKey(phone || ""); if (pk.length >= 8) { const e = await getJSON<{ sessionId: string }>("blackmonth", "idx/phone/" + pk); if (e?.sessionId) return e.sessionId; }
+  return null;
+}
+export async function listBlackMonth(): Promise<BlackMonthRecord[]> {
+  const keys = await listKeys("blackmonth", "s/"); const out: BlackMonthRecord[] = [];
+  for (const k of keys) { const r = await getJSON<BlackMonthRecord>("blackmonth", k); if (r) out.push(r); }
+  return out;
+}

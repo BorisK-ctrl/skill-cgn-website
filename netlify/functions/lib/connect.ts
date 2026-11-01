@@ -26,6 +26,8 @@ export async function createContractServer(i: ServerContractInput): Promise<{ ok
 
 /** Interessent anlegen wie im Browser (src/lib/magicline.ts createLead). uuid = identityToken für den Vertrag. */
 export async function createLeadServer(i: { firstname: string; lastname: string; email: string; phone: string; notes: string }): Promise<{ ok: boolean; status: number; uuid: string; customerNumber: string }> {
+  /* MAGICLINE_DRY_RUN=1 nur lokal: kein Aufruf an Magicline, keine Testkunden im echten System. */
+  if (process.env.MAGICLINE_DRY_RUN === "1") { console.log(`[magicline dry-run] lead ${i.firstname} ${i.lastname} <${i.email}> ${i.phone}: ${i.notes}`); return { ok: true, status: 200, uuid: "dry-run", customerNumber: "DRY-RUN" }; }
   const r = await fetch(`${API}/lead`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ studioId: STUDIO_ID, ...i, notes: i.notes.slice(0, 300), locale: "de_DE", countryCode: "DE", privacyConfiguration: { email: true, phone: true, textMessage: true } }) });
   let j: any = {}; try { j = await r.json(); } catch {}
