@@ -59,3 +59,11 @@ Stripe-Testmodus: im Dashboard auf Testdaten umschalten, einen Test-Payment-Link
 ## Ablage
 
 Netlify Blobs Store `blackmonth`: `s/<session>` je Kauf (Name, E-Mail, Telefon, Betrag, Magicline-Nummer, Mails, Termin), `idx/email/<mail>` und `idx/phone/<nummer>` für die Dubletten-Prüfung.
+
+## angebot.skill-studios.com
+
+Alte Manus-Seite. Netlify-Redirect `https://angebot.skill-studios.com/*` → `/blackmonth` steht in der netlify.toml. Der Domain-Alias muss im Netlify-Projekt angelegt sein (Domain management → Add domain alias oder `netlify api updateSite`), danach bei STRATO den CNAME von manus.space auf `stellular-lokum-05d42f.netlify.app` stellen.
+
+## Git-Identität
+
+Netlify baut bei privaten Repos nur Commits von Team-Mitgliedern. Die Git-Identität in diesem Repo ist deshalb `info@skill-studios.com` (repo-lokal gesetzt, `git config user.email`).
