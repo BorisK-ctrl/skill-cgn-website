@@ -6,6 +6,13 @@
   command = "npm run build"
   publish = "dist"
 
+# ── angebot.skill-studios.com (früher Manus-Seite mit Sommerpreisen): alles auf die aktuelle Aktion ─────────
+[[redirects]]
+  from = "https://angebot.skill-studios.com/*"
+  to = "https://skill-studios.com/blackmonth"
+  status = 301
+  force = true
+
 # ── Alte URLs der Manus-Seite und der statischen Vorgängerseite ─────────────
 [[redirects]]
   from = "/hyrox"

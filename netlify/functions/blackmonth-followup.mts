@@ -1,7 +1,8 @@
 /* Black Month Nachfass, täglich 09:00 Berlin (08:00 UTC im Winter).
    Mail 2: drei Tage nach Kauf ohne Starttermin im Google Kalender. Mail 3: am Tag vor dem Termin.
    Termine kommen aus dem Kalender über die geheime iCal-Adresse (BLACKMONTH_CALENDAR_ICS, Google Kalender → Einstellungen → "Privatadresse im iCal-Format").
-   Ein Termin gehört zum Käufer, wenn seine E-Mail als Teilnehmer oder im Text steht oder sein voller Name im Titel oder Text vorkommt.
+   Kalender "Probetraining", Termine heißen "Starttermin NAME", Telefonnummer steht in der Beschreibung.
+   Ein Termin gehört zum Käufer, wenn seine Telefonnummer (Ziffern verglichen) oder E-Mail im Text steht oder sein voller Name im Titel oder Text vorkommt.
    Ohne BLACKMONTH_CALENDAR_ICS wird kein Termin erkannt, also geht Mail 2 nach drei Tagen an alle ohne Termin und Mail 3 nie.
    Zeitplan-Funktion, nicht per HTTP erreichbar. Von Hand: netlify functions:invoke blackmonth-followup. */
 import type { Config } from "@netlify/functions";
@@ -42,10 +43,18 @@ function icsDate(v: string, tzid?: string): string {
   const wall = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
   return new Date(guess - (wall - guess)).toISOString();
 }
-/** Termin des Käufers: E-Mail (Teilnehmer oder Text) oder voller Name, frühester künftiger oder heutiger Termin. */
+const digits = (p: string) => { let d = p.replace(/\D/g, ""); if (d.startsWith("00")) d = d.slice(2); else if (d.startsWith("0")) d = "49" + d.slice(1); return d; };
+/** Termin des Käufers: Telefonnummer, E-Mail (Teilnehmer oder Text) oder voller Name, frühester künftiger oder heutiger Termin. */
 export function findAppointment(r: BlackMonthRecord, events: CalEvent[], todayBerlin: string): string | null {
-  const email = r.email.toLowerCase(); const name = r.name.trim().toLowerCase();
-  const hits = events.filter(e => { const t = (e.summary + "\n" + e.text).toLowerCase(); return (email && t.includes(email)) || (name.length > 3 && t.includes(name)); })
+  const email = r.email.toLowerCase(); const name = r.name.trim().toLowerCase(); const phone = digits(r.phone || "");
+  const hits = events.filter(e => {
+    const t = (e.summary + "\n" + e.text).toLowerCase();
+    if (email && t.includes(email)) return true;
+    if (name.length > 3 && t.includes(name)) return true;
+    /* Telefonnummern im Text: Ziffernfolgen mit Trennzeichen, normalisiert vergleichen */
+    if (phone.length >= 9) for (const m of t.match(/[+\d][\d\s\/().-]{7,}\d/g) || []) if (digits(m) === phone) return true;
+    return false;
+  })
     .filter(e => e.start && berlinDate(new Date(e.start)) >= todayBerlin).sort((a, b) => a.start.localeCompare(b.start));
   return hits[0]?.start || null;
 }
