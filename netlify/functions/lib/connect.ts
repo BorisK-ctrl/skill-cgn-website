@@ -10,6 +10,8 @@ export interface ServerContractInput {
   paymentChoice: "BANK_TRANSFER" | "DIRECT_DEBIT"; iban?: string; accountHolder?: string;
 }
 export async function createContractServer(i: ServerContractInput): Promise<{ ok: boolean; status: number; contractId: string; customerNumber: string; raw: string }> {
+  /* MAGICLINE_DRY_RUN=1 nur lokal: kein Vertrag im echten System */
+  if (process.env.MAGICLINE_DRY_RUN === "1") { console.log(`[magicline dry-run] contract ${i.firstname} ${i.lastname} <${i.email}> term ${i.rateBundleTermId} start ${i.startDate}`); return { ok: true, status: 200, contractId: "DRY-RUN", customerNumber: "DRY-RUN", raw: "" }; }
   const payload = {
     studioId: STUDIO_ID,
     contract: { rateBundleTermId: i.rateBundleTermId, startDate: i.startDate, contractSignature: { base64Svg: i.signatureSvgBase64 }, sepaSignature: { base64Svg: i.signatureSvgBase64 }, notes: i.notes.slice(0, 300) },
