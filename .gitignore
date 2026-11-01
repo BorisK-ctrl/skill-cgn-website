@@ -11,3 +11,6 @@ dist-debug
 public/img/manus/drone-video-hyrox_be8a75c1.mp4
 manus-src/
 .claude/launch.json
+
+# Sicherungskopien der Umgebung
+.env.bak*
