@@ -32,7 +32,7 @@ export default function Probetraining() {
     // Lead anlegen. Ein Fehler hier darf die Terminwahl nicht blockieren.
     try {
       await createLead({ firstname: d.firstname.trim(), lastname: d.lastname.trim(), email: d.email.trim(), phone: d.phone.trim(),
-        notes: `Probetraining über Website. Urban Sports Club Mitglied: ${d.usc}. Terminwahl über Google Kalender.` });
+        notes: `Probetraining über Website. PLZ ${d.plz.trim()}. Urban Sports Club: ${d.usc}. Terminwahl über Google Kalender.` });
     } catch (err) { console.warn("lead", err); }
     /* Absprung zu Google Calendar zählt als Lead (Näherungswert): Google Calendar bietet keine Rücksprung-URL nach der Terminwahl. */
     track("Lead", { content_name: "Probetraining" });
@@ -57,7 +57,8 @@ export default function Probetraining() {
           <label className="label" htmlFor="nn">Nachname</label><input className="input" id="nn" name="lastname" required autoComplete="family-name" />
           <label className="label" htmlFor="em">E-Mail</label><input className="input" id="em" name="email" type="email" required autoComplete="email" />
           <label className="label" htmlFor="tel">Handynummer</label><input className="input" id="tel" name="phone" type="tel" required autoComplete="tel" placeholder="+49 …" />
-          <p className="label">Bist du bereits Mitglied bei Urban Sports Club?</p>
+          <label className="label" htmlFor="plz">Postleitzahl</label><input className="input" id="plz" name="plz" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} required autoComplete="postal-code" placeholder="50667" />
+          <p className="label">Trainierst du über Urban Sports Club?</p>
           <div className="radio-row">
             <label><input type="radio" name="usc" value="nein" required />Nein</label>
             <label><input type="radio" name="usc" value="ja" />Ja</label>

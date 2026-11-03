@@ -1,5 +1,5 @@
 /* Alle Routen mit Metadaten. Quelle für Prerendering, Sitemap-Abgleich und Client-Meta. */
-export interface RouteMeta { path: string; title: string; description: string; robots?: string; priority?: number }
+export interface RouteMeta { path: string; title: string; description: string; robots?: string; priority?: number; /** OG-Bild, Standard /img/og.jpg */ image?: string }
 export const SITE_URL = "https://skill-studios.com";
 export const ROUTES: RouteMeta[] = [
   { path: "/", title: "SKILL CGN, Dein Coach. Dein Plan. Training mit System in der Kölner Innenstadt", description: "Betreutes Training mit Coach in jeder Class, 3D Körperscan und Plan. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt, Parken inklusive. Probetraining kostenlos.", priority: 1.0 },
@@ -12,7 +12,7 @@ export const ROUTES: RouteMeta[] = [
   { path: "/memberships", title: "Fitnessstudio Mitgliedschaft in Köln — SKILL CGN", description: "Mitgliedschaft im Fitnessstudio Köln Neumarkt: START 39, SKILL Mitgliedschaft, SKILL Unlimited. 12 Monate oder monatlich kündbar, keine Gebühr, Parken inklusive. Online abschließen.", priority: 0.9 },
   { path: "/probetraining", title: "Kostenloses Probetraining in Köln mit 3D Scan — SKILL CGN", description: "Probetraining im Fitnessstudio Köln Neumarkt: 60 Minuten mit Coach, 3D Körperscan inklusive. Kostenlos, unverbindlich. Jetzt Termin wählen.", priority: 0.8 },
   { path: "/personal-training", title: "Personal Training in Köln mit Boris — SKILL CGN", description: "1:1 Training in der Kölner Innenstadt. Assessment, Anamnese und Programm immer inklusive. Erfolgsversprechen mit Geld-zurück-Garantie. Termin auf Anfrage per WhatsApp.", priority: 0.8 },
-  { path: "/blackmonth", title: "Black Month: 6 Monate Gym für 149 € — SKILL CGN Köln", description: "BLACK MONTH bei SKILL CGN: 6 Monate Gym in Köln-Mitte für 149 €, einmal zahlen, kein Abo, endet von allein. Nur vom 2. bis 30.11.2026, nur für Neukunden." },
+  { path: "/blackmonth", title: "Black Month: 6 Monate Gym für 149 € — SKILL CGN Köln", description: "BLACK MONTH bei SKILL CGN: 6 Monate Gym in Köln-Mitte für 149 €, einmal zahlen, kein Abo, endet von allein. Nur vom 2. bis 30.11.2026, nur für Neukunden.", image: "/img/og-blackmonth.jpg" },
   { path: "/blackmonth/danke", title: "Du bist dabei — Black Month bei SKILL CGN", description: "Deine Zahlung ist angekommen.", robots: "noindex,nofollow" },
   { path: "/shop", title: "Tickets und Pässe fürs Gym in Köln — SKILL CGN", description: "Drop In 20 €, Trial Pass 29 €, 5er und 10er Pass, Personal Training in Köln. Kein Abo, kein Account. Sicher bezahlen mit Apple Pay, Karte, SEPA oder Klarna.", priority: 0.8 },
   { path: "/kursplan", title: "Kursplan & Buchung — SKILL CGN Köln", description: "Alle Classes der nächsten sieben Tage. Platz sichern mit E-Mail und Handynummer, ohne Login.", robots: "noindex,nofollow" },

@@ -3,8 +3,9 @@ import { useState } from "react";
 import { ArrowRight, Menu, X, MessageCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { WHATSAPP } from "@/lib/magicline";
+import { useBlackMonthActive } from "@/lib/blackmonth";
 
-const navLinks = [
+const baseLinks = [
   { href: "/classes", label: "Classes" },
   { href: "/memberships", label: "Memberships" },
   { href: "/probetraining", label: "Probetraining" },
@@ -16,6 +17,7 @@ const navLinks = [
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const navLinks = useBlackMonthActive() ? [{ href: "/blackmonth", label: "Black Month" }, ...baseLinks] : baseLinks;
   const go = (href: string) => { setMobileMenuOpen(false); navigate(href); };
 
   return (

@@ -10,7 +10,7 @@ import { CalendarDays, Check, MessageCircle } from "lucide-react";
 import { usePageMeta } from "@/lib/meta";
 import { consent, CONSENT_EVENT, track } from "@/lib/pixel";
 import { gadsConversion } from "@/lib/gads";
-import { BLACK_MONTH } from "./BlackMonth";
+import { BLACK_MONTH } from "@/lib/blackmonth";
 
 const BOOKING_URL = (import.meta.env.VITE_BOOKING_URL || "").trim();
 const WA_BORIS = "https://wa.me/4915141277708";

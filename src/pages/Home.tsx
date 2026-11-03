@@ -4,6 +4,7 @@
  * Reihenfolge: Hero, drei Bewertungen, Preise, Probetraining in drei Schritten, Coaches, (Kein normales Gym), Scan-Vergleich (ausgeblendet bis Zahlen da sind),
  * Galerie mit sechs Bildern, Formate als Zeile, Standort und Öffnungszeiten, FAQ, Schlussblock.
  * Preise live aus dem Magicline rate-bundle, mit Fallback für das Prerendering und für Ladefehler.
+ * Black Month (bis 30.11.2026): Banner kommt global aus dem Layout und ersetzt so lange den START-39-Banner; dazu Hero-Knopf und Karte vor den Preisen.
  */
 import { useState } from "react";
 import { ArrowRight, ChevronDown, MapPin, Clock, Phone, Star, Check, CalendarDays, ScanLine, Users, GlassWater, ShowerHead, Dumbbell, Bike, Zap } from "lucide-react";
@@ -17,6 +18,7 @@ import { FaqJsonLd } from "@/lib/jsonld";
 import { OPENING_HOURS } from "@/components/Footer";
 import GymGallery from "@/components/GymGallery";
 import { trackCta } from "@/lib/events";
+import { useBlackMonthActive } from "@/lib/blackmonth";
 
 // ─── Daten ────────────────────────────────────────────────────────────────────
 
@@ -96,18 +98,19 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 export default function Home() {
   usePageMeta("SKILL CGN, Dein Coach. Dein Plan. Training mit System in der Kölner Innenstadt", "Betreutes Training mit Coach in jeder Class, 3D Körperscan und Plan. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt, Parken inklusive. Probetraining kostenlos.");
   const { bundles } = useRateBundles();
+  const blackMonth = useBlackMonthActive();
   const price = (key: "start39" | "mitgliedschaft" | "unlimited", months: 1 | 12) => fmtPrice(offerPrice(bundles, key, months) ?? 0);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <FaqJsonLd items={faqItems} />
 
-      {/* ── 0. KAMPAGNEN-BANNER START 39 ── */}
-      <Link to="/start39" onClick={() => trackCta("cta_start39_banner")} className="campaign-button relative z-20 mt-20 flex items-center justify-center gap-3 bg-primary px-4 py-3 text-center text-primary-foreground hover:bg-white">
+      {/* ── 0. KAMPAGNEN-BANNER START 39 (während Black Month ersetzt durch den globalen Black-Month-Banner im Layout) ── */}
+      {!blackMonth && <Link to="/start39" onClick={() => trackCta("cta_start39_banner")} className="campaign-button relative z-20 mt-20 flex items-center justify-center gap-3 bg-primary px-4 py-3 text-center text-primary-foreground hover:bg-white">
         <Zap className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] sm:text-xs"><span className="font-black">START 39:</span> 39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr</span>
         <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-      </Link>
+      </Link>}
 
       {/* ── 1. HERO: ein Ziel ── */}
       <section className="relative overflow-hidden border-b-4 border-primary">
@@ -122,6 +125,7 @@ export default function Home() {
               <div className="mt-8 max-w-md">
                 <Link to="/start39" onClick={() => trackCta("cta_start39_hero")} className={`${ctaBtn} w-full`}>START 39 sichern <ArrowRight className="w-4 h-4" /></Link>
                 <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr · nur Neukunden</p>
+                {blackMonth && <Link to="/blackmonth" onClick={() => trackCta("cta_blackmonth_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-primary bg-black px-6 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Black Month ansehen <ArrowRight className="w-4 h-4" /></Link>}
                 <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-foreground/30 px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/80 hover:border-primary hover:text-primary">Kostenloses Probetraining</Link>
               </div>
             </div>
@@ -144,6 +148,24 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* ── 2b. BLACK MONTH (bis 30.11.2026) ── */}
+      {blackMonth && (
+        <section className="py-14 bg-background border-b border-foreground/10" id="blackmonth">
+          <div className="container">
+            <div className="border-2 border-primary bg-black p-7 md:p-10 lg:grid lg:grid-cols-[1fr_auto] lg:items-center lg:gap-10">
+              <div>
+                <div className={badge}>Black Month · nur im November</div>
+                <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none">6 Monate Gym.<br /><span className="text-primary">149 € einmalig.</span></h2>
+                <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2">
+                  {["6 Monate Gym", "Kein Abo", "Nur Neukunden", "Bis 30.11."].map(t => <li key={t} className="flex items-center gap-2 text-sm font-bold"><Check className="w-4 h-4 text-primary shrink-0" />{t}</li>)}
+                </ul>
+              </div>
+              <Link to="/blackmonth" onClick={() => trackCta("cta_blackmonth_card")} className={`${ctaBtn} mt-8 w-full lg:mt-0 lg:w-auto`}>Black Month ansehen <ArrowRight className="w-4 h-4" /></Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── 3. PREISE ── */}
       <section className="py-20 bg-background border-b border-foreground/10" id="memberships">

@@ -10,6 +10,15 @@ Stand 2026-11-01. Seite `/blackmonth`, Dankeseite `/blackmonth/danke`, Webhook `
 4. Stripe leitet den Kunden auf `/blackmonth/danke?session_id={CHECKOUT_SESSION_ID}`. Dort feuern Google Ads Conversion (Wert 149, transaction_id = Session) und Meta Purchase (nur mit Cookie-Zustimmung, event_id = Session, dedupliziert mit Schritt 3).
 5. Täglich 09:00: Mail 2 an Käufer ohne Termin nach drei Tagen, Mail 3 am Tag vor dem Termin (Termine aus dem Google Kalender per iCal-Adresse).
 
+## Startseite, Banner, Ablauf (Stand 2026-11-03)
+
+- `src/lib/blackmonth.ts`: Daten der Aktion, `useBlackMonthActive()` (bis einschließlich 30.11.2026, Berliner Datum, erster Render immer aktiv), Hero-Varianten je `utm_content`.
+- Banner auf allen Seiten mit Navbar (`src/components/BlackMonthBanner.tsx`, eingehängt im Layout), Menüpunkt und Footer-Eintrag „Black Month“, auf der Startseite Hero-Knopf „Black Month ansehen“ und Karte vor den Preisen. Der START-39-Banner der Startseite pausiert so lange.
+- Ab 1.12. verschwindet alles von allein, `/blackmonth` leitet im Browser auf die Startseite (Prerender bleibt, Sitemap-Eintrag dann entfernen).
+- OG-Bild `/img/og-blackmonth.jpg` (Rack-Motiv aus `hero-racks-freihanteln.webp`, 1200×630), nur für `/blackmonth` (`image` in `src/routes.ts`).
+- Überschrift je Anzeige: `?utm_content=bm04_sled_25eur` → „Unter 25 € im Monat.“, `bm05_strength_6monate` → „6 Monate Gym. Einmal zahlen.“, sonst Standard (bm01_rack). Nur aus der URL, clientseitig.
+- Zweiter Weg ohne Zahlung: „Erst anschauen, 10 Minuten“ → WhatsApp 0176 10877603 mit vorausgefülltem Text, darunter Vertrauenszeile (Google 4,9, 14 Tage Widerruf, Herzogstraße 16).
+
 ## In Stripe einstellen (Dashboard)
 
 - Payment Link `plink_1UX2n6HMQZbugHGZViuXdvsC` → Bearbeiten → „Nach der Zahlung“: Weiterleitung auf `https://skill-studios.com/blackmonth/danke?session_id={CHECKOUT_SESSION_ID}`.

@@ -21,6 +21,7 @@ function fill(html, appHtml, r, jsonLd = []) {
     .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${esc(r.title)}">`)
     .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${esc(r.description)}">`)
     .replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${url}">`)
+    .replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${SITE_URL}${r.image || "/img/og.jpg"}">`)
     .replace('<meta name="theme-color"', `<meta name="robots" content="${r.robots || "index,follow"}">\n<link rel="canonical" href="${url}">\n<meta name="theme-color"`)
     .replace('</head>', `${ld ? ld + "\n" : ""}</head>`)
     .replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`);
