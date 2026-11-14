@@ -49,6 +49,11 @@ export function staffOf(ev: GEvent): string[] {
   if (guests.length) return guests;
   return byText(ev.description || "");
 }
+/** Kurs mit benanntem Coach außerhalb des Onboarding-Teams ("Coach: Antonia Warlich" oder "HYROX — Antonia Warlich"). */
+function otherCoach(ev: GEvent): boolean {
+  const coach = (ev.description || "").match(/Coach:\s*([^\n]+)/)?.[1] || (ev.summary || "").split(/\s+[—–-]\s+/)[1] || "";
+  return !!coach.trim() && !/offen/i.test(coach);
+}
 const overlaps = (a: Span, b: Span) => a.s < b.e && a.e > b.s;
 function merge(list: Span[]): Span[] {
   const out: Span[] = [];
@@ -65,8 +70,10 @@ export function computeSlots(d: CalData, o: { from: Date; to: Date; now?: Date; 
   /* SERVICE: Schichten mit Uhrzeit; ganztägige Einträge ("Nic Uni", "Nic Prüfung") sind Abwesenheiten */
   for (const ev of d.service) { const sp = span(ev); if (!sp) continue; for (const k of staffOf(ev)) (allDay(ev) ? busy : shifts)[k].push(sp); }
   for (const ev of d.absences) { const sp = span(ev); if (sp) for (const k of staffOf(ev)) busy[k].push(sp); }
-  /* Kurse und Termine: eigener Mitarbeiter belegt, sonst unbekannt (belegt irgendeinen) */
-  for (const ev of [...d.classes, ...d.appointments]) { const sp = span(ev); if (!sp) continue; const ks = staffOf(ev); if (ks.length) for (const k of ks) busy[k].push(sp); else generic.push(sp); }
+  /* Kurse: eigener Coach belegt ihn. Kurs eines anderen Coaches (Antonia, Fabian …) belegt niemanden, Kurs ohne Coach ("COACH OFFEN") irgendeinen. */
+  for (const ev of d.classes) { const sp = span(ev); if (!sp) continue; const ks = staffOf(ev); if (ks.length) for (const k of ks) busy[k].push(sp); else if (!otherCoach(ev)) generic.push(sp); }
+  /* Termine: eigener Mitarbeiter belegt, sonst unbekannt (belegt irgendeinen) */
+  for (const ev of d.appointments) { const sp = span(ev); if (!sp) continue; const ks = staffOf(ev); if (ks.length) for (const k of ks) busy[k].push(sp); else generic.push(sp); }
   for (const k in shifts) shifts[k] = merge(shifts[k]);
 
   /* Kandidaten: halbstündliches Raster innerhalb jeder Schicht */

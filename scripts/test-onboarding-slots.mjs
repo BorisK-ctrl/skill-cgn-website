@@ -44,6 +44,8 @@ const checks = [
   ["Fr 20.11. Nic ganztägig Uni", !slots.some(s => s.staff.includes("nic") && day(s.start).includes("20.11."))],
   ["Fr 20.11. 09:00 Peter nicht (PT Tim 9:30)", !has("2026-11-20", "09:00", "peter")],
   ["Di 24.11. 17:00 Nic nicht (PT Jonas 18:00)", !has("2026-11-24", "17:00", "nic")],
+  ["Do 26.11. 16:00 Nic frei (Kurse 16:30/17:30 gibt Antonia, nicht Nic)", has("2026-11-26", "16:00", "nic")],
+  ["Do 26.11. 19:30 Nic nicht (eigener Kurs 20:30)", !has("2026-11-26", "19:30", "nic")],
   ["Boris ohne Schicht nie buchbar", !slots.some(s => s.staff.includes("boris"))],
   ["Wochenende keine Termine (nur Sanja im Service)", !slots.some(s => /^(Sa|So)/.test(day(s.start)))],
   ["Kein Start vor 'now' + 12 h", slots.every(s => Date.parse(s.start) >= now.getTime() + 12 * 3600000)],
