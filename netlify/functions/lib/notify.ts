@@ -1,6 +1,7 @@
 /* E-Mail über Resend, falls RESEND_API_KEY gesetzt. Sonst still überspringen (Buchung gilt trotzdem). */
 import { STAFF_EMAIL, SITE, fmtDate, berlinTime } from "./util";
 import type { Booking } from "./types";
+import { onboardingLink } from "./onboarding-live";
 
 const FROM = process.env.BOOKING_FROM_EMAIL || "SKILL CGN <buchung@skill-studios.com>";
 /* Solange skill-studios.com bei Resend nicht verifiziert ist, lehnt Resend eigene Absender ab (403). Der Testabsender darf nur an die
@@ -90,6 +91,7 @@ export interface ContractMail { firstName: string; lastName: string; email: stri
 export async function sendContractMails(c: ContractMail) {
   const pay = c.payment === "sepa" ? "SEPA-Lastschrift (Magicline)" : c.payment === "express" ? "Stripe-Abo (Apple Pay / Google Pay)" : "Stripe-Abo (Karte / Wallet)";
   const start = c.startDate ? new Date(c.startDate + "T12:00:00").toLocaleDateString("de-DE") : "";
+  const onb = onboardingLink({ name: `${c.firstName} ${c.lastName}`, email: c.email, phone: c.phone, offer: c.offerName, ref: "ml:" + c.contractId });
   const staff = await send(STAFF_EMAIL, `Neuer Vertrag: ${c.firstName} ${c.lastName} — ${c.offerName}`, wrap(`<h1 style="font-size:24px;margin:0 0 12px">Neuer Vertrag</h1>
 <table style="border-collapse:collapse;color:#fff;font-size:14px">
 <tr><td style="padding:4px 12px 4px 0;color:#888">Angebot</td><td><strong>${c.offerName}</strong>${c.months ? `, ${c.months === 12 ? "12 Monate" : "monatlich"}` : ""}, ${c.price} € alle vier Wochen</td></tr>
@@ -103,7 +105,7 @@ export async function sendContractMails(c: ContractMail) {
   const customer = c.email ? await send(c.email, `Willkommen bei SKILL CGN, ${c.firstName}`, wrap(`<h1 style="font-size:28px;margin:0 0 8px">Du bist dabei.</h1>
 <p style="font-size:18px;margin:0 0 16px">Dein <strong>${c.offerName}</strong> Vertrag ist angelegt (Vertragsnummer ${c.contractId})${start ? `, Start am ${start}` : ""}. ${c.price} € alle vier Wochen.</p>
 <p><strong>So geht es weiter</strong></p>
-<p>1. Schreib Boris kurz per <a href="https://wa.me/4917610877603?text=${encodeURIComponent(`Hi Boris, ich habe gerade ${c.offerName} abgeschlossen, ${c.firstName}. Wann kann ich zum Scan kommen?`)}" style="color:#FBFF00">WhatsApp</a> für deinen 3D-Scan-Termin.</p>
+${onb ? `<p>1. <a href="${onb}" style="color:#FBFF00"><strong>Such dir hier deinen Onboarding-Termin aus</strong></a>: 90 Minuten mit deinem Coach, 3D-Scan, Einweisung und Trainingsplan.</p>` : `<p>1. Schreib Boris kurz per <a href="https://wa.me/4917610877603?text=${encodeURIComponent(`Hi Boris, ich habe gerade ${c.offerName} abgeschlossen, ${c.firstName}. Wann kann ich zum Scan kommen?`)}" style="color:#FBFF00">WhatsApp</a> für deinen 3D-Scan-Termin.</p>`}
 <p>2. Komm zu deinem ersten Training in die Herzogstraße 16–20, zwei Minuten vom Neumarkt. Wir richten vor Ort alles ein und zeigen dir das Studio.</p>
 <p>3. Kurse buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>. Handtuch und Getränke gibt es bei uns.</p>
 <p style="color:#888;font-size:12px;margin-top:16px">Die Vertragsunterlagen kommen separat aus unserem Mitgliedersystem (Magicline). Kündigen kannst du jederzeit unter <a href="${SITE}/kuendigung" style="color:#FBFF00">skill-studios.com/kuendigung</a>.</p>`), STAFF_EMAIL) : false;
@@ -146,7 +148,11 @@ function bmHtml(paragraphs: string[]) {
   const link = (t: string) => esc(t).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" style="color:#FBFF00">$1</a>');
   return wrap(paragraphs.map(p => `<p style="margin:0 0 14px;font-size:15px;line-height:1.5">${link(p).replace(/\n/g, "<br>")}</p>`).join(""));
 }
-const bookingLine = () => BOOKING_URL ? `Such dir hier deinen Starttermin aus: ${BOOKING_URL}` : BM_WA;
+/** Persönlicher Onboarding-Link (90 Min, nur freie Zeiten), sonst fester BOOKING_URL, sonst WhatsApp. */
+const bookingLine = (o: BlackMonthBuyer) => {
+  const onb = onboardingLink({ name: o.name, email: o.email, phone: o.phone, offer: "Black Month", ref: "bm:" + o.sessionId });
+  return onb ? `Such dir hier deinen Starttermin aus: ${onb}` : BOOKING_URL ? `Such dir hier deinen Starttermin aus: ${BOOKING_URL}` : BM_WA;
+};
 const bmSignature = ["Bis bald im Studio\nBoris Kurowski\nSKILL CGN"];
 
 /** Mail 1, sofort nach Zahlung. */
@@ -155,7 +161,7 @@ export async function sendBlackMonthWelcome(o: BlackMonthBuyer) {
   const paragraphs = [
     `Hi${first ? " " + first : ""},`,
     "deine Zahlung ist angekommen, du bist dabei. Dein Black Month bei SKILL CGN: 6 Monate Gym, die Zeit läuft ab deinem ersten Trainingstag.",
-    "Start bis spätestens 15.12.2026. " + bookingLine(),
+    "Start bis spätestens 15.12.2026. " + bookingLine(o),
     "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch.",
     "Adresse: " + BM_ADDRESS,
     "Die Rechnung kommt separat von Stripe. AGB und Widerruf findest du unter skill-studios.com/agb.",
@@ -169,7 +175,7 @@ export async function sendBlackMonthNudge(o: BlackMonthBuyer) {
   const paragraphs = [
     `Hi${first ? " " + first : ""},`,
     "dein Black Month wartet. Du hast noch keinen Starttermin, dabei beginnen deine 6 Monate erst mit dem ersten Training. Je früher du startest, desto mehr hast du davon.",
-    "Start bis spätestens 15.12.2026. " + bookingLine(),
+    "Start bis spätestens 15.12.2026. " + bookingLine(o),
     "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch. Adresse: " + BM_ADDRESS,
     ...bmSignature,
   ];
@@ -196,4 +202,27 @@ export async function sendBlackMonthStaff(o: BlackMonthBuyer & { duplicate?: boo
   const text = "Black Month gekauft\n\n" + rows.map(([k, v]) => `${k}: ${v}`).join("\n");
   const to = [...new Set([...BM_NOTIFY, STAFF_EMAIL])];
   return sendFrom(BM_FROM, to, `Black Month gekauft: ${o.name || o.email}, ${eur(o.amount)}`, html, { text });
+}
+
+/* ---------- Onboarding über /onboarding gebucht: Bestätigung an den Kunden, Info ans Team ---------- */
+export async function sendOnboardingMails(o: { name: string; email: string; phone?: string; offer?: string; start: string; end: string; staff: string }) {
+  const when = `${bmDate(o.start)}, ${bmTime(o.start)} bis ${bmTime(o.end)} Uhr`;
+  const gcal = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const addToCal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Onboarding SKILL CGN")}&dates=${gcal(o.start)}/${gcal(o.end)}&location=${encodeURIComponent("SKILL CGN, Herzogstraße 16-20, 50667 Köln")}`;
+  const customer = await send(o.email, `Dein Onboarding bei SKILL CGN: ${bmDate(o.start)}, ${bmTime(o.start)} Uhr`, wrap(`<h1 style="font-size:28px;margin:0 0 8px">Termin steht.</h1>
+<p style="font-size:18px;margin:0 0 16px"><strong>${when}</strong><br>mit ${esc(o.staff.split(" ")[0])}, Herzogstraße 16–20, zwei Minuten vom Neumarkt.</p>
+<p>In 90 Minuten machen wir deinen 3D-Scan, zeigen dir das Studio und die Geräte und erstellen deinen Trainingsplan.</p>
+<p>Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch. Komm bitte 10 Minuten früher.</p>
+<p><a href="${addToCal}" style="color:#FBFF00">In meinen Kalender eintragen</a></p>
+<p style="color:#888;font-size:12px;margin-top:16px">Passt der Termin nicht? Antworte einfach auf diese Mail, wir finden einen neuen.</p>`), STAFF_EMAIL);
+  const staff = await send(STAFF_EMAIL, `Onboarding gebucht: ${o.name}, ${bmDate(o.start)} ${bmTime(o.start)} (${o.staff.split(" ")[0]})`, wrap(`<h1 style="font-size:24px;margin:0 0 12px">Onboarding gebucht</h1>
+<table style="border-collapse:collapse;color:#fff;font-size:14px">
+<tr><td style="padding:4px 12px 4px 0;color:#888">Wann</td><td><strong>${when}</strong></td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Coach</td><td>${esc(o.staff)}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Kunde</td><td><strong>${esc(o.name)}</strong></td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">E-Mail</td><td>${esc(o.email)}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Telefon</td><td>${esc(o.phone || "—")}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Angebot</td><td>${esc(o.offer || "—")}</td></tr>
+</table><p style="margin-top:16px">Steht im Kalender "Onboarding".</p>`));
+  return { customer, staff };
 }
