@@ -74,7 +74,7 @@ export default function BlackWeek() {
     <CampaignLanding
       campaign="Gym Only"
       badge="Black Week · bis 30.11."
-      h1Sub={`Fitnessstudio in Köln · Gym Only ${p} € alle 4 Wochen`}
+      h1Sub="Fitnessstudio in Köln · Herzogstraße, zwei Minuten vom Neumarkt"
       headline={`BLACK WEEK.\nGYM ONLY.\n${p}\u00a0€`}
       ctaEarly
       compactIncluded

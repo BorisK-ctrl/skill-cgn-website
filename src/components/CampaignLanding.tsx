@@ -78,11 +78,21 @@ export interface LandingProps {
 export default function CampaignLanding(p: LandingProps) {
   const formRef = useRef<HTMLElement>(null);
   const [formVisible, setFormVisible] = useState(true);
+  /* Feste Leiste (Handy) nur, wenn weder der erste Knopf im Hero noch das Formular im Bild ist: nie zwei "Jetzt sichern" übereinander */
+  const heroCtaRef = useRef<HTMLButtonElement>(null);
+  const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   useEffect(() => {
     const el = formRef.current; if (!el) return;
     const io = new IntersectionObserver(es => setFormVisible(es.some(e => e.isIntersecting)), { threshold: 0.05 });
     io.observe(el); return () => io.disconnect();
   }, []);
+  useEffect(() => {
+    const el = heroCtaRef.current; if (!el) return;
+    /* sichtbar oder noch unterhalb (Seite oben): Leiste aus. Erst wenn der Knopf nach oben rausgescrollt ist, kommt sie. */
+    const io = new IntersectionObserver(es => es.forEach(e => setHeroCtaVisible(e.isIntersecting || e.boundingClientRect.top > 0)), { threshold: 0 });
+    io.observe(el); return () => io.disconnect();
+  }, []);
+  const stickyHidden = formVisible || heroCtaVisible;
   /* Klick auf das Angebot: direkt ins erste leere Eingabefeld (Vorname), Feld mittig im Bild und fokussiert. Ohne Feld (Schritt 2/3 fertig) nur zum Formular. */
   const toForm = (smooth = true) => {
     const sec = formRef.current; if (!sec) return;
@@ -127,7 +137,7 @@ export default function CampaignLanding(p: LandingProps) {
             <p className={`campaign-display mt-3 uppercase leading-none text-white/85 sm:text-4xl md:text-5xl ${p.ctaEarly ? "text-2xl" : "text-3xl"} ${p.subline.includes("\n") ? "whitespace-pre-line" : ""}`}>{p.subline}</p>
             {p.priceLine && <p className="campaign-mono mt-5 text-[11px] uppercase leading-relaxed tracking-[0.14em] text-[#FBFF00] sm:text-xs">{p.priceLine}</p>}
             {p.timer ? <div className="mt-4">{p.timer}</div> : p.countdown && <p className="campaign-mono mt-2 inline-block border border-[#FBFF00] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white sm:text-xs" role="timer">{p.countdown}</p>}
-            {p.ctaEarly && <button type="button" onClick={() => toForm()} className="campaign-button mt-5 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md">{p.cta} <ArrowDown className="h-4 w-4" /></button>}
+            {p.ctaEarly && <button ref={heroCtaRef} type="button" onClick={() => toForm()} className="campaign-button mt-5 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md">{p.cta} <ArrowDown className="h-4 w-4" /></button>}
             {p.priceNote && <p className="mt-3 max-w-xl border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75 md:text-sm">{p.priceNote}</p>}
             {p.included ? (
               <div className="mt-5">
@@ -152,7 +162,7 @@ export default function CampaignLanding(p: LandingProps) {
                 {p.bullets.map(b => <li key={b} className="flex items-center gap-3 text-sm font-bold text-white/90 md:text-base"><span className="flex h-5 w-5 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-3 w-3 text-black" /></span>{b}</li>)}
               </ul>
             )}
-            <button type="button" onClick={() => toForm()} className={`campaign-button mt-6 min-h-14 w-full ${p.ctaEarly ? "hidden lg:flex" : "flex"} items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md`}>{p.cta} <ArrowDown className="h-4 w-4" /></button>
+            <button ref={p.ctaEarly ? undefined : heroCtaRef} type="button" onClick={() => toForm()} className={`campaign-button mt-6 min-h-14 w-full ${p.ctaEarly ? "hidden lg:flex" : "flex"} items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md`}>{p.cta} <ArrowDown className="h-4 w-4" /></button>
             {p.ctaNote && <p className="mt-3 text-[11px] leading-relaxed text-white/50 lg:max-w-md">{p.ctaNote}</p>}
           </section>
 
@@ -233,10 +243,10 @@ export default function CampaignLanding(p: LandingProps) {
       </footer>
 
       {/* 3. Feste Leiste, nur mobil und nur solange das Formular nicht im Bild ist */}
-      <div className={`fixed inset-x-0 bottom-0 z-40 border-t-2 border-[#FBFF00] bg-black transition-transform duration-200 md:hidden ${formVisible ? "translate-y-full" : "translate-y-0"}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-hidden={formVisible}>
+      <div className={`fixed inset-x-0 bottom-0 z-40 border-t-2 border-[#FBFF00] bg-black transition-transform duration-200 md:hidden ${stickyHidden ? "translate-y-full" : "translate-y-0"}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-hidden={stickyHidden}>
         <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-          <span className="campaign-mono text-[11px] uppercase tracking-[0.12em] text-white">{p.stickyLabel ?? "39 € alle vier Wochen"}{p.countdown && <span className="block text-[10px] text-[#FBFF00]">{p.countdown}</span>}</span>
-          <button type="button" onClick={() => toForm()} tabIndex={formVisible ? -1 : 0} className="campaign-button flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black">{p.stickyLabel ? p.cta : "Jetzt starten"} <ArrowDown className="h-3.5 w-3.5" /></button>
+          <span className="campaign-mono min-w-0 text-[11px] uppercase tracking-[0.12em] text-white">{p.stickyLabel ?? "39 € alle vier Wochen"}{p.countdown && <span className="block text-[10px] text-[#FBFF00]">{p.countdown}</span>}</span>
+          <button type="button" onClick={() => toForm()} tabIndex={stickyHidden ? -1 : 0} className="campaign-button flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap bg-[#FBFF00] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black">{p.stickyLabel ? p.cta : "Jetzt starten"} <ArrowDown className="h-3.5 w-3.5" /></button>
         </div>
       </div>
     </main>

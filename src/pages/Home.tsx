@@ -138,7 +138,7 @@ export default function Home() {
               <p className={`campaign-display mt-4 text-3xl md:text-5xl uppercase leading-none text-foreground/80 ${bwHero ? "hidden sm:block" : ""}`}>Show up. Earn it.</p>
               <p className={`mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed ${bwHero ? "order-last sm:order-none" : ""}`}>{bwHero ? "Trainier, wann es dir passt: morgens ab 7, unter der Woche bis 22 Uhr. Hanteln, Geräte, Sprintbahn, alles da. Dusche, Getränke und Handtuch inklusive. Zum Start zeigt dir der 3D Scan, wo du stehst. Passt es nicht, kündigst du zum nächsten Monat." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
               <div className="mt-8 max-w-md">
-                <Link to={promo.formPath} onClick={() => trackCta(`cta_${promo.key}_hero`)} className={`${ctaBtn} w-full`}>{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
+                <Link data-promo-cta to={promo.formPath} onClick={() => trackCta(`cta_${promo.key}_hero`)} className={`${ctaBtn} w-full`}>{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
                 <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">{promo.line}</p>
                 {bwHero && <Countdown variant="home" className="mt-5" />}
                 {blackMonth && <Link to="/blackmonth" onClick={() => trackCta("cta_blackmonth_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-primary bg-black px-6 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Black Month ansehen <ArrowRight className="w-4 h-4" /></Link>}
@@ -203,7 +203,7 @@ export default function Home() {
                 <p className="mt-1 text-primary text-xs font-black uppercase tracking-widest">Ohne Classes</p>
                 <div className="mt-5"><span className="text-5xl font-black font-mono">{fmtPrice(bw.now)}</span><span className="ml-2 text-sm text-foreground/60">€ alle vier Wochen</span><p className="mt-1 text-xs text-foreground/50">Monatlich kündbar, 1 Monat Laufzeit. Nur online, nur Neukunden. {afterText(fmtPrice(bw.was))}</p></div>
                 <ul className="mt-5 space-y-2 flex-1">{GYM_ONLY_FEATURES.map(f => <li key={f} className="flex items-start gap-2 text-sm text-foreground/75"><Check className="mt-0.5 w-4 h-4 text-primary shrink-0" />{f}</li>)}</ul>
-                <Link to="/blackweek#formular" onClick={() => trackCta("cta_blackweek_preise")} className="campaign-button mt-6 inline-flex items-center justify-center gap-2 border-2 border-primary px-5 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Gym Only {fmtPrice(bw.now)}&nbsp;€ sichern <ArrowRight className="w-4 h-4" /></Link>
+                <Link data-promo-cta to="/blackweek#formular" onClick={() => trackCta("cta_blackweek_preise")} className="campaign-button mt-6 inline-flex items-center justify-center gap-2 border-2 border-primary px-5 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Gym Only {fmtPrice(bw.now)}&nbsp;€ sichern <ArrowRight className="w-4 h-4" /></Link>
               </div>
               );
               return (
@@ -349,7 +349,7 @@ export default function Home() {
           {bwHero ? <>
           <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-primary-foreground leading-none">Black Week.<br />Gym Only {fmtPrice(bw.now)}&nbsp;€.</h2>
           <p className="mt-5 text-primary-foreground/70 text-lg max-w-xl mx-auto leading-relaxed">Alle 4 Wochen, dauerhaft. Monatlich kündbar, 3D Scan zum Start. Abschluss bis 30.11.</p>
-          <Link to="/blackweek#formular" onClick={() => trackCta("cta_blackweek_footer")} className="campaign-button mt-8 inline-flex items-center justify-center gap-3 bg-black text-primary font-black uppercase tracking-widest text-sm px-10 py-5 min-h-[60px] hover:bg-white hover:text-black">{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
+          <Link data-promo-cta to="/blackweek#formular" onClick={() => trackCta("cta_blackweek_footer")} className="campaign-button mt-8 inline-flex items-center justify-center gap-3 bg-black text-primary font-black uppercase tracking-widest text-sm px-10 py-5 min-h-[60px] hover:bg-white hover:text-black">{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
           <p className="mt-5 text-sm text-primary-foreground/70">Lieber erst ansehen? <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_footer")} className="font-bold text-primary-foreground underline underline-offset-4">Kostenloses Probetraining mit 3D Scan</Link></p>
           </> : <>
           <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-primary-foreground leading-none">Dein Coach.<br />Dein Plan.</h2>
