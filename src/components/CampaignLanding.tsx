@@ -51,7 +51,7 @@ export interface LandingProps {
   priceLine: string;           // "39 € je 4 Wochen · monatlich kündbar · keine Gebühr"
   priceNote?: ReactNode;       // Regel unter der Preiszeile, z. B. Wechsel in die SKILL Mitgliedschaft
   bullets: readonly string[];
-  included?: readonly { label: string; sub?: string; wide?: boolean }[];   // "Alles drin"-Kacheln im ersten Bildschirm, ersetzen die Punkte
+  included?: readonly { label: string; short?: string; sub?: string; wide?: boolean }[];   // "Alles drin"-Kacheln im ersten Bildschirm, ersetzen die Punkte
   feeNote?: { label: string; now: string; was?: string };   // z. B. Aufnahmegebühr 0 €, optional mit Vergleichspreis
   cta: string;                 // Knopftext
   forYou: readonly string[];
@@ -71,6 +71,7 @@ export interface LandingProps {
   timer?: ReactNode;           // großer Countdown unter der Preiszeile (statt der Textzeile countdown)
   image?: { src: string; alt: string };
   video?: { src: string; poster: string; label: string };
+  compactIncluded?: boolean;  // Handy: Leistungen als kurze Häkchen-Liste, Preisbalken nur am Rechner
   ctaEarly?: boolean;          // Knopf schon direkt unter Preis/Timer (Handy: im ersten Bildschirm)   // eigenes Hochkant-Video statt Bild/Kampagnenvideo, auch mobil   // Bild statt Kampagnenvideo (das Video zeigt "START FOR 39€", passt nicht zu anderen Angeboten)
 }
 
@@ -131,23 +132,27 @@ export default function CampaignLanding(p: LandingProps) {
             {p.included ? (
               <div className="mt-5">
                 <p className="campaign-mono text-[10px] uppercase tracking-[0.22em] text-white/50">Alles drin</p>
-                <ul className="mt-2 grid grid-cols-2 gap-px bg-white/15 md:grid-cols-4">
+                {/* Handy (compactIncluded): kurze Häkchen-Liste statt Kachelraster, spart rund zwei Bildschirmhöhen */}
+                {p.compactIncluded && <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-2 md:hidden">
+                  {p.included.map(i => <li key={i.label} className="flex items-center gap-1.5 text-sm font-bold text-white"><Check className="h-4 w-4 shrink-0 text-[#FBFF00]" strokeWidth={3} />{i.short ?? i.label}</li>)}
+                </ul>}
+                <ul className={`mt-2 grid-cols-2 gap-px bg-white/15 md:grid-cols-4 ${p.compactIncluded ? "hidden md:grid" : "grid"}`}>
                   {p.included.map(i => <li key={i.label} className={`flex items-start gap-2 bg-[#111516] px-3 py-3 ${i.wide ? "col-span-2" : ""}`}><span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-2.5 w-2.5 text-black" /></span><span className="min-w-0"><span className="block text-sm font-bold leading-tight text-white">{i.label}</span>{i.sub && <span className="block text-[11px] leading-snug text-white/55">{i.sub}</span>}</span></li>)}
                 </ul>
                 {p.feeNote && (
-                  <div className="mt-px flex items-center justify-between gap-3 bg-[#FBFF00] px-4 py-3 text-black">
+                  <div className={`mt-px items-center justify-between gap-3 bg-[#FBFF00] px-4 py-3 text-black ${p.compactIncluded ? "hidden md:flex" : "flex"}`}>
                     <span className="campaign-mono text-[11px] font-bold uppercase tracking-[0.18em]">{p.feeNote.label}</span>
                     <span className="flex items-baseline gap-2"><span className="campaign-display text-3xl leading-none">{p.feeNote.now}</span>{p.feeNote.was && <span className="campaign-mono text-xs font-bold uppercase tracking-[0.12em] text-black/60">statt <s>{p.feeNote.was}</s></span>}</span>
                   </div>
                 )}
-                {p.notIncluded && <p className="mt-3 border-l-4 border-white/30 bg-[#111516] px-4 py-3 text-xs leading-relaxed text-white/70 md:text-sm">{p.notIncluded}</p>}
+                {p.notIncluded && <p className={`mt-3 text-xs leading-relaxed text-white/70 md:border-l-4 md:border-white/30 md:bg-[#111516] md:px-4 md:py-3 md:text-sm ${p.compactIncluded ? "" : "border-l-4 border-white/30 bg-[#111516] px-4 py-3"}`}>{p.notIncluded}</p>}
               </div>
             ) : (
               <ul className="mt-5 space-y-2">
                 {p.bullets.map(b => <li key={b} className="flex items-center gap-3 text-sm font-bold text-white/90 md:text-base"><span className="flex h-5 w-5 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-3 w-3 text-black" /></span>{b}</li>)}
               </ul>
             )}
-            <button type="button" onClick={() => toForm()} className="campaign-button mt-6 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md">{p.cta} <ArrowDown className="h-4 w-4" /></button>
+            <button type="button" onClick={() => toForm()} className={`campaign-button mt-6 min-h-14 w-full ${p.ctaEarly ? "hidden lg:flex" : "flex"} items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md`}>{p.cta} <ArrowDown className="h-4 w-4" /></button>
             {p.ctaNote && <p className="mt-3 text-[11px] leading-relaxed text-white/50 lg:max-w-md">{p.ctaNote}</p>}
           </section>
 

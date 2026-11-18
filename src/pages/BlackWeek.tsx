@@ -77,6 +77,7 @@ export default function BlackWeek() {
       h1Sub={`Fitnessstudio in Köln · Gym Only ${p} € alle 4 Wochen`}
       headline={`BLACK WEEK.\nGYM ONLY.\n${p}\u00a0€`}
       ctaEarly
+      compactIncluded
       accent={`${p}\u00a0€`}
       afterAccent={<PriceStamp />}
       subline={"Alle 4 Wochen. Monatlich kündbar.\n0\u00a0€\u00a0Aufnahmegebühr."}
@@ -85,12 +86,12 @@ export default function BlackWeek() {
       priceNote={<>In der Black Week {p}&nbsp;€ alle 4 Wochen, dauerhaft, mit 1 Monat Laufzeit. {afterText(was)}</>}
       bullets={[]}
       included={[
-        { label: "Gym komplett", sub: "Alle Geräte, Freihantelbereich, Kunstrasenbahn" },
-        { label: "Dusche", sub: "Duschen und Umkleiden" },
-        { label: "Getränke", sub: "Wasser und Mineraldrinks" },
-        { label: "Trainingshandtuch", sub: "Bei jedem Training" },
-        { label: "3D Scan und Assessment", sub: "Zum Start", wide: true },
-        { label: "Monatlich kündbar", sub: "Laufzeit 1 Monat", wide: true },
+        { label: "Gym komplett", short: "Gym komplett", sub: "Alle Geräte, Freihantelbereich, Kunstrasenbahn" },
+        { label: "Dusche", short: "Dusche", sub: "Duschen und Umkleiden" },
+        { label: "Getränke", short: "Getränke", sub: "Wasser und Mineraldrinks" },
+        { label: "Trainingshandtuch", short: "Handtuch", sub: "Bei jedem Training" },
+        { label: "3D Scan und Assessment", short: "3D Scan zum Start", sub: "Zum Start", wide: true },
+        { label: "Monatlich kündbar", short: "Monatlich kündbar", sub: "Laufzeit 1 Monat", wide: true },
       ]}
       feeNote={{ label: "Black Week Preis", now: `${p}\u00a0€` }}
       notIncluded={<><span className="font-bold text-white">Nicht drin: Classes und Coaching.</span> Dafür gibt es <Link to="/start39" className="underline hover:text-[#FBFF00]">START 39 mit 4 Classes je 4 Wochen</Link> oder Drop In und Trial Pass im <Link to="/shop" className="underline hover:text-[#FBFF00]">Shop</Link>.</>}
