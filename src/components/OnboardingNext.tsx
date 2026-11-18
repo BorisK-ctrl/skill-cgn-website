@@ -17,7 +17,7 @@ export default function OnboardingNext({ waText }: { waText: string }) {
   const wa = `${WHATSAPP}?text=${encodeURIComponent(waText)}`;
   const embed = ONBOARDING_BOOKING_URL ? ONBOARDING_BOOKING_URL + (ONBOARDING_BOOKING_URL.includes("?") ? "&" : "?") + "gv=true" : "";
   return (
-    <section className="mt-12" aria-labelledby="onboarding-h">
+    <section className="mt-12 min-w-0" aria-labelledby="onboarding-h">
       <p className={kicker}>Dein nächster Schritt</p>
       <h2 id="onboarding-h" className="campaign-display mt-3 text-5xl uppercase leading-[0.88] md:text-6xl">Buch deinen<br /><span className="text-[#FBFF00]">Onboarding-Termin.</span></h2>
       <p className="mt-4 text-base leading-relaxed text-white/75">30 Minuten mit Coach, bei uns in der Herzogstraße. Danach trainierst du, wann es dir passt.</p>
@@ -30,7 +30,7 @@ export default function OnboardingNext({ waText }: { waText: string }) {
       ) : (
         <div className="mt-6 border-2 border-[#FBFF00] bg-[#1a2224] p-5">
           <p className="flex items-start gap-3 text-sm leading-relaxed text-white/80"><CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#FBFF00]" /> Schreib Boris kurz, wann es dir passt. Er meldet sich innerhalb von 24 Stunden mit deinem Termin.</p>
-          <a href={wa} target="_blank" rel="noopener noreferrer" className="campaign-button mt-4 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white"><MessageCircle className="h-4 w-4" /> Termin per WhatsApp</a>
+          <a href={wa} target="_blank" rel="noopener noreferrer" className="campaign-button mt-4 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-4 py-4 text-sm font-bold uppercase tracking-[0.1em] text-black hover:bg-white"><MessageCircle className="h-4 w-4 shrink-0" /> Termin per WhatsApp</a>
         </div>
       )}
       {ONBOARDING_BOOKING_URL && <a href={wa} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-2 text-sm text-white/70 underline underline-offset-4 hover:text-[#FBFF00]"><MessageCircle className="h-4 w-4" /> Kein passender Termin? Schreib Boris</a>}

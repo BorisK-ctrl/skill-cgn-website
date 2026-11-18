@@ -49,14 +49,14 @@ export default function BlackWeekDanke() {
   }, [c]);
 
   return (
-    <main className="campaign-page min-h-screen bg-black text-white">
+    <main className="campaign-page min-h-screen overflow-x-clip bg-black text-white">
       <header className="border-b border-white/10">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
           <Link to="/" aria-label="SKILL CGN Startseite"><img src="/img/logo-white.svg" alt="SKILL CGN" width={160} height={17} className="h-5 w-auto" /></Link>
           <span className="campaign-mono text-[10px] uppercase tracking-[0.18em] text-[#FBFF00]">Vertrag angelegt</span>
         </div>
       </header>
-      <div className="mx-auto max-w-2xl px-5 pb-20 pt-10 md:pt-16">
+      <div className="mx-auto w-full max-w-2xl min-w-0 px-5 pb-20 pt-10 md:pt-16">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-6 w-6 text-black" strokeWidth={3} /></span>
           <p className={kicker}>Black Week · Gym Only</p>
