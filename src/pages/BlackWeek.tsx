@@ -11,7 +11,7 @@ import StartCheckout from "@/components/StartCheckout";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT } from "@/lib/pixel";
 import { useRateBundles, fmtPrice } from "@/lib/useRateBundles";
-import { BLACK_WEEK } from "@/lib/blackweek";
+import { BLACK_WEEK, blackWeekPrices } from "@/lib/blackweek";
 import { PARKING } from "@/lib/tarife";
 import { WHATSAPP } from "@/lib/magicline";
 import { FaqJsonLd, OffersJsonLd } from "@/lib/jsonld";
@@ -31,6 +31,8 @@ export default function BlackWeek() {
   const ended = !!bundles && !bundle;
   const resume = useResume();
   const p = fmtPrice(term?.price ?? BLACK_WEEK.price);
+  /* Streichpreis: reguläres Gym Only (34 €, 3 Monate). Keine Streichung der Aufnahmegebühr, Gym Only hatte nie eine (§ 11 PAngV). */
+  const was = fmtPrice(blackWeekPrices(bundles).was);
 
   /* PageView kommt vom Pixel selbst. ViewContent nur mit Consent, sofort oder beim Erteilen auf dieser Seite. */
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function BlackWeek() {
   const faqs = [
     ["Was kostet es?", `${p} € alle 4 Wochen, dauerhaft. Kein Preissprung. Abrechnung alle 4 Wochen, das sind 13 Abbuchungen im Jahr.`],
     ["Wie lange läuft der Vertrag?", "Laufzeit 1 Monat, verlängert sich automatisch um jeweils 1 Monat. Kündigungsfrist 1 Monat zum Laufzeitende, Kündigung per Mail reicht."],
-    ["Gibt es eine Aufnahmegebühr?", `Nein, 0 € statt regulär ${BLACK_WEEK.regularFee} €.`],
+    ["Gibt es eine Aufnahmegebühr?", "Nein, keine Aufnahmegebühr."],
     ["Was ist drin?", "Gym komplett, Dusche, Getränke, Trainingshandtuch, 3D Scan und Assessment zum Start."],
     ["Was ist nicht drin?", "Classes und Coaching. Dafür gibt es START 39, Drop In oder Trial Pass."],
     ["Wer kann buchen?", "Alle ab 18 ohne laufenden SKILL Vertrag. Ein Wechsel aus einem laufenden Vertrag ist nicht möglich."],
@@ -73,7 +75,8 @@ export default function BlackWeek() {
       headline={`BLACK WEEK. GYM ONLY. ${p}\u00a0€`}
       accent={`${p}\u00a0€`}
       subline="alle 4 Wochen. Monatlich kündbar. 0\u00a0€ Aufnahmegebühr."
-      priceLine={`${p} € alle 4 Wochen, Laufzeit 1 Monat, monatlich kündbar, 0 € Aufnahmegebühr statt ${BLACK_WEEK.regularFee} €, nur online, Abschluss bis 30.11.2026.`}
+      priceLine={`${p} € statt ${was} € alle 4 Wochen, Laufzeit 1 Monat, monatlich kündbar, keine Aufnahmegebühr, nur online, Abschluss bis 30.11.2026.`}
+      priceNote={<>Regulär kostet Gym Only {was} € alle 4 Wochen bei 3 Monaten Laufzeit. In der Black Week {p} €, dauerhaft, mit 1 Monat Laufzeit.</>}
       bullets={[]}
       included={[
         { label: "Gym komplett", sub: "Alle Geräte, Freihantelbereich, Kunstrasenbahn" },
@@ -83,7 +86,7 @@ export default function BlackWeek() {
         { label: "3D Scan und Assessment", sub: "Zum Start", wide: true },
         { label: "Monatlich kündbar", sub: "Laufzeit 1 Monat", wide: true },
       ]}
-      feeNote={{ label: "Aufnahmegebühr", now: "0 €", was: `${BLACK_WEEK.regularFee} €` }}
+      feeNote={{ label: "Black Week Preis", now: `${p}\u00a0€`, was: `${was}\u00a0€` }}
       notIncluded={<><span className="font-bold text-white">Nicht drin: Classes und Coaching.</span> Dafür gibt es <Link to="/start39" className="underline hover:text-[#FBFF00]">START 39 mit 4 Classes je 4 Wochen</Link> oder Drop In und Trial Pass im <Link to="/shop" className="underline hover:text-[#FBFF00]">Shop</Link>.</>}
       cta="Jetzt sichern"
       ctaNote="Nur bis 30.11.2026. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt."
@@ -101,10 +104,10 @@ export default function BlackWeek() {
         : ended ? placeholder("Black Week ist beendet", <>Das Angebot war bis 30.11.2026 buchbar. Mit Classes und Coach startest du mit <Link to="/start39" className="underline">START 39</Link>.</>)
         : (
           <>
-            <StartCheckout term={term} offerName={BLACK_WEEK.offer} path="/blackweek" priceLine={`${p} € alle 4 Wochen, monatlich kündbar, 0 € Aufnahmegebühr statt ${BLACK_WEEK.regularFee} €`} resume={resume}
+            <StartCheckout term={term} offerName={BLACK_WEEK.offer} path="/blackweek" priceLine={`${p} € alle 4 Wochen, monatlich kündbar, keine Aufnahmegebühr`} resume={resume}
               startToday successPath="/blackweek/danke" utmContent
               notes={{ lead: "BLACK WEEK 29 Website, Schritt 1 abgeschickt", contract: "BLACK WEEK 29 Website, Vertrag abgeschlossen" }}
-              summary={[{ label: "Tarif", value: "BLACK WEEK Gym Only" }, { label: "Laufzeit", value: "1 Monat, verlängert sich um je 1 Monat" }, { label: "Preis", value: `${p} € alle 4 Wochen, dauerhaft` }, { label: "Aufnahmegebühr", value: `0 € statt ${BLACK_WEEK.regularFee} €` }, { label: "Kündigung", value: "1 Monat Frist zum Laufzeitende" }, { label: "Start", value: "Heute, am Tag des Abschlusses" }, { label: "Classes", value: "Nicht enthalten" }]}
+              summary={[{ label: "Tarif", value: "BLACK WEEK Gym Only" }, { label: "Laufzeit", value: "1 Monat, verlängert sich um je 1 Monat" }, { label: "Preis", value: `${p} € alle 4 Wochen, dauerhaft` }, { label: "Aufnahmegebühr", value: "Keine" }, { label: "Kündigung", value: "1 Monat Frist zum Laufzeitende" }, { label: "Start", value: "Heute, am Tag des Abschlusses" }, { label: "Classes", value: "Nicht enthalten" }]}
               cancelNote={`Nur für Neukunden ohne laufenden SKILL Vertrag. Laufzeit 1 Monat, verlängert sich automatisch um jeweils 1 Monat zu ${p} €, kündbar mit 1 Monat Frist zum Laufzeitende. Erste Abbuchung zum Vertragsstart.`} />
             <p className="campaign-mono mt-3 text-center text-[10px] uppercase tracking-[0.16em] text-white/45">Fragen? <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#FBFF00]">WhatsApp</a> · <Link to="/datenschutz" className="underline hover:text-[#FBFF00]">Datenschutz</Link></p>
           </>

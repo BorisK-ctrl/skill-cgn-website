@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { berlinToday } from "./blackmonth";
 
-export const BLACK_WEEK = { offer: "BLACK WEEK 29", pixelName: "ONLY GYM 29", rateBundleId: 1215762330, termId: 1215762340, price: 29, regularFee: 89, end: "2026-11-30", afterPrice: 34 } as const;
+export const BLACK_WEEK = { offer: "BLACK WEEK 29", pixelName: "ONLY GYM 29", rateBundleId: 1215762330, termId: 1215762340, price: 29, end: "2026-11-30", afterPrice: 34 } as const;
 export const blackWeekActive = (today = berlinToday()) => today <= BLACK_WEEK.end;
 
 /** true bis einschließlich 30.11.2026. Erster Render immer true, damit Prerender und Client übereinstimmen. */
