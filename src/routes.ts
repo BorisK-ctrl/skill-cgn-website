@@ -20,6 +20,7 @@ export const ROUTES: RouteMeta[] = [
   { path: "/kursplan", title: "Kursplan & Buchung — SKILL CGN Köln", description: "Alle Classes der nächsten sieben Tage. Platz sichern mit E-Mail und Handynummer, ohne Login.", robots: "noindex,nofollow" },
   { path: "/shop/danke", title: "Danke für deinen Kauf — SKILL CGN", description: "Dein Ticket ist bestätigt.", robots: "noindex,nofollow" },
   { path: "/checkout", title: "Onlineabschluss — SKILL CGN", description: "Vertrag online abschließen. Drei Minuten, alle Konditionen vorab sichtbar.", robots: "noindex,nofollow" },
+  { path: "/onboarding", title: "Onboarding-Termin wählen — SKILL CGN", description: "Such dir deinen Termin für Scan, Einweisung und Trainingsplan aus.", robots: "noindex,nofollow" },
   { path: "/danke", title: "Willkommen im Team — SKILL CGN", description: "Dein Vertrag ist angelegt.", robots: "noindex,nofollow" },
   { path: "/kuendigung", title: "Vertrag kündigen — SKILL CGN", description: "Kündige deine Mitgliedschaft online. Bestätigung per E-Mail.", robots: "noindex,nofollow" },
   { path: "/kuendigung-bestaetigt", title: "Kündigung eingegangen — SKILL CGN", description: "Bestätigung deiner Kündigung.", robots: "noindex,nofollow" },

@@ -67,7 +67,8 @@ export async function runFollowup() {
   let nudges = 0, reminders = 0, checked = 0;
   for (const r of await listBlackMonth()) {
     if (!r.email) continue; checked++;
-    const appt = ics ? findAppointment(r, events, today) : r.appointmentAt || null;
+    /* Über /onboarding gebucht: Termin steht am Datensatz, der Kalender-Abgleich überschreibt ihn nicht */
+    const appt = r.appointmentSource === "website" ? r.appointmentAt || null : ics ? findAppointment(r, events, today) : r.appointmentAt || null;
     if (appt !== (r.appointmentAt || null)) { r.appointmentAt = appt; await saveBlackMonth(r); }
     if (!mailConfigured()) continue;
     const ageDays = Math.floor((Date.now() - new Date(r.at).getTime()) / 86400000);

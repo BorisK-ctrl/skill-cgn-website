@@ -11,7 +11,8 @@ import { useBlackMonthActive } from "@/lib/blackmonth";
 export default function Layout() {
   const pathname = useLocation().pathname.replace(/\/+$/, "") || "/";
   const hideChrome = pathname === "/start39" || pathname === "/back39" || pathname === "/blackmonth" || pathname === "/blackmonth/danke" || pathname === "/blackweek" || pathname === "/blackweek/danke" || pathname === "/vor-ort" || pathname === "/scan" || pathname === "/scan/danke";
-  const blackMonth = useBlackMonthActive();
+  /* Auf /onboarding hat der Kunde schon gekauft: kein Aktionsbanner */
+  const blackMonth = useBlackMonthActive() && pathname !== "/onboarding";
   const ownTopPadding = pathname === "/" || hideChrome || blackMonth;
   return (
     <>

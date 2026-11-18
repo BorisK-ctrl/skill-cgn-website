@@ -74,7 +74,7 @@ export async function listAlerts(): Promise<StripeAlert[]> { const keys = await 
 
 /* ---------- Black Month (Aktion 2026): ein Datensatz je Stripe-Sitzung, Index je E-Mail und Telefon für die Dubletten-Prüfung ---------- */
 export interface BlackMonthRecord { sessionId: string; at: string; name: string; email: string; phone: string; amount: number; customerId?: string | null; ref?: string;
-  magicline?: string | null; magiclineStatus?: number; duplicateOf?: string; mails: { welcome?: string; staff?: string; nudge?: string; reminder?: string }; appointmentAt?: string | null; capi?: { at: string; sent: boolean; note?: string } }
+  magicline?: string | null; magiclineStatus?: number; duplicateOf?: string; mails: { welcome?: string; staff?: string; nudge?: string; reminder?: string }; appointmentAt?: string | null; /** "website" = über /onboarding gebucht, dann gilt appointmentAt und der Kalender-Abgleich überschreibt es nicht */ appointmentSource?: "website"; capi?: { at: string; sent: boolean; note?: string } }
 const phoneKey = (p: string) => { let d = p.replace(/\D/g, ""); if (d.startsWith("00")) d = d.slice(2); else if (d.startsWith("0")) d = "49" + d.slice(1); return d; };
 export async function getBlackMonth(sessionId: string) { return getJSON<BlackMonthRecord>("blackmonth", "s/" + sessionId); }
 export async function saveBlackMonth(r: BlackMonthRecord) {
@@ -93,3 +93,8 @@ export async function listBlackMonth(): Promise<BlackMonthRecord[]> {
   for (const k of keys) { const r = await getJSON<BlackMonthRecord>("blackmonth", k); if (r) out.push(r); }
   return out;
 }
+
+/* ---------- Onboarding-Termine über /onboarding: ein Datensatz je Käufer (E-Mail), damit ein Link nicht mehrfach bucht ---------- */
+export interface OnboardingRecord { email: string; name: string; phone?: string; offer?: string; ref?: string; start: string; end: string; staff: string; eventId: string; bookedAt: string; mails: { customer: boolean; staff: boolean } }
+export async function getOnboarding(email: string) { return getJSON<OnboardingRecord>("onboarding", "e/" + email.toLowerCase()); }
+export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboarding", "e/" + r.email.toLowerCase(), r); }
