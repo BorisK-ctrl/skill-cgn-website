@@ -62,12 +62,12 @@ const whySkill = [
 /* Handtuch über der Stange (hinten kürzere Lage, vorne Streifen), Strich wie Lucide */
 const Towel = (p: { className?: string }) => <svg className={p.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 4h20" /><path d="M5 4v11h3" /><path d="M8 4v17h11V4" /><path d="M8 17h11" /></svg>;
 const included = [
-  { icon: GlassWater, label: "Mineralgetränke", text: "Wasser und Mineralgetränke inklusive" },
-  { icon: Towel, label: "Trainingshandtuch", text: "Liegt für dich bereit" },
-  { icon: ShowerHead, label: "Duschen", text: "Moderne Duschen und Umkleiden" },
-  { icon: Bike, label: "Technogym", text: "Cardio, Kraft, funktionell" },
-  { icon: Dumbbell, label: "Freihantelbereich", text: "Racks, Plattformen, Bumper Plates" },
-  { icon: ScanLine, label: "3D Körperscan", text: "Dein Startpunkt in Zahlen" },
+  { icon: GlassWater, label: "Mineralgetränke", short: "Getränke", text: "Wasser und Mineralgetränke inklusive" },
+  { icon: Towel, label: "Trainingshandtuch", short: "Handtuch", text: "Liegt für dich bereit" },
+  { icon: ShowerHead, label: "Duschen", short: "Duschen", text: "Moderne Duschen und Umkleiden" },
+  { icon: Bike, label: "Technogym", short: "Technogym", text: "Cardio, Kraft, funktionell" },
+  { icon: Dumbbell, label: "Freihantelbereich", short: "Freihanteln", text: "Racks, Plattformen, Bumper Plates" },
+  { icon: ScanLine, label: "3D Körperscan", short: "3D Scan", text: "Dein Startpunkt in Zahlen" },
 ] as const;
 
 const formatsLine = [["SKILL I", "format-skill-i"], ["SKILL II", "format-skill-ii"], ["HYROX", "hyrox"], ["RAW", "format-raw"], ["ATHX", "format-athx"]] as const;
@@ -240,9 +240,9 @@ export default function Home() {
       <section className="py-14 bg-card border-b border-foreground/10" id="inklusive">
         <div className="container">
           <div className="mb-8"><div className={badge}>Bei jeder Membership dabei</div><h2 className="text-3xl md:text-5xl font-black uppercase tracking-tight leading-none">Alles drin.<br /><span className="text-primary">Nichts extra.</span></h2></div>
-          <ul className="grid grid-cols-2 gap-px bg-foreground/10 sm:grid-cols-3 lg:grid-cols-6">
-            {included.map(({ icon: Icon, label, text }) => (
-              <li key={label} className="bg-card p-5"><span className="flex h-10 w-10 items-center justify-center bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span><p className="mt-4 font-sans text-sm font-black uppercase tracking-wide">{label}</p><p className="mt-1 text-xs leading-relaxed text-foreground/60">{text}</p></li>
+          <ul className="grid grid-cols-3 gap-px bg-foreground/10 lg:grid-cols-6">
+            {included.map(({ icon: Icon, label, short, text }) => (
+              <li key={label} className="bg-card p-3 sm:p-5"><span className="flex h-9 w-9 items-center justify-center bg-primary/10 text-primary sm:h-10 sm:w-10"><Icon className="h-5 w-5" /></span><p className="mt-3 font-sans text-[11px] font-black uppercase leading-tight tracking-wide sm:mt-4 sm:text-sm"><span className="sm:hidden">{short}</span><span className="hidden sm:inline">{label}</span></p><p className="mt-1 hidden text-xs leading-relaxed text-foreground/60 sm:block">{text}</p></li>
             ))}
           </ul>
         </div>
@@ -257,7 +257,7 @@ export default function Home() {
               <div key={n} className="bg-card p-7"><div className="flex items-center justify-between"><span className="font-mono text-xs text-foreground/40">{n}</span><Icon className="w-5 h-5 text-primary" /></div><h3 className="mt-8 text-2xl font-black uppercase tracking-tight">{title}</h3><p className="mt-2 text-sm text-foreground/65 leading-relaxed">{text}</p></div>
             ))}
           </div>
-          <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_steps")} className={`${ctaBtn} mt-8 w-full md:w-auto`}>Kostenloses Probetraining mit 3D Scan <ArrowRight className="w-4 h-4" /></Link>
+          <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_steps")} className={bwHero ? "campaign-button mt-8 inline-flex w-full items-center justify-center gap-2 border-2 border-primary px-6 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground md:w-auto" : `${ctaBtn} mt-8 w-full md:w-auto`}>Kostenloses Probetraining mit 3D Scan <ArrowRight className="w-4 h-4" /></Link>
         </div>
       </section>
 

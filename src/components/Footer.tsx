@@ -25,7 +25,7 @@ export default function Footer() {
       <div className="container py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
           <div className="md:col-span-1">
-            <div className="text-2xl font-black uppercase tracking-tight mb-4 font-display">SKILL <span className="text-primary">CGN</span></div>
+            <img src="/img/logo-white.svg" alt="SKILL CGN" width={180} height={19} className="mb-4 h-5 w-auto" loading="lazy" />
             <p className="text-sm text-foreground/60 leading-relaxed mb-6">Impetus Kraftkonzept UG</p>
             <div className="flex gap-3">
               <a href="https://www.instagram.com/skill.cgn/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="w-9 h-9 border border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-all duration-200"><Instagram className="w-4 h-4" /></a>
