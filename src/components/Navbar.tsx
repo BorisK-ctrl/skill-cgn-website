@@ -4,6 +4,7 @@ import { ArrowRight, Menu, X, MessageCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { WHATSAPP } from "@/lib/magicline";
 import { useBlackMonthActive } from "@/lib/blackmonth";
+import { usePromo } from "@/lib/blackweek";
 
 const baseLinks = [
   { href: "/classes", label: "Classes" },
@@ -17,6 +18,7 @@ const baseLinks = [
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const promo = usePromo();
   const navLinks = useBlackMonthActive() ? [{ href: "/blackmonth", label: "Black Month" }, ...baseLinks] : baseLinks;
   const go = (href: string) => { setMobileMenuOpen(false); navigate(href); };
 
@@ -34,8 +36,8 @@ export default function Navbar() {
           <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-black uppercase text-sm px-4 py-3 hover:bg-white transition-all duration-200 hover:scale-[1.02]">
             <MessageCircle className="w-4 h-4" /> WhatsApp
           </a>
-          <Link to="/start39" className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-black uppercase text-sm px-6 py-3 hover:bg-white transition-all duration-200 hover:scale-[1.02]">
-            START 39 <ArrowRight className="w-4 h-4" />
+          <Link to={promo.path} className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-black uppercase text-sm px-6 py-3 hover:bg-white transition-all duration-200 hover:scale-[1.02]">
+            {promo.nav} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
@@ -54,7 +56,7 @@ export default function Navbar() {
             ))}
             <div className="pt-4 flex flex-col gap-3">
               <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground font-black uppercase text-sm px-6 py-4 hover:bg-white transition-all"><MessageCircle className="w-4 h-4" /> WhatsApp</a>
-              <a href="/start39" onClick={e => { e.preventDefault(); go("/start39"); }} className="block w-full bg-primary text-primary-foreground font-black uppercase text-sm px-6 py-4 hover:bg-white transition-all text-center">START 39</a>
+              <a href={promo.path} onClick={e => { e.preventDefault(); go(promo.path); }} className="block w-full bg-primary text-primary-foreground font-black uppercase text-sm px-6 py-4 hover:bg-white transition-all text-center">{promo.nav}</a>
             </div>
           </div>
         </div>

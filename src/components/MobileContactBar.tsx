@@ -1,13 +1,15 @@
-/* Feste Leiste unten, nur mobil: ein gelber Knopf zu START 39 (Ereignis cta_start39_sticky).
+/* Feste Leiste unten, nur mobil: ein gelber Knopf zum aktuellen Angebot (usePromo, Ereignis cta_<angebot>_sticky).
    Anrufen und WhatsApp stehen im Footer. Auf /probetraining und /checkout ausgeblendet. */
 import { ArrowRight, MessageCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { trackCta } from "@/lib/events";
 import { track } from "@/lib/pixel";
 import { WHATSAPP } from "@/lib/magicline";
+import { usePromo } from "@/lib/blackweek";
 
 export default function MobileContactBar() {
   const p = useLocation().pathname;
+  const promo = usePromo();
   if (p.startsWith("/checkout") || p.startsWith("/danke")) return null;
   if (p.startsWith("/personal-training")) return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t-2 border-primary bg-background lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
@@ -16,7 +18,7 @@ export default function MobileContactBar() {
   );
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t-2 border-primary bg-background lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <Link to="/start39" onClick={() => trackCta("cta_start39_sticky")} className="flex min-h-[56px] items-center justify-center gap-2 bg-primary px-4 text-xs font-black uppercase tracking-widest text-primary-foreground">START 39 sichern · 39 € alle vier Wochen <ArrowRight className="h-4 w-4" /></Link>
+      <Link to={promo.path} onClick={() => trackCta(`cta_${promo.key}_sticky`)} className="flex min-h-[56px] items-center justify-center gap-2 bg-primary px-4 text-xs font-black uppercase tracking-widest text-primary-foreground">{promo.sticky} <ArrowRight className="h-4 w-4" /></Link>
     </div>
   );
 }
