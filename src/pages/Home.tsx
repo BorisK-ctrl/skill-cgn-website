@@ -59,7 +59,8 @@ const whySkill = [
 ];
 
 /* Was bei jeder Membership dabei ist, als Icon-Leiste */
-const Towel = (p: { className?: string }) => <svg className={p.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" /><path d="M3 12h18" /><path d="M8 5v14" /><path d="M16 5v14" /></svg>;
+/* Handtuch über der Stange (hinten kürzere Lage, vorne Streifen), Strich wie Lucide */
+const Towel = (p: { className?: string }) => <svg className={p.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 4h20" /><path d="M5 4v11h3" /><path d="M8 4v17h11V4" /><path d="M8 17h11" /></svg>;
 const included = [
   { icon: GlassWater, label: "Mineralgetränke", text: "Wasser und Mineralgetränke inklusive" },
   { icon: Towel, label: "Trainingshandtuch", text: "Liegt für dich bereit" },
