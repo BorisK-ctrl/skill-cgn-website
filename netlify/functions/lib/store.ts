@@ -99,8 +99,19 @@ export async function listBlackMonth(): Promise<BlackMonthRecord[]> {
 /* ---------- Termine mit Coach über die Website (Onboarding): ein Datensatz je Käufer (E-Mail), damit ein Link nicht mehrfach bucht ---------- */
 export interface OnboardingRecord { email: string; name: string; phone?: string; offer?: string; ref?: string; kind?: string; start: string; end: string; staff: string; eventId: string; calendarId?: string;
   bookedAt: string; uncertain?: string[]; mails: { customer: boolean; staff: boolean }; cancelledAt?: string }
-export async function getOnboarding(email: string) { return getJSON<OnboardingRecord>("onboarding", "e/" + email.trim().toLowerCase()); }
-export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboarding", "e/" + r.email.trim().toLowerCase(), r); }
+const recKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "p/" : "e/") + email.trim().toLowerCase();
+/** Buchung je Kunde und Terminart (Onboarding, Probetraining). */
+export async function getOnboarding(email: string, kind = "onboarding") { return getJSON<OnboardingRecord>("onboarding", recKey(kind, email)); }
+export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboarding", recKey(r.kind, r.email), r); }
+
+/** Einfache Bremse je Schlüssel (z. B. IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt. */
+export async function allowHit(key: string, limit: number, windowMs: number): Promise<boolean> {
+  const now = Date.now();
+  const cur = ((await getJSON<number[]>("ratelimit", key)) || []).filter(t => now - t < windowMs);
+  if (cur.length >= limit) return false;
+  cur.push(now); await setJSON("ratelimit", key, cur);
+  return true;
+}
 
 /* ---------- Kurze Sperren (Netlify Blobs, starke Konsistenz): immer nur eine Buchung je Kunde und je Rasterzelle gleichzeitig ----------
    Erwerb mit onlyIfNew; eine Sperre älter als ttlMs gilt als verwaist (Funktion abgebrochen) und wird per onlyIfMatch übernommen. */

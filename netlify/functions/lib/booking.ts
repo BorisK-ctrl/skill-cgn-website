@@ -82,11 +82,11 @@ export async function findWebsiteBooking(kind: Kind, email: string): Promise<{ i
 
 /** Stand der Onboarding-Buchung eines Kunden, abgeglichen mit dem Kalender: vom Team gelöscht = wieder buchbar, verschoben = neue Zeit. */
 export type BookingState = { state: "none" } | { state: "booked" | "past"; rec: OnboardingRecord };
-export async function currentBooking(email: string): Promise<BookingState> {
-  const rec = await getOnboarding(email);
+export async function currentBooking(email: string, kind: Kind = "onboarding"): Promise<BookingState> {
+  const rec = await getOnboarding(email, kind);
   if (!rec || rec.cancelledAt) return { state: "none" };
   let ev: any;
-  try { ev = await getEvent(rec.calendarId || KINDS.onboarding.calendar, rec.eventId); } catch (e) { console.log("currentBooking getEvent", String(e)); ev = undefined; }
+  try { ev = await getEvent(rec.calendarId || KINDS[kind].calendar, rec.eventId); } catch (e) { console.log("currentBooking getEvent", String(e)); ev = undefined; }
   if (ev === null) { rec.cancelledAt = new Date().toISOString(); await saveOnboarding(rec); return { state: "none" }; }
   if (ev?.start?.dateTime && ev?.end?.dateTime) {
     const s = new Date(ev.start.dateTime).toISOString(), e = new Date(ev.end.dateTime).toISOString();
@@ -95,8 +95,10 @@ export async function currentBooking(email: string): Promise<BookingState> {
   return { state: Date.parse(rec.end) > Date.now() ? "booked" : "past", rec };
 }
 /** Antwort für die Seite: gebuchter Termin mit Coach-Vorname und Kalenderlinks. */
-export const bookedView = (rec: { start: string; end: string; staff?: string }) =>
-  ({ start: rec.start, end: rec.end, coach: STAFF.find(s => s.key === rec.staff)?.name, google: googleCalLink("onboarding", rec.start, rec.end), ics: icsLink("onboarding", rec.start, rec.end) });
+export const bookedView = (rec: { start: string; end: string; staff?: string; kind?: string }) => {
+  const kind: Kind = rec.kind === "probetraining" ? "probetraining" : "onboarding";
+  return { start: rec.start, end: rec.end, coach: STAFF.find(s => s.key === rec.staff)?.name, google: googleCalLink(kind, rec.start, rec.end), ics: icsLink(kind, rec.start, rec.end) };
+};
 
 /* ---------- Kalender des Kunden: Google-Vorlage und .ics (Apple, Outlook) ---------- */
 const TITLES: Record<Kind, string> = { onboarding: "Onboarding bei SKILL CGN", probetraining: "Probetraining bei SKILL CGN" };

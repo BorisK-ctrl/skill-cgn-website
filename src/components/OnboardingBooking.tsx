@@ -20,11 +20,12 @@ const longDay = (iso: string) => new Date(iso).toLocaleDateString("de-DE", { wee
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-export default function OnboardingBooking({ token: givenToken, checkoutToken, contractId, waText, fallback, onBooked }: { token?: string; checkoutToken?: string; contractId?: string; waText: string; fallback: ReactNode; onBooked?: (booked: boolean) => void }) {
+export default function OnboardingBooking({ token: givenToken, checkoutToken, contractId, waText, fallback, onBooked, kind = "onboarding", onBookedOk }: { token?: string; checkoutToken?: string; contractId?: string; waText: string; fallback: ReactNode; onBooked?: (booked: boolean) => void; kind?: "onboarding" | "probetraining"; onBookedOk?: (b: Booked) => void }) {
+  const label = kind === "probetraining" ? "Probetraining" : "Onboarding";
   const [t, setT] = useState(givenToken || "");
   const [phase, setPhase] = useState<Phase>(givenToken ? "loading" : "token");
   const [byDay, setByDay] = useState<Record<string, Free[]>>({});
-  const [minutes, setMinutes] = useState(90);
+  const [minutes, setMinutes] = useState(kind === "probetraining" ? 30 : 90);
   const [day, setDay] = useState("");
   const [pick, setPick] = useState<Free | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,7 +64,7 @@ export default function OnboardingBooking({ token: givenToken, checkoutToken, co
     if (!t) return;
     lastLoad.current = Date.now();
     try {
-      const r = await fetch(`/api/onboarding/slots?t=${encodeURIComponent(t)}`, { cache: "no-store" });
+      const r = await fetch(`/api/termin/slots?t=${encodeURIComponent(t)}`, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
       if (r.status === 503 || r.status === 401) { if (!silent) setPhase("unavailable"); return; }
       if (!r.ok || j.error) { if (!silent) { setNote(j.error || "Kalender gerade nicht erreichbar."); setPhase("error"); } return; }
@@ -103,9 +104,9 @@ export default function OnboardingBooking({ token: givenToken, checkoutToken, co
     if (!pick || busy) return;
     setBusy(true); setNote(null);
     try {
-      const r = await fetch("/api/onboarding/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t, start: pick.start }) });
+      const r = await fetch("/api/termin/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t, start: pick.start }) });
       const j = await r.json().catch(() => ({}));
-      if (j.ok) { setBooked({ start: j.start, end: j.end, coach: j.coach, google: j.google, ics: j.ics }); setPhase("booked"); }
+      if (j.ok) { const b = { start: j.start, end: j.end, coach: j.coach, google: j.google, ics: j.ics }; setBooked(b); setPhase("booked"); onBookedOk?.(b); }
       else if (j.booked) { setBooked(j.booked); setPhase("booked"); }
       else if (j.past) { setBooked(j.past); setPhase("past"); }
       else { setNote(j.error || "Das hat nicht geklappt. Bitte wähle noch einmal."); setPick(null); load(true); }
@@ -132,7 +133,7 @@ export default function OnboardingBooking({ token: givenToken, checkoutToken, co
 
   if (phase === "past" && booked) return (
     <div className="mt-6 border-2 border-white/15 p-5 text-sm leading-relaxed text-white/80">
-      Dein Onboarding war am {longDay(booked.start)} um {timeOf(booked.start)} Uhr. Für einen neuen Termin schreib Boris kurz.
+      Dein {label} war am {longDay(booked.start)} um {timeOf(booked.start)} Uhr. Für einen neuen Termin schreib Boris kurz.
       <a href={wa} target="_blank" rel="noopener noreferrer" className="campaign-button mt-4 flex min-h-12 items-center justify-center gap-2 bg-[#FBFF00] px-4 text-xs font-bold uppercase tracking-[0.12em] text-black"><MessageCircle className="h-4 w-4" /> WhatsApp an Boris</a>
     </div>
   );

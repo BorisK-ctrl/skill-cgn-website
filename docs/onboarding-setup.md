@@ -1,8 +1,10 @@
-# Onboarding-Kalender (Dankeseite und /onboarding)
+# Termin-Kalender: Onboarding (Dankeseite, /onboarding) und Probetraining (/probetraining)
 
 Stand 2026-11-18. Nach jedem Abschluss einer Mitgliedschaft (Black Week, START 39, BACK 39, Mitgliedschaften) bucht der Kunde seinen Onboarding-Termin direkt auf der Dankeseite. Das Onboarding dauert 90 Minuten: 3D-Scan, Bändchen, Trainingsplan, Einweisung. Die freien Zeiten kommen live aus unseren Google-Kalendern. Der Termin landet im Kalender **Onboarding**, Kunde und Team bekommen eine Mail. Wer die Dankeseite verlässt, bucht später über den persönlichen Link in der Willkommensmail (`/onboarding?t=…`).
 
-Probetraining (30 Minuten) nutzt dieselbe Logik (`KINDS` in `netlify/functions/lib/onboarding.ts`), ist auf der Website aber noch nicht umgestellt.
+Probetraining (30 Minuten) nutzt dieselbe Logik und dieselben Kalender (`KINDS` in `netlify/functions/lib/onboarding.ts`): Auf /probetraining füllt der Kunde das Formular aus (Lead in Magicline wie bisher), danach wählt er direkt auf der Seite seine Zeit. Der Termin landet im Kalender **Probetraining**. Ohne Google-Anbindung leitet die Seite wie bisher zur Google-Terminseite weiter.
+
+**Wichtig nach dem Einschalten:** Die alte Google-Terminseite für Probetrainings (Terminplan in info@) kennt die Onboardings und Probetrainings der Website nicht. Sie kann einen Coach doppelt belegen. Deshalb nach dem ersten erfolgreichen Test die Terminseite in Google Kalender deaktivieren. Bis dahin liest die Website ihre Buchungen aus info@ mit und plant drumherum.
 
 ## Regel für freie Zeiten
 
@@ -18,7 +20,8 @@ Grundsatz: lieber eine freie Zeit zu wenig anbieten als eine belegte.
 - Ein Termin ohne sicheren Coach (kein Gast, keine Zeile "Coach:") belegt zusätzlich einen der freien Coaches. Angeboten wird dann nur, wenn danach noch ein Coach frei ist, und die Teammail sagt "Bitte prüfen". **Tipp: Coach als Gast in den Termin eintragen, dann ist es eindeutig.**
 - Eine Abwesenheit oder ein ganztägiger SERVICE-Eintrag ohne erkennbaren Namen ("Studio geschlossen") blockt alle.
 - Kurse anderer Coaches (Antonia/Toni, Mario, Saidu, Fabian …) blocken niemanden. Kommt ein neuer Coach dazu, seinen Vornamen in `OTHERS` ergänzen, sonst blockt sein Kurs vorsichtshalber einen unserer Coaches.
-- Raster 30 Minuten, Onboarding frühestens 12 Stunden im Voraus, drei Wochen sichtbar. Wer keine Schicht in SERVICE hat, ist nicht buchbar.
+- Raster 30 Minuten, Onboarding frühestens 12 Stunden, Probetraining frühestens 3 Stunden im Voraus, drei Wochen sichtbar. Wer keine Schicht in SERVICE hat, ist nicht buchbar.
+- Je E-Mail ein Onboarding und ein Probetraining. Ist der Termin vorbei, bucht der Link keinen neuen (dann WhatsApp). /api/probetraining/start nimmt höchstens 6 Anfragen je IP und Stunde an.
 
 Immer aktuell: Jede Abfrage liest die Kalender frisch (kein Zwischenspeicher), die offene Seite lädt jede Minute neu und sofort beim Zurückkehren in den Tab. Löscht ihr einen Kurs, ist die Lücke beim nächsten Laden buchbar.
 
@@ -47,7 +50,14 @@ Danach einmal neu veröffentlichen (Deploys → Trigger deploy).
 
 Ohne Delegation geht es auch: `GOOGLE_SA_SUBJECT` leer lassen und jeden Kalender aus `CALENDARS` in Google Kalender mit der Adresse des Dienstkontos teilen (Onboarding und Probetraining: "Änderungen an Terminen vornehmen", alle anderen: "Alle Termindetails sehen", info@ und boris.k@ ebenso). Achtung: Die Workspace-Einstellung für externe Freigaben kann das Schreiben verbieten. Deshalb ist die Delegation einfacher.
 
-Solange eine Variable fehlt, zeigt die Dankeseite wie bisher den WhatsApp-Weg, und die Mails enthalten keinen Buchungslink.
+Solange eine Variable fehlt, zeigt die Dankeseite wie bisher den WhatsApp-Weg, die Mails enthalten keinen Buchungslink und /probetraining leitet zur Google-Terminseite.
+
+## Erster Test nach dem Einrichten
+
+1. /probetraining mit deiner eigenen E-Mail ausfüllen, eine Zeit wählen: Termin im Kalender Probetraining, Mail an dich und an info@.
+2. Den Termin im Kalender löschen, Seite neu laden: Die Zeit ist wieder frei.
+3. Einen Kurs testweise in "Classes" eintragen: Die Zeit verschwindet beim nächsten Laden (spätestens nach einer Minute auf der offenen Seite).
+4. Erst danach die Google-Terminseite für Probetrainings deaktivieren.
 
 ## Test
 
