@@ -22,7 +22,8 @@ import Countdown from "@/components/Countdown";
 import PromoVideo from "@/components/PromoVideo";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
-import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, afterText } from "@/lib/blackweek";
+import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, afterText, BLACK_FRIDAY_DATE } from "@/lib/blackweek";
+import { berlinToday } from "@/lib/blackmonth";
 import { GYM_ONLY_FEATURES } from "@/components/BlackWeekCard";
 
 // ─── Daten ────────────────────────────────────────────────────────────────────
@@ -108,7 +109,8 @@ export default function Home() {
   const promo = usePromo();
   const bw = blackWeekPrices(bundles);
   const bwHero = promo.key === "blackweek";
-  const daysLeft = useDaysLeft(promo.ends);
+  /* Banner zählt wie der Timer: bis Black Friday, danach bis Angebotsende */
+  const daysLeft = useDaysLeft(promo.key === "blackweek" && berlinToday() <= BLACK_FRIDAY_DATE ? BLACK_FRIDAY_DATE : promo.ends);
   const price = (key: "start39" | "mitgliedschaft" | "unlimited", months: 1 | 12) => fmtPrice(offerPrice(bundles, key, months) ?? 0);
 
   return (
@@ -345,7 +347,7 @@ export default function Home() {
         <div className="container relative text-center">
           {bwHero ? <>
           <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-primary-foreground leading-none">Black Week.<br />Gym Only {fmtPrice(bw.now)}&nbsp;€.</h2>
-          <p className="mt-5 text-primary-foreground/70 text-lg max-w-xl mx-auto leading-relaxed">Alle 4 Wochen, dauerhaft. Monatlich kündbar, 3D Scan zum Start. Abschluss bis 30.11.{daysLeft ? `, ${daysLeft}.` : ""}</p>
+          <p className="mt-5 text-primary-foreground/70 text-lg max-w-xl mx-auto leading-relaxed">Alle 4 Wochen, dauerhaft. Monatlich kündbar, 3D Scan zum Start. Abschluss bis 30.11.</p>
           <Link to="/blackweek#formular" onClick={() => trackCta("cta_blackweek_footer")} className="campaign-button mt-8 inline-flex items-center justify-center gap-3 bg-black text-primary font-black uppercase tracking-widest text-sm px-10 py-5 min-h-[60px] hover:bg-white hover:text-black">{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
           <p className="mt-5 text-sm text-primary-foreground/70">Lieber erst ansehen? <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_footer")} className="font-bold text-primary-foreground underline underline-offset-4">Kostenloses Probetraining mit 3D Scan</Link></p>
           </> : <>

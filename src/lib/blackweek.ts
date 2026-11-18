@@ -54,12 +54,24 @@ export const afterText = (was: number | string) => `Nach der Black Week kostet G
 /* Countdown /blackweek (Issue #1): Ziel 30.11.2026 23:59:59 Berliner Zeit (MEZ = UTC+1). Zeitbasis ist der Server (Date-Header einer
    HEAD-Anfrage), die Gerätezeit nur als Ersatz. Erster Render ohne Timer (Prerender), dann jede Minute neu. Nach Ablauf: ended = true. */
 export const BLACK_WEEK_ENDS_AT = Date.parse("2026-11-30T23:59:59+01:00");
-export function countdownLabel(msLeft: number): string {
-  if (msLeft <= 0) return "";
-  const h = Math.floor(msLeft / 3600000);
-  if (h < 24) return "Endet heute um 23:59";
+/* Timer nach der offiziellen Black Week (Boris, 18.11.2026): bis Black Friday 27.11.2026 23:59 "Black Week endet in".
+   Das Angebot selbst läuft in Magicline bis 30.11. Damit der Timer nie ein falsches Ende zeigt (§ 5 UWG), zählt er
+   danach als "Cyber Monday · letzte Chance" bis zum echten Angebotsende 30.11. 23:59 weiter. */
+export const BLACK_FRIDAY_ENDS_AT = Date.parse("2026-11-27T23:59:59+01:00");
+export const BLACK_FRIDAY_DATE = "2026-11-27";
+/** Aus der Restzeit bis Angebotsende: welche Phase, wie viel Zeit in dieser Phase. */
+export function timerPhase(msLeftOffer: number): { phase: "blackweek" | "cyber"; left: number } {
+  const toFriday = msLeftOffer - (BLACK_WEEK_ENDS_AT - BLACK_FRIDAY_ENDS_AT);
+  return toFriday > 0 ? { phase: "blackweek", left: toFriday } : { phase: "cyber", left: msLeftOffer };
+}
+export function countdownLabel(msLeftOffer: number): string {
+  if (msLeftOffer <= 0) return "";
+  const { phase, left } = timerPhase(msLeftOffer);
+  const pre = phase === "blackweek" ? "Black Week endet" : "Cyber Monday · letzte Chance, endet";
+  const h = Math.floor(left / 3600000);
+  if (h < 24) return `${pre} heute um 23:59`;
   const d = Math.floor(h / 24), rest = h % 24;
-  return `Endet in ${d} ${d === 1 ? "Tag" : "Tagen"}${rest ? ` ${rest} Std` : ""}`;
+  return `${pre} in ${d} ${d === 1 ? "Tag" : "Tagen"}${rest ? ` ${rest} Std` : ""}`;
 }
 /** Millisekunden bis Black-Week-Ende nach Serverzeit (null bis nach dem Mount bzw. bis die Serverzeit da ist), tickt alle tickMs. */
 export function useBlackWeekMsLeft(tickMs = 60000): number | null {
