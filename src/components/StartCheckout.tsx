@@ -57,7 +57,7 @@ const formatIban = (raw: string) => raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase
 
 function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div data-err={error ? "1" : undefined}>
       <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">{label}</label>
       {children}
       {error ? <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-[#FBFF00]"><AlertCircle className="h-3 w-3" /> {error}</p> : hint ? <p className="mt-1.5 text-[11px] text-white/40">{hint}</p> : null}
@@ -108,6 +108,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   const log = (stage: string, data: Record<string, unknown>) => fetch("/api/checkout-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, campaign: offerName, stage, ...data }), keepalive: true }).catch(() => {});
   const [pending, setPending] = useState(false);
   const [sigError, setSigError] = useState("");
+  const [submitHint, setSubmitHint] = useState("");
   const [idle, setIdle] = useState(false);
   /* Zahlart: SEPA über Magicline oder Karte/Wallet über Stripe (nur wenn ein Payment Link für das Angebot existiert, nicht vor Ort) */
   /* Entscheidung 2026-10-31: Mitgliedschaften online nur per SEPA-Lastschrift. Karte und Apple Pay gibt es nur für Einmalkäufe im Shop. */
@@ -248,7 +249,14 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
 
   const submit = async () => {
     const e = validate(3); setErrors(e); setSigError(strokes.current.length ? "" : "Bitte unterschreibe im Feld");
-    if (Object.keys(e).length || !strokes.current.length) return;
+    if (Object.keys(e).length || !strokes.current.length) {
+      /* Fehler stehen oft weit oberhalb des Knopfs (IBAN, Kontoinhaber): Hinweis direkt am Knopf und zum ersten Fehler springen */
+      const missing = [...Object.values(e), ...(strokes.current.length ? [] : ["Unterschrift fehlt"])];
+      setSubmitHint(missing.join(" · "));
+      window.setTimeout(() => { const el = document.querySelector<HTMLElement>("[data-err]"); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.querySelector("input")?.focus({ preventScroll: true }); } }, 50);
+      return;
+    }
+    setSubmitHint("");
     if (!term) { setApiError("Das Angebot ist gerade nicht erreichbar. Bitte lade die Seite neu."); return; }
     /* Zahlungsdaten abgeschickt: AddPaymentInfo, einmal je Sitzung */
     if (!isPos) trackOnce("payment-" + path, "AddPaymentInfo", { content_name: offerName, value: price, currency: "EUR", payment: payMethod, ...utmParams() });
@@ -382,6 +390,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
                 {!isPos && <a href={`${WHATSAPP}?text=${encodeURIComponent(`Hi Boris, mein Abschluss ${offerName} auf der Website hat nicht geklappt: ${apiError}`)}`} target="_blank" rel="noopener noreferrer" className="campaign-button mt-3 inline-flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black hover:bg-white">Boris per WhatsApp schreiben</a>}
               </div>
             )}
+            {submitHint && <p role="alert" className="flex items-start gap-2 border-l-4 border-[#FBFF00] bg-[#FBFF00]/10 px-3 py-2.5 text-sm font-bold text-[#FBFF00]"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> Bitte prüfen: {submitHint}</p>}
             <button type="button" onClick={submit} disabled={pending} className={btn}>{pending ? <><Loader2 className="h-4 w-4 animate-spin" /> {payMethod === "card" ? "Weiter zu Stripe …" : "Wird angelegt …"}</> : payMethod === "card" ? `Weiter zur Kartenzahlung, ${price} €` : `Vertrag abschließen für ${price} €`}</button>
             <p className="text-center text-[11px] text-white/45">{isPos ? "Erste Abbuchung zum Startdatum. Bestätigung kommt per E-Mail." : cancelNote || (months === 12 ? "12 Monate Laufzeit. Erste Abbuchung zum Startdatum." : "Monatlich kündbar. Erste Abbuchung zum Startdatum.")}</p>
             {trust}

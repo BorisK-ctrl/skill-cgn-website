@@ -69,7 +69,7 @@ function Card({ t, tier, price, idx, big }: { t: Tarif; tier: Tier; price: numbe
 /** START 39 während Black Week durch die Gym-Only-Karte ersetzt (nur eine beworbene Aktion), sonst die normale Karte. */
 function PlanCard(props: { t: Tarif; tier: Tier; price: number | null; idx: number; big: boolean }) {
   const active = useBlackWeekActive(); const { bundles } = useRateBundles(); const p = blackWeekPrices(bundles);
-  if (active && props.t.key === "start39") return <BlackWeekCard now={p.now} was={p.was} big={props.big} parking={<ParkingLine perWeek={0} />} />;
+  if (active && props.t.key === "start39") return <BlackWeekCard now={p.now} was={p.was} big={props.big} />;
   return <Card {...props} />;
 }
 
