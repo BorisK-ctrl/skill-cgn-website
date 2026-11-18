@@ -34,7 +34,8 @@ export const ONBOARDING_EXPECT = [
   ["Einweisung, dann geht's los", "Wir zeigen dir Geräte und Ablauf. Danach startest du durch."],
 ] as const;
 const MITBRINGEN = "Mitbringen: Sportklamotten und saubere Hallenschuhe. Handtuch, Getränke und Dusche haben wir.";
-const kursplan = `Classes buchst du im Kursplan auf <a href="${SITE}/kursplan" style="color:#FBFF00">skill-studios.com/kursplan</a>, Platz sichern ohne Login.`;
+/* /kursplan läuft ohne Open-API-Schlüssel nur mit Testdaten, daher hier der Weg, den es sicher gibt */
+const kursplan = `Classes buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>.`;
 const facilities = "Dusche, Getränke und Handtuch sind drin.";
 const vertragZeile = (c: WelcomeInput) => `Vertrag ${c.contractId}${de(c.startDate) ? `, Start ${de(c.startDate)}` : ""}.`;
 
@@ -142,7 +143,10 @@ async function resolveCustomerId(l: CheckoutLead): Promise<number | null> {
 export async function deliverWelcome(l: CheckoutLead, input: WelcomeInput, opts: { budgetMs: number; force?: boolean }): Promise<"sent" | "pending" | "skipped"> {
   if (!l.email) return "skipped";
   l.welcome ??= { pendingSince: new Date().toISOString() };
-  if (l.welcome.sentAt) return "skipped";
+  if (l.welcome.sentAt || l.welcome.skipped) return "skipped";
+  /* Ohne Open-API-Schlüssel kommen wir nicht an Vertrag und SEPA-Mandat. Dann ist die Magicline-Mail "Neues Mitglied" (mit PDF)
+     die eine Mail und die Website schickt dem Kunden nichts zusätzlich (Variante B1 aus Issue #2). Mit Schlüssel: unser Paket. */
+  if (!magiclineConfigured()) { l.welcome.skipped = "MAGICLINE_OPEN_API_KEY fehlt, Magicline-Mail ist die Willkommensmail"; return "skipped"; }
   const since = Date.parse(l.welcome.pendingSince) - 10 * 60 * 1000; // Dokumente entstehen mit dem Vertrag, kurz vor dem Abschluss-Aufruf
   let att: MailAttachment[] = [];
   if (magiclineConfigured()) {
@@ -154,10 +158,8 @@ export async function deliverWelcome(l: CheckoutLead, input: WelcomeInput, opts:
       if (att.length >= 2 || Date.now() + 3000 > until) break;
       await new Promise(r => setTimeout(r, 2500));
     }
-  } else {
-    l.welcome.note = "MAGICLINE_OPEN_API_KEY fehlt"; // ohne Open API gibt es nichts abzuwarten: gleich senden
   }
-  if (att.length < 2 && !opts.force && magiclineConfigured()) { l.welcome.tries = (l.welcome.tries || 0) + 1; return "pending"; }
+  if (att.length < 2 && !opts.force) { l.welcome.tries = (l.welcome.tries || 0) + 1; return "pending"; }
   const mail = welcomeMail(input, { attachedDocs: att.length });
   const ok = await sendFrom(CHECKOUT_FROM, l.email, mail.subject, mail.html, { replyTo: "info@skill-studios.com", text: mail.text, attachments: att });
   if (!ok) { l.welcome.tries = (l.welcome.tries || 0) + 1; l.welcome.note = "Versand fehlgeschlagen"; return "pending"; }

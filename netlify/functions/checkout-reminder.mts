@@ -13,7 +13,7 @@ export default async () => {
     const age = now - new Date(l.createdAt).getTime();
     if (age > KEEP_MS) { await deleteCheckoutLead(token); removed++; continue; }
     /* Willkommensmail nachreichen (Issue #2): sobald Vertrag und SEPA-Mandat in Magicline liegen, spätestens nach 10 Minuten */
-    if (l.done && l.welcome && !l.welcome.sentAt && mailConfigured()) {
+    if (l.done && l.welcome && !l.welcome.sentAt && !l.welcome.skipped && mailConfigured()) {
       const input = welcomeInputFromLead(l);
       if (input) {
         const r = await deliverWelcome(l, input, { budgetMs: 4000, force: now - Date.parse(l.welcome.pendingSince) >= WELCOME_FORCE_AFTER_MS }).catch(e => { console.log("welcome error", String(e)); return "pending"; });
