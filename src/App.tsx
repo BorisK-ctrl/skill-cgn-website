@@ -4,6 +4,7 @@ import { track } from "@/lib/pixel";
 import { utmParams } from "@/lib/events";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Layout from "@/components/Layout";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 /** Bei Seitenwechsel nach oben, bei Ankerlinks zum Ziel. */
 function ScrollManager() {
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <>
       <ScrollManager />
+      <ErrorBoundary>
       <Suspense fallback={<div className="min-h-screen bg-background" />}>
       <Routes>
         <Route element={<Layout />}>
@@ -62,6 +64,7 @@ export default function App() {
         </Route>
       </Routes>
       </Suspense>
+      </ErrorBoundary>
     </>
   );
 }
