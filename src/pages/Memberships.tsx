@@ -17,6 +17,13 @@ type Tier = "12months" | "monthly";
 const tierLabels: Record<Tier, string> = { "12months": "12 Monate", monthly: "Monatlich kündbar" };
 const icons = [Zap, Star, Crown];
 
+/* Während Black Week ersetzt Gym Only 29 die START-39-Spalte und die START-39-Fragen (nur eine beworbene Aktion). */
+const GYM_ONLY_TARIF = { ...TARIFE[0], name: "Gym Only · Black Week", tagline: "Nur online, nur Neukunden, bis 30.11.", link: "/blackweek", newOnly: true,
+  gym: "Gym komplett", classes: false, scan: "3D Scan und Assessment zum Start", plan: false, coachTalk: null, parkingPerWeek: 0, terms: "Monatlich kündbar, 1 Monat Laufzeit" } as unknown as Tarif;
+const FAQ_BLACKWEEK = [
+  { q: "Welcher Tarif passt zu mir?", a: "Gym Only ist für alle, die allein trainieren: das komplette Gym für 29 € alle 4 Wochen, nur bis 30.11.2026. Die SKILL Mitgliedschaft ist unser Standard: Gym ohne Limit, 6 Classes je vier Wochen, Scan alle 12 Wochen, Parken. SKILL Unlimited für alle Classes, Scan alle 8 Wochen und ein Coach Gespräch im Monat." },
+  { q: "Was ist bei Gym Only drin?", a: "Gym komplett, Dusche, Getränke, Trainingshandtuch, 3D Scan und Assessment zum Start. Keine Classes, kein Coaching, kein Parken. Monatlich kündbar, 1 Monat Laufzeit." },
+];
 const faqItems = [
   { q: "Welcher Tarif passt zu mir?", a: "START 39 ist der Einstieg für Neukunden, nur online. Die SKILL Mitgliedschaft ist unser Standard: Gym ohne Limit, 6 Classes je vier Wochen, Scan alle 12 Wochen, Parken. SKILL Unlimited für alle Classes, Scan alle 8 Wochen und ein Coach Gespräch im Monat." },
   { q: PARKING.faqQ, a: PARKING.faqA },
@@ -107,6 +114,9 @@ export default function Memberships() {
   const priceOf = (t: Tarif) => t.key === "start39" ? offerPrice(bundles, "start39", 1) : offerPrice(bundles, t.key, tier === "12months" ? 12 : 1);
   const yearSaving = (t: Tarif) => { if (t.key === "start39") return null; const m = offerPrice(bundles, t.key, 1), y = offerPrice(bundles, t.key, 12); return m != null && y != null && y < m ? (m - y) * 13 : null; };
   const maxSaving = Math.max(0, ...TARIFE.map(t => yearSaving(t) ?? 0));
+  const bw = useBlackWeekActive(); const bwPrices = blackWeekPrices(bundles);
+  const cmp = bw ? [GYM_ONLY_TARIF, ...TARIFE.slice(1)] : TARIFE;
+  const faqs = bw ? [...FAQ_BLACKWEEK, ...faqItems.filter(f => !/START 39/.test(f.q + f.a) && f.q !== "Welcher Tarif passt zu mir?")] : faqItems;
 
   const rows: [string, (t: Tarif) => string | boolean][] = [
     ["Gym", t => t.gym], ["Classes", t => t.classes], ["3D Körperscan", t => t.scan], ["Trainingsplan", t => t.plan],
@@ -123,7 +133,7 @@ export default function Memberships() {
           <Link to="/" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors mb-10 font-black uppercase text-xs tracking-widest"><ArrowLeft className="w-4 h-4" /> Zurück</Link>
           <div className="max-w-3xl">
             <p className="block font-mono text-[10px] uppercase tracking-[0.22em] text-primary mb-4">Mitgliedschaften</p>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase tracking-tight leading-none mb-6">Drei Tarife.<br /><span className="text-primary">Ein Coach.</span><span className="mt-4 block font-mono text-xs font-bold tracking-[0.22em] text-foreground/50 md:text-sm">Mitgliedschaft im Fitnessstudio Köln</span></h1>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase tracking-tight leading-none mb-6">Drei Tarife.<br /><span className="text-primary">{bw ? <>Ab {fmtPrice(bwPrices.now)}&nbsp;€.</> : "Ein Coach."}</span><span className="mt-4 block font-mono text-xs font-bold tracking-[0.22em] text-foreground/50 md:text-sm">Mitgliedschaft im Fitnessstudio Köln</span></h1>
             <p className="text-lg md:text-xl text-foreground/60 max-w-xl leading-relaxed">Keine Gebühr, in keinem Tarif. Parken inklusive ab der SKILL Mitgliedschaft. Abschluss online, der Vertrag entsteht direkt in unserem Mitgliedersystem.</p>
           </div>
         </div>
@@ -167,21 +177,21 @@ export default function Memberships() {
             <table className="w-full text-sm border-collapse min-w-[640px]">
               <thead><tr>
                 <th className="text-left py-4 pr-6 font-black uppercase text-foreground/40 text-xs tracking-widest w-1/4 border-b-2 border-foreground/10">Leistungen</th>
-                {TARIFE.map(t => <th key={t.key} className={`text-center py-4 px-4 font-black uppercase text-sm tracking-wide border-b-2 ${t.recommended ? "text-primary border-primary" : "text-foreground/60 border-foreground/10"}`}>{t.name}</th>)}
+                {cmp.map(t => <th key={t.key} className={`text-center py-4 px-4 font-black uppercase text-sm tracking-wide border-b-2 ${t.recommended ? "text-primary border-primary" : "text-foreground/60 border-foreground/10"}`}>{t.name}</th>)}
               </tr></thead>
               <tbody>
                 <tr className="bg-foreground/[0.02]"><td className="py-3 pr-6 font-bold text-foreground/50 text-xs uppercase tracking-widest" colSpan={4}>Preise alle vier Wochen</td></tr>
                 {([["12 Monate", 12], ["Monatlich kündbar", 1]] as [string, 1 | 12][]).map(([label, m], ridx) => (
                   <tr key={label} className={`border-b border-foreground/[0.06] ${ridx % 2 ? "bg-foreground/[0.02]" : ""}`}>
                     <td className="py-3.5 pr-6 text-foreground/70 font-medium">{label}</td>
-                    {TARIFE.map(t => { const p = t.key === "start39" ? (m === 1 ? offerPrice(bundles, "start39", 1) : null) : offerPrice(bundles, t.key, m); return <td key={t.key} className={`text-center py-3.5 px-4 font-black font-mono ${t.recommended ? "text-primary" : "text-foreground"}`}>{p == null ? (t.key === "start39" ? "Nur monatlich" : "–") : `${fmtPrice(p)} €`}</td>; })}
+                    {cmp.map(t => { const p = t.key === "start39" ? (m === 1 ? (bw ? bwPrices.now : offerPrice(bundles, "start39", 1)) : null) : offerPrice(bundles, t.key, m); return <td key={t.key} className={`text-center py-3.5 px-4 font-black font-mono ${t.recommended ? "text-primary" : "text-foreground"}`}>{p == null ? (t.key === "start39" ? "Nur monatlich" : "–") : `${fmtPrice(p)} €`}</td>; })}
                   </tr>
                 ))}
                 <tr className="bg-foreground/[0.02]"><td className="py-3 pr-6 font-bold text-foreground/50 text-xs uppercase tracking-widest pt-6" colSpan={4}>Leistungen</td></tr>
                 {rows.map(([label, fn], ridx) => (
                   <tr key={label} className={`border-b border-foreground/[0.06] ${ridx % 2 ? "bg-foreground/[0.02]" : ""}`}>
                     <td className="py-3.5 pr-6 text-foreground/70 font-medium">{label}</td>
-                    {TARIFE.map(t => { const v = fn(t); return <td key={t.key} className={`text-center py-3.5 px-4 ${t.recommended ? "bg-primary/5" : ""}`}>{v === false ? <Minus className="w-4 h-4 text-foreground/25 mx-auto" /> : v === true ? <Check className="w-4 h-4 text-primary mx-auto" /> : <span className="text-xs font-bold text-primary leading-tight">{v}</span>}</td>; })}
+                    {cmp.map(t => { const v = fn(t); return <td key={t.key} className={`text-center py-3.5 px-4 ${t.recommended ? "bg-primary/5" : ""}`}>{v === false ? <Minus className="w-4 h-4 text-foreground/25 mx-auto" /> : v === true ? <Check className="w-4 h-4 text-primary mx-auto" /> : <span className="text-xs font-bold text-primary leading-tight">{v}</span>}</td>; })}
                   </tr>
                 ))}
               </tbody>
@@ -202,7 +212,7 @@ export default function Memberships() {
               <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tight leading-none mb-4">Häufige<br />Fragen</h2>
               <p className="text-foreground/50 text-sm leading-relaxed">Noch offene Fragen? Schreib uns an <a href="mailto:info@skill-studios.com" className="text-primary font-bold hover:underline">info@skill-studios.com</a></p>
             </div>
-            <div className="space-y-2">{faqItems.map(item => <AccordionItem key={item.q} q={item.q} a={item.a} />)}</div>
+            <div className="space-y-2">{faqs.map(item => <AccordionItem key={item.q} q={item.q} a={item.a} />)}</div>
           </div>
         </div>
       </section>

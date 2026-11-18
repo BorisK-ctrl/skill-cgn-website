@@ -11,6 +11,7 @@ import { sendContractMails } from "./lib/notify";
 const TOKEN = /^[a-z0-9]{16,48}$/;
 /* Abschlussseite → Kampagnenname (Lead, Vertragsmail, Meta CAPI) */
 const CAMPAIGNS = { "/start39": "START 39", "/back39": "BACK 39", "/blackweek": "BLACK WEEK 29" } as const;
+const fallbackPrice = (path: string) => (path === "/blackweek" ? 29 : 39);
 
 export default async (req: Request) => {
   if (req.method === "GET") {
@@ -37,7 +38,7 @@ export default async (req: Request) => {
     l.done = true; if (b.contractId) l.contractId = String(b.contractId).slice(0, 40);
     /* SEPA-Weg (Vertrag im Browser angelegt): "Neuer Vertrag" ans Team und Willkommensmail, nur beim ersten Abschluss-Aufruf */
     if (firstDone && l.contractId) {
-      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.campaign, price: Number(b.value) > 0 ? Number(b.value) : 39, startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
+      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.campaign, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
       (l as any).mails = { at: new Date().toISOString(), ...mails };
       console.log(`checkout-lead done ${l.token} Vertrag ${l.contractId}: mail staff=${mails.staff} customer=${mails.customer}`);
     }
@@ -46,7 +47,7 @@ export default async (req: Request) => {
     const consentOk = b.consent === "accepted" || process.env.META_CAPI_ALWAYS === "true";
     if (l.contractId && !already && capiConfigured() && consentOk) {
       try {
-        const res = await sendPurchase({ eventId: l.contractId, value: Number(b.value) > 0 ? Number(b.value) : 39, contentName: l.campaign, sourceUrl: String(b.sourceUrl || "https://skill-studios.com" + l.path).slice(0, 300),
+        const res = await sendPurchase({ eventId: l.contractId, value: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), contentName: l.campaign, sourceUrl: String(b.sourceUrl || "https://skill-studios.com" + l.path).slice(0, 300),
           email: l.email, phone: l.phone, firstName: l.firstName, lastName: l.lastName, zip: b.zip ? String(b.zip) : undefined, city: b.city ? String(b.city) : undefined,
           clientIp: req.headers.get("x-nf-client-connection-ip") || req.headers.get("x-forwarded-for")?.split(",")[0].trim() || undefined, userAgent: req.headers.get("user-agent") || undefined,
           fbp: b.fbp ? String(b.fbp).slice(0, 100) : undefined, fbc: b.fbc ? String(b.fbc).slice(0, 200) : undefined });
@@ -66,7 +67,7 @@ export default async (req: Request) => {
     const c = b.card;
     if (!c.rateBundleTermId || !c.startDate || !c.dob || !c.signatureSvgBase64) return json({ error: "Vertragsdaten unvollständig" }, 400);
     l.card = { rateBundleTermId: Number(c.rateBundleTermId), startDate: String(c.startDate).slice(0, 10), dob: String(c.dob).slice(0, 10), street: String(c.street || "").slice(0, 120), houseNumber: String(c.houseNumber || "").slice(0, 20), zip: String(c.zip || "").slice(0, 10), city: String(c.city || "").slice(0, 80),
-      signatureSvgBase64: String(c.signatureSvgBase64).slice(0, 200000), price: Number(c.price) || 39, offerName: String(c.offerName || l.campaign).slice(0, 40), sourceUrl: String(c.sourceUrl || "").slice(0, 300), fbp: c.fbp ? String(c.fbp).slice(0, 100) : undefined, fbc: c.fbc ? String(c.fbc).slice(0, 200) : undefined, savedAt: new Date().toISOString() };
+      signatureSvgBase64: String(c.signatureSvgBase64).slice(0, 200000), price: Number(c.price) || fallbackPrice(l.path), offerName: String(c.offerName || l.campaign).slice(0, 40), sourceUrl: String(c.sourceUrl || "").slice(0, 300), fbp: c.fbp ? String(c.fbp).slice(0, 100) : undefined, fbc: c.fbc ? String(c.fbc).slice(0, 200) : undefined, savedAt: new Date().toISOString() };
     await saveCheckoutLead(l);
     return json({ ok: true });
   }

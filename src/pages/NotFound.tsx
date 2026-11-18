@@ -14,7 +14,7 @@ export default function NotFound() {
         <p className="text-foreground/60 max-w-lg mb-10">Der Link ist veraltet oder vertippt. Hier geht es weiter.</p>
         <div className="flex flex-col sm:flex-row gap-3">
           <Link to="/" className="inline-flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black uppercase tracking-widest text-sm px-8 py-4 hover:bg-primary/90 transition-all">Zur Startseite <ArrowRight className="w-4 h-4" /></Link>
-          <Link to={promo.path} className="inline-flex items-center justify-center gap-3 border-2 border-primary text-primary font-black uppercase tracking-widest text-sm px-8 py-4 hover:bg-primary hover:text-primary-foreground transition-all">{promo.cta}</Link>
+          <Link to={promo.formPath} className="inline-flex items-center justify-center gap-3 border-2 border-primary text-primary font-black uppercase tracking-widest text-sm px-8 py-4 hover:bg-primary hover:text-primary-foreground transition-all">{promo.cta}</Link>
         </div>
       </div>
     </section>

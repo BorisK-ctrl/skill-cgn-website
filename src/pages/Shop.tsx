@@ -112,7 +112,7 @@ export default function Shop() {
           <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight mb-4">Regelmäßig trainieren?</h2>
           <p className="text-foreground/50 mb-8">Mit einer Membership trainierst du günstiger, bekommst 3D-Körperscans, Trainingspläne und mehr. {promo.key === "blackweek" ? "Nur bis 30.11.: Gym Only für 29\u00a0€ alle 4 Wochen, monatlich kündbar." : "Neu bei SKILL? Starte mit START 39."}</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to={promo.path} className="inline-flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black uppercase tracking-widest text-sm px-8 py-4 hover:bg-primary/90 transition-all">{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
+            <Link to={promo.formPath} className="inline-flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black uppercase tracking-widest text-sm px-8 py-4 hover:bg-primary/90 transition-all">{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
             <Link to="/memberships" className="inline-flex items-center justify-center gap-3 border-2 border-primary text-primary font-black uppercase tracking-widest text-sm px-8 py-4 hover:bg-primary hover:text-primary-foreground transition-all">Memberships ansehen <ArrowRight className="w-4 h-4" /></Link>
           </div>
         </div>

@@ -18,7 +18,7 @@ export default function MobileContactBar() {
   );
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t-2 border-primary bg-background lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <Link to={promo.path} onClick={() => trackCta(`cta_${promo.key}_sticky`)} className="flex min-h-[56px] items-center justify-center gap-2 bg-primary px-4 text-xs font-black uppercase tracking-widest text-primary-foreground">{promo.sticky} <ArrowRight className="h-4 w-4" /></Link>
+      <Link to={promo.formPath} onClick={() => trackCta(`cta_${promo.key}_sticky`)} className="flex min-h-[56px] items-center justify-center gap-2 bg-primary px-4 text-xs font-black uppercase tracking-widest text-primary-foreground">{promo.sticky} <ArrowRight className="h-4 w-4" /></Link>
     </div>
   );
 }

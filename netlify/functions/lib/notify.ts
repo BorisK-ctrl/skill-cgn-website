@@ -47,10 +47,15 @@ export async function sendCancelMail(b: Booking) {
 /* Abbrecher-Mail nach Schritt 1 ohne Vertrag. Absender info@, Link stellt die Sitzung per Token in Schritt 2 wieder her. */
 import type { CheckoutLead } from "./store";
 const CHECKOUT_FROM = process.env.CHECKOUT_FROM_EMAIL || "SKILL CGN <info@skill-studios.com>";
+/* Preiszeile je Kampagne (Abbrecher-Mail). Black Week: 29 €, alles andere wie bisher 39 €. */
+const isGymOnly = (offer: string) => /BLACK WEEK|GYM ONLY/i.test(offer);
+export const reminderPriceLine = (campaign: string) => isGymOnly(campaign)
+  ? "Gym Only für 29 € alle 4 Wochen, monatlich kündbar, keine Aufnahmegebühr. Nur bis 30.11.2026."
+  : "39 € alle vier Wochen, monatlich kündbar, keine Gebühr.";
 export async function sendCheckoutReminder(l: CheckoutLead) {
   if (!mailConfigured()) return false;
   const link = `${SITE}${l.path}?resume=${encodeURIComponent(l.token)}`;
-  const body = wrap(`<h1 style="font-size:28px;margin:0 0 8px">Dein Start bei SKILL wartet.</h1><p>Hey ${l.firstName}, du hast mit ${l.campaign} angefangen und bist bei Schritt 2 stehen geblieben. Deine Angaben sind gesichert, du machst genau dort weiter.</p><p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#FBFF00;color:#000;font-weight:bold;padding:14px 22px;text-decoration:none">Jetzt fertig machen, 2 Minuten</a></p><p style="color:#bbb;font-size:14px">39 € alle vier Wochen, monatlich kündbar, keine Gebühr.</p><p style="color:#bbb;font-size:14px">Hakt etwas? Antworte einfach auf diese Mail oder schreib Boris per <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp</a>.</p>`);
+  const body = wrap(`<h1 style="font-size:28px;margin:0 0 8px">Dein Start bei SKILL wartet.</h1><p>Hey ${l.firstName}, du hast mit ${l.campaign} angefangen und bist bei Schritt 2 stehen geblieben. Deine Angaben sind gesichert, du machst genau dort weiter.</p><p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#FBFF00;color:#000;font-weight:bold;padding:14px 22px;text-decoration:none">Jetzt fertig machen, 2 Minuten</a></p><p style="color:#bbb;font-size:14px">${reminderPriceLine(l.campaign)}</p><p style="color:#bbb;font-size:14px">Hakt etwas? Antworte einfach auf diese Mail oder schreib Boris per <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp</a>.</p>`);
   const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: CHECKOUT_FROM, to: l.email, subject: "Dein Start bei SKILL wartet", html: body, reply_to: "info@skill-studios.com" }) });
   return r.ok;
 }
@@ -105,7 +110,9 @@ export async function sendContractMails(c: ContractMail) {
 <p><strong>So geht es weiter</strong></p>
 <p>1. Schreib Boris kurz per <a href="https://wa.me/4917610877603?text=${encodeURIComponent(`Hi Boris, ich habe gerade ${c.offerName} abgeschlossen, ${c.firstName}. Wann kann ich zum Scan kommen?`)}" style="color:#FBFF00">WhatsApp</a> für deinen 3D-Scan-Termin.</p>
 <p>2. Komm zu deinem ersten Training in die Herzogstraße 16–20, zwei Minuten vom Neumarkt. Wir richten vor Ort alles ein und zeigen dir das Studio.</p>
-<p>3. Kurse buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>. Handtuch und Getränke gibt es bei uns.</p>
+${isGymOnly(c.offerName)
+  ? `<p>3. Du trainierst im Gym, wann es dir passt: Montag bis Donnerstag 7 bis 22 Uhr, Freitag 7 bis 20 Uhr, Samstag und Sonntag 9 bis 20 Uhr. Handtuch und Getränke gibt es bei uns.</p>`
+  : `<p>3. Kurse buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>. Handtuch und Getränke gibt es bei uns.</p>`}
 <p style="color:#888;font-size:12px;margin-top:16px">Die Vertragsunterlagen kommen separat aus unserem Mitgliedersystem (Magicline). Kündigen kannst du jederzeit unter <a href="${SITE}/kuendigung" style="color:#FBFF00">skill-studios.com/kuendigung</a>.</p>`), STAFF_EMAIL) : false;
   return { staff, customer };
 }

@@ -57,7 +57,7 @@ export default function BlackWeek() {
     ["Wer kann buchen?", "Alle ab 18 ohne laufenden SKILL Vertrag. Ein Wechsel aus einem laufenden Vertrag ist nicht möglich."],
     ["Bis wann?", `Abschluss bis 30.11.2026. Danach kostet Gym Only ${BLACK_WEEK.afterPrice} € alle 4 Wochen mit 3 Monaten Laufzeit.`],
     ["Widerruf?", "14 Tage ab Abschluss, Details in den AGB."],
-    [PARKING.faqQ, `Im Black Week Angebot nicht. ${PARKING.faqA}`],
+    [PARKING.faqQ, "Parken ist im Black Week Angebot nicht enthalten. Das Parkhaus Brückenstraße liegt zwei Minuten zu Fuß entfernt."],
     ["Wann habt ihr geöffnet?", "Montag bis Donnerstag 7 bis 22 Uhr, Freitag 7 bis 20 Uhr, Samstag und Sonntag 9 bis 20 Uhr. Herzogstraße 16 bis 20, zwei Minuten vom Neumarkt."],
   ] as const;
 

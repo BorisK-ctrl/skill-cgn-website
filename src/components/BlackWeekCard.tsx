@@ -25,7 +25,7 @@ export default function BlackWeekCard({ now, was, big, parking }: { now: number;
         <div className="flex items-start gap-3"><span className="w-5 h-5 bg-foreground/10 flex items-center justify-center flex-shrink-0 mt-0.5"><Minus className="w-3 h-3 text-foreground/40" /></span><span className="text-sm text-foreground/50">Keine Classes, kein Coaching</span></div>
       </div>
       {parking}
-      <Link to="/blackweek" onClick={() => trackCta("cta_blackweek_memberships")} className={`mt-6 inline-flex items-center justify-center w-full font-black uppercase tracking-widest ${big ? "text-sm py-5" : "text-xs py-4"} campaign-button border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground`}>Gym Only {fmtPrice(now)}&nbsp;€ sichern <ArrowRight className="w-4 h-4 ml-2" /></Link>
+      <Link to="/blackweek#formular" onClick={() => trackCta("cta_blackweek_memberships")} className={`mt-6 inline-flex items-center justify-center w-full font-black uppercase tracking-widest ${big ? "text-sm py-5" : "text-xs py-4"} campaign-button border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground`}>Gym Only {fmtPrice(now)}&nbsp;€ sichern <ArrowRight className="w-4 h-4 ml-2" /></Link>
     </div>
   );
 }

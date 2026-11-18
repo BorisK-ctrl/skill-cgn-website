@@ -20,10 +20,10 @@ export function useBlackWeekActive(): boolean {
 
 /* Die Website wirbt immer nur für ein Angebot (Boris, 18.11.2026): bis 30.11. Black Week, danach wieder START 39 mit den bisherigen Texten.
    Genutzt von Startseiten-Banner, Hero-Knopf, fester Leiste mobil und dem gelben Knopf in der Navigation. */
-export interface Promo { key: "blackweek" | "start39"; path: string; label: string; banner: string; cta: string; line: string; sticky: string; nav: string; ends?: string }
-const START39_PROMO: Promo = { key: "start39", path: "/start39", label: "START 39:", banner: "39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr", cta: "START 39 sichern",
+export interface Promo { key: "blackweek" | "start39"; path: string; formPath: string; label: string; banner: string; cta: string; line: string; sticky: string; nav: string; ends?: string }
+const START39_PROMO: Promo = { key: "start39", path: "/start39", formPath: "/start39#formular", label: "START 39:", banner: "39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr", cta: "START 39 sichern",
   line: "39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr · nur Neukunden", sticky: "START 39 sichern · 39 € alle vier Wochen", nav: "START 39" };
-const BLACKWEEK_PROMO: Promo = { key: "blackweek", path: "/blackweek", label: "Black Week:", banner: "Gym Only 29\u00a0€ alle 4 Wochen", cta: "Gym Only 29\u00a0€ sichern",
+const BLACKWEEK_PROMO: Promo = { key: "blackweek", path: "/blackweek", formPath: "/blackweek#formular", label: "Black Week:", banner: "Gym Only 29\u00a0€ alle 4 Wochen", cta: "Gym Only 29\u00a0€ sichern",
   line: "29\u00a0€ alle 4 Wochen · monatlich kündbar", sticky: "Black Week · Gym Only 29\u00a0€ sichern", nav: "Black Week", ends: BLACK_WEEK.end };
 export function usePromo(): Promo { return useBlackWeekActive() ? BLACKWEEK_PROMO : START39_PROMO; }
 
