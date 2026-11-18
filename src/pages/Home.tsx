@@ -139,10 +139,15 @@ export default function Home() {
                   : <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-foreground/30 px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/80 hover:border-primary hover:text-primary">Kostenloses Probetraining</Link>}
               </div>
             </div>
-            {/* Gesicht: Boris */}
+            {/* Gesicht: Boris. Während Black Week das Gym selbst (Gym Only: ohne Coaching, also kein Coaching-Bild) */}
             <div className="flex items-center gap-4 lg:flex-col lg:items-start lg:gap-5">
+              {bwHero ? <>
+              <img src="/img/gym/04-geraetepark.webp" alt="Technogym Gerätepark bei SKILL CGN in Köln" width={1080} height={1440} className="h-24 w-20 shrink-0 object-cover border-2 border-primary sm:h-32 sm:w-28 lg:h-auto lg:w-full lg:max-w-[360px] lg:aspect-[4/5]" loading="eager" />
+              <div><p className="text-sm md:text-base font-bold leading-snug">Technogym Selection 900.</p><p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-primary">Gerätepark · Herzogstraße 16–20</p></div>
+              </> : <>
               <img src={BORIS_PHOTO} alt="Boris, Founder SKILL CGN" width={840} height={1050} className="h-24 w-20 shrink-0 object-cover border-2 border-primary sm:h-32 sm:w-28 lg:h-auto lg:w-full lg:max-w-[360px] lg:aspect-[4/5]" loading="eager" />
               <div><p className="text-sm md:text-base font-bold leading-snug">„Progression vor Perfektion.“</p><p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-primary">Boris, Founder</p></div>
+              </>}
             </div>
           </div>
         </div>
