@@ -7,6 +7,7 @@ import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import CampaignLanding from "@/components/CampaignLanding";
+import PriceStamp from "@/components/PriceStamp";
 import StartCheckout from "@/components/StartCheckout";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT } from "@/lib/pixel";
@@ -75,7 +76,9 @@ export default function BlackWeek() {
       h1Sub={`Fitnessstudio in Köln · Gym Only ${p} € alle 4 Wochen`}
       headline={`BLACK WEEK. GYM ONLY. ${p}\u00a0€`}
       accent={`${p}\u00a0€`}
-      subline="alle 4 Wochen. Monatlich kündbar. 0\u00a0€ Aufnahmegebühr."
+      afterAccent={<PriceStamp />}
+      subline={"alle 4 Wochen. Monatlich kündbar. 0\u00a0€ Aufnahmegebühr."}
+      image={{ src: "/img/gym/04-geraetepark.webp", alt: "Technogym Gerätepark bei SKILL CGN in Köln" }}
       priceLine={`${p} € alle 4 Wochen, Laufzeit 1 Monat, monatlich kündbar, keine Aufnahmegebühr, nur online, Abschluss bis 30.11.2026.`}
       priceNote={<>In der Black Week {p}&nbsp;€ alle 4 Wochen, dauerhaft, mit 1 Monat Laufzeit. {afterText(was)}</>}
       bullets={[]}

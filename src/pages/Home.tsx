@@ -17,6 +17,7 @@ import { ParkingLine, ParkingSection } from "@/components/Parking";
 import { FaqJsonLd } from "@/lib/jsonld";
 import { OPENING_HOURS } from "@/components/Footer";
 import GymGallery from "@/components/GymGallery";
+import PriceStamp from "@/components/PriceStamp";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
 import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, afterText } from "@/lib/blackweek";
@@ -127,7 +128,7 @@ export default function Home() {
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
             <div className="max-w-3xl">
               {bwHero ? (
-                <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Black Week.<br /><span className="text-primary">Gym Only.</span><br />{fmtPrice(bw.now)}&nbsp;€.<span className="mt-4 block font-mono text-[11px] normal-case leading-relaxed tracking-[0.16em] text-foreground/60 sm:text-xs">Fitnessstudio Köln · Herzogstraße, zwei Minuten vom Neumarkt</span></h1>
+                <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Black Week.<br /><span className="text-primary">Gym Only.</span><br />{fmtPrice(bw.now)}&nbsp;€.<PriceStamp /><span className="mt-4 block font-mono text-[11px] normal-case leading-relaxed tracking-[0.16em] text-foreground/60 sm:text-xs">Fitnessstudio Köln · Herzogstraße, zwei Minuten vom Neumarkt</span></h1>
               ) : <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Dein Coach.<br /><span className="text-primary">Dein Plan.</span><br />Mitten in Köln.</h1>}
               <p className="campaign-display mt-4 text-3xl md:text-5xl uppercase leading-none text-foreground/80">Show up. Earn it.</p>
               <p className="mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed">{bwHero ? "Das komplette Gym in der Kölner Innenstadt: Technogym, Freihantelbereich, Kunstrasenbahn. Dusche, Getränke und Handtuch inklusive, 3D Scan und Assessment zum Start. Monatlich kündbar, ohne Classes." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>

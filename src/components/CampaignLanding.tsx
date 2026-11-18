@@ -66,6 +66,8 @@ export interface LandingProps {
   urbanText?: string;          // Text im Urban-Sports-Block
   stickyLabel?: string;        // feste Leiste mobil, Standard "39 € alle vier Wochen"
   countdown?: string;          // z. B. "Endet in 11 Tagen 4 Std", unter der Preiszeile und in der festen Leiste
+  afterAccent?: ReactNode;     // z. B. Aktionsstempel direkt hinter dem gelben Preis
+  image?: { src: string; alt: string };   // Bild statt Kampagnenvideo (das Video zeigt "START FOR 39€", passt nicht zu anderen Angeboten)
 }
 
 export default function CampaignLanding(p: LandingProps) {
@@ -102,7 +104,7 @@ export default function CampaignLanding(p: LandingProps) {
         <div className="min-w-0">
           {/* 1. Erster Bildschirm */}
           <section className="campaign-grid -mx-5 px-5 md:mx-0 md:px-0">
-            <h1 className="campaign-display text-[68px] uppercase leading-[0.82] sm:text-[96px] md:text-[128px] lg:text-[144px]">{hasAccent ? p.headline.slice(0, -accent.length) : p.headline}{hasAccent && <span className="text-[#FBFF00]">{accent}</span>}{p.h1Sub && <span className="campaign-mono mt-3 block text-[11px] tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
+            <h1 className="campaign-display text-[68px] uppercase leading-[0.82] sm:text-[96px] md:text-[128px] lg:text-[144px]">{hasAccent ? p.headline.slice(0, -accent.length) : p.headline}{hasAccent && <span className="text-[#FBFF00]">{accent}</span>}{p.afterAccent}{p.h1Sub && <span className="campaign-mono mt-3 block text-[11px] tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
             <p className="campaign-display mt-3 text-3xl uppercase leading-none text-white/85 sm:text-4xl md:text-5xl">{p.subline}</p>
             <p className="campaign-mono mt-5 text-[11px] uppercase leading-relaxed tracking-[0.14em] text-[#FBFF00] sm:text-xs">{p.priceLine}</p>
             {p.countdown && <p className="campaign-mono mt-2 inline-block border border-[#FBFF00] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white sm:text-xs" role="timer">{p.countdown}</p>}
@@ -143,13 +145,13 @@ export default function CampaignLanding(p: LandingProps) {
         </div>
 
         {/* Desktop: Video rechts */}
-        <aside className="hidden lg:block"><div className="sticky top-8"><LazyVideo label={`${p.campaign} Kampagnenvideo mit echten SKILL Models`} /><p className="campaign-display mt-5 text-5xl uppercase leading-none text-white/85">Show up.<br /><span className="text-[#FBFF00]">Earn it.</span></p></div></aside>
+        <aside className="hidden lg:block"><div className="sticky top-8">{p.image ? <div className="mx-auto w-full max-w-[420px] bg-[#2A3133] p-3"><img src={p.image.src} alt={p.image.alt} className="aspect-[3/4] w-full object-cover" width={1080} height={1440} loading="eager" /></div> : <LazyVideo label={`${p.campaign} Kampagnenvideo mit echten SKILL Models`} />}<p className="campaign-display mt-5 text-5xl uppercase leading-none text-white/85">Show up.<br /><span className="text-[#FBFF00]">Earn it.</span></p></div></aside>
       </div>
 
       {/* 5. Danach: Video (mobil), Für dich wenn, Ablauf, Coach, Urban Sports, FAQ, Knopf */}
-      <section className="border-t border-white/10 bg-[#2A3133] py-14 lg:hidden">
+      {!p.image &&       <section className="border-t border-white/10 bg-[#2A3133] py-14 lg:hidden">
         <div className="mx-auto max-w-[1480px] px-5"><p className={kicker}>Real people. Real coaching.</p><h2 className={h2}>SHOW UP.<br /><span className="text-[#FBFF00]">EARN IT.</span></h2><div className="mt-8"><LazyVideo label={`${p.campaign} Kampagnenvideo mit echten SKILL Models`} /></div></div>
-      </section>
+      </section>}
 
       {/* Ein Blick ins Gym: echte Bilder als Vertrauen, direkt nach dem Video */}
       <section className="overflow-hidden border-t border-white/10 bg-black py-14 md:py-20">
