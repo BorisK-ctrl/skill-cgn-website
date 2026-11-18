@@ -26,7 +26,7 @@ function ScrollManager() {
 }
 
 export default function App() {
-  const Home = page("Home"), Start39 = page("Start39"), Back39 = page("Back39"), VorOrt = page("VorOrt"), Shop = page("Shop"), Kursplan = page("Kursplan"), ShopDanke = page("ShopDanke"), Memberships = page("Memberships"), Classes = page("Classes"), Probetraining = page("Probetraining"), Checkout = page("Checkout"), Danke = page("Danke"), Kuendigung = page("Kuendigung"), KuendigungBestaetigt = page("KuendigungBestaetigt"), Impressum = page("Impressum"), Datenschutz = page("Datenschutz"), Agb = page("Agb"), Brand = page("Brand"), NotFound = page("NotFound"), Scan = page("Scan"), ScanDanke = page("ScanDanke"), PersonalTraining = page("PersonalTraining"), BlackMonth = page("BlackMonth"), BlackMonthDanke = page("BlackMonthDanke"), BlackWeek = page("BlackWeek"), BlackWeekDanke = page("BlackWeekDanke");
+  const Home = page("Home"), Start39 = page("Start39"), Back39 = page("Back39"), VorOrt = page("VorOrt"), Shop = page("Shop"), Kursplan = page("Kursplan"), ShopDanke = page("ShopDanke"), Memberships = page("Memberships"), Classes = page("Classes"), Probetraining = page("Probetraining"), Checkout = page("Checkout"), Danke = page("Danke"), Kuendigung = page("Kuendigung"), KuendigungBestaetigt = page("KuendigungBestaetigt"), Impressum = page("Impressum"), Datenschutz = page("Datenschutz"), Agb = page("Agb"), Brand = page("Brand"), NotFound = page("NotFound"), Scan = page("Scan"), ScanDanke = page("ScanDanke"), PersonalTraining = page("PersonalTraining"), BlackMonth = page("BlackMonth"), BlackMonthDanke = page("BlackMonthDanke"), BlackWeek = page("BlackWeek"), BlackWeekDanke = page("BlackWeekDanke"), Onboarding = page("Onboarding");
   return (
     <>
       <ScrollManager />
@@ -49,6 +49,7 @@ export default function App() {
           <Route path="/blackmonth/danke" element={<BlackMonthDanke />} />
           <Route path="/blackweek" element={<BlackWeek />} />
           <Route path="/blackweek/danke" element={<BlackWeekDanke />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/kursplan" element={<Kursplan />} />
           <Route path="/shop/danke" element={<ShopDanke />} />
           <Route path="/checkout" element={<Checkout />} />

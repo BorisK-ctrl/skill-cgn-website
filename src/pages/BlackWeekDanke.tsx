@@ -20,11 +20,11 @@ export default function BlackWeekDanke() {
   usePageMeta("Du bist drin — Black Week bei SKILL CGN", "Dein Vertrag ist angelegt.", "noindex,nofollow");
   const [params] = useSearchParams();
   /* Vertrag aus dem Abschluss (sessionStorage), sonst aus der URL */
-  const [c, setC] = useState<{ cid: string; name: string; price: number } | null>(null);
+  const [c, setC] = useState<{ cid: string; name: string; price: number; t?: string } | null>(null);
   useEffect(() => {
     let s: any = null; try { s = JSON.parse(sessionStorage.getItem("skill-contract") || "null"); } catch {}
     const cid = String(s?.cid || params.get("vertrag") || "").slice(0, 40);
-    if (cid) setC({ cid, name: s?.name || "", price: typeof s?.price === "number" && s.price > 0 ? s.price : BLACK_WEEK.price });
+    if (cid) setC({ cid, name: s?.name || "", price: typeof s?.price === "number" && s.price > 0 ? s.price : BLACK_WEEK.price, t: typeof s?.t === "string" ? s.t : undefined });
   }, [params]);
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function BlackWeekDanke() {
         <p className="mt-5 text-lg leading-relaxed text-white/80">Dein Vertrag ist angelegt. Eine Mail mit Vertrag und SEPA-Mandat ist unterwegs.</p>
         {c?.cid && <p className="campaign-mono mt-2 text-[10px] uppercase tracking-[0.16em] text-white/40">Vertragsnummer {c.cid}</p>}
 
-        <OnboardingNext waText={`Hi Boris, ich habe gerade Gym Only 29 gebucht${c?.name ? `, ${c.name}` : ""}. Wann passt mein Onboarding?`} />
+        <OnboardingNext checkoutToken={c?.t} contractId={c?.cid} waText={`Hi Boris, ich habe gerade Gym Only 29 gebucht${c?.name ? `, ${c.name}` : ""}. Wann passt mein Onboarding?`} />
 
         <div className="mt-12 space-y-2 border-t border-white/10 pt-6 text-sm text-white/60">
           <p><strong className="text-white">Adresse:</strong> SKILL CGN, Herzogstraße 16–20, 50667 Köln, zwei Minuten vom Neumarkt.</p>
