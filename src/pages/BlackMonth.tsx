@@ -46,7 +46,7 @@ export function stripeLinkWithUtm(base: string, utm: Record<string, string>): st
 export default function BlackMonth() {
   usePageMeta("Black Month: 6 Monate Gym für 149 € — SKILL CGN Köln", "BLACK MONTH bei SKILL CGN: 6 Monate Gym in Köln-Mitte für 149 €, einmal zahlen, kein Abo, endet von allein. Nur vom 2. bis 30.11.2026, nur für Neukunden.", "index,follow", "/img/og-blackmonth.jpg");
   // Prerender zeigt immer die Aktion; im Browser entscheidet das Berliner Datum (kein Flackern durch Hydration-Mismatch). Nach dem 30.11.: Startseite.
-  const [active, setActive] = useState(true);
+  const [active, setActive] = useState(!BLACK_MONTH.ended);
   useEffect(() => { setActive(blackMonthActive()); }, []);
   // Überschrift je Anzeige, erst nach dem Mount (der Prerender kennt keine Query).
   const [hero, setHero] = useState(HERO_DEFAULT);

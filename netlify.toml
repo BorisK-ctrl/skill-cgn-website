@@ -9,8 +9,20 @@
 # ── angebot.skill-studios.com (früher Manus-Seite mit Sommerpreisen): alles auf die aktuelle Aktion ─────────
 [[redirects]]
   from = "https://angebot.skill-studios.com/*"
-  to = "https://skill-studios.com/blackmonth"
-  status = 301
+  to = "https://skill-studios.com/blackweek"
+  status = 302
+  force = true
+
+# ── Black Month vorzeitig beendet (18.11.2026): Seite auf die aktuelle Aktion Black Week. Die Dankeseite /blackmonth/danke bleibt für Nachzügler-Zahlungen. ──
+[[redirects]]
+  from = "/blackmonth"
+  to = "/blackweek"
+  status = 302
+  force = true
+[[redirects]]
+  from = "/blackmonth.html"
+  to = "/blackweek"
+  status = 302
   force = true
 
 # ── Alte URLs der Manus-Seite und der statischen Vorgängerseite ─────────────
