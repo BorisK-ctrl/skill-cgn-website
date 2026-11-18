@@ -50,7 +50,9 @@ export async function seenEvent(id: string): Promise<boolean> { return !!(await 
 export async function markEvent(id: string) { await setJSON("stripe-events", id, { at: new Date().toISOString() }); }
 
 /* Checkout-Abbrecher (START 39 / BACK 39): Schlüssel = Token aus dem Formular. */
-export interface CheckoutLead { token: string; campaign: string; path: string; firstName: string; lastName: string; email: string; phone: string; months?: number; createdAt: string; done?: boolean; mailedAt?: string; leadUuid?: string; customerNumber?: string; utm?: string; abandonedStep?: number; contractId?: string; capi?: { at: string; sent: boolean; status?: number; note?: string };
+/* Willkommensmail (Issue #2): pendingSince = Abschluss, input = Daten für die Mail, sentAt sobald raus */
+export interface WelcomeState { pendingSince: string; customerId?: number; sentAt?: string; docs?: number; tries?: number; note?: string; input?: { offerName: string; price: number; startDate?: string } }
+export interface CheckoutLead { welcome?: WelcomeState; token: string; campaign: string; path: string; firstName: string; lastName: string; email: string; phone: string; months?: number; createdAt: string; done?: boolean; mailedAt?: string; leadUuid?: string; customerNumber?: string; utm?: string; abandonedStep?: number; contractId?: string; capi?: { at: string; sent: boolean; status?: number; note?: string };
   /* Kartenweg: Vertragsdaten bis zur Stripe-Bestätigung (Unterschrift wird nach der Vertragsanlage gelöscht) */
   card?: { rateBundleTermId: number; startDate: string; dob: string; street: string; houseNumber: string; zip: string; city: string; signatureSvgBase64?: string; price: number; offerName: string; sourceUrl?: string; fbp?: string; fbc?: string; savedAt: string };
   stripe?: { sessionId?: string; subscriptionId?: string; customerId?: string; paidAt?: string; amount?: number };

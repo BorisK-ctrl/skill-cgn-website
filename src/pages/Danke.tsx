@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Hero from "@/components/Hero";
 import { usePageMeta } from "@/lib/meta";
-import { WHATSAPP, OFFERS } from "@/lib/magicline";
+import { WHATSAPP, OFFERS, ONBOARDING_BOOKING_URL } from "@/lib/magicline";
 import { consent, CONSENT_EVENT, track } from "@/lib/pixel";
 import { gadsConversion } from "@/lib/gads";
 import { utmParams } from "@/lib/events";
@@ -91,7 +91,8 @@ export default function Danke() {
   return (
     <Hero kick={waiting ? "Zahlung eingegangen" : "Willkommen im Team"} title={<>Du bist<br />dabei.</>} titleClass="!text-[clamp(2.6rem,9vw,5.5rem)]" lead={waiting ? "Einen Moment, dein Vertrag wird gerade in unserem Mitgliedersystem angelegt …" : text}>
       <div className="notice"><strong>So geht es weiter.</strong> Komm einfach zu deinem ersten Training vorbei, wir richten vor Ort alles ein und zeigen dir das Studio. Kurse buchst du über die App oder auf der <Link to="/classes" className="underline">Kursseite</Link>.</div>
-      {!waiting && <WhatsAppButton name={wa.offer === "BACK 39" ? "whatsapp_back39_danke" : "whatsapp_start39_danke"} text={`Hi Boris, ich habe gerade ${wa.offer === "BACK 39" ? "BACK 39" : "START 39"} abgeschlossen${wa.name ? `, ${wa.name}` : ""}, wann kann ich zum Scan kommen?`} className="mt-6"><MessageCircle className="h-5 w-5" /> Schick mir jetzt kurz Hallo auf WhatsApp</WhatsAppButton>}
+      {!waiting && ONBOARDING_BOOKING_URL && <a href={ONBOARDING_BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn mt-6 w-full justify-center">Scan-Termin wählen</a>}
+      {!waiting && <WhatsAppButton name={wa.offer === "BACK 39" ? "whatsapp_back39_danke" : "whatsapp_start39_danke"} text={`Hi Boris, ich habe gerade ${wa.offer === "BACK 39" ? "BACK 39" : "START 39"} abgeschlossen${wa.name ? `, ${wa.name}` : ""}, wann kann ich zum Scan kommen?`} className="mt-6"><MessageCircle className="h-5 w-5" /> {ONBOARDING_BOOKING_URL ? "Oder schreib Boris" : "Schick mir jetzt kurz Hallo auf WhatsApp"}</WhatsAppButton>}
       <div className="btns"><Link className="btn" to="/classes">Kursplan ansehen</Link><a className="btn-ghost" href={WHATSAPP} rel="noopener">Fragen per WhatsApp</a></div>
     </Hero>
   );
