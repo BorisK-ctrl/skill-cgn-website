@@ -54,7 +54,8 @@ export default function Start39() {
   /* ViewContent nur mit Consent: sofort, wenn schon erteilt, sonst beim Erteilen auf dieser Seite */
   useEffect(() => {
     let fired = false;
-    const fire = () => { if (fired) return; fired = true; track("ViewContent", { content_name: "START 39", content_category: "Membership", value: 39, currency: "EUR" }); };
+    /* Der Pixel lädt erst im Cookie-Banner (nach dieser Seite), daher kurz warten, bis fbq da ist (vorher verpuffte ViewContent) */
+    const fire = () => { if (fired) return; fired = true; let tries = 0; const send = () => { if (window.fbq) track("ViewContent", { content_name: "START 39", content_category: "Membership", value: 39, currency: "EUR" }); else if (++tries < 20) setTimeout(send, 300); }; send(); };
     if (consent() === "accepted") fire();
     const onConsent = (e: Event) => { if ((e as CustomEvent).detail === "accepted") setTimeout(fire, 300); };
     window.addEventListener(CONSENT_EVENT, onConsent);

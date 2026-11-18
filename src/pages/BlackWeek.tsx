@@ -11,7 +11,7 @@ import StartCheckout from "@/components/StartCheckout";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT } from "@/lib/pixel";
 import { useRateBundles, fmtPrice } from "@/lib/useRateBundles";
-import { BLACK_WEEK, blackWeekPrices } from "@/lib/blackweek";
+import { BLACK_WEEK, blackWeekPrices, afterText, useBlackWeekCountdown } from "@/lib/blackweek";
 import { PARKING } from "@/lib/tarife";
 import { WHATSAPP } from "@/lib/magicline";
 import { FaqJsonLd, OffersJsonLd } from "@/lib/jsonld";
@@ -28,10 +28,11 @@ export default function BlackWeek() {
   const { bundles, error } = useRateBundles();
   const bundle = bundles?.find(b => b.id === BLACK_WEEK.rateBundleId) ?? null;
   const term = bundle?.terms?.find(t => t.id === BLACK_WEEK.termId) ?? bundle?.terms?.[0] ?? null;
-  const ended = !!bundles && !bundle;
+  const countdown = useBlackWeekCountdown();
+  const ended = (!!bundles && !bundle) || countdown.ended;
   const resume = useResume();
   const p = fmtPrice(term?.price ?? BLACK_WEEK.price);
-  /* Streichpreis: reguläres Gym Only (34 €, 3 Monate). Keine Streichung der Aufnahmegebühr, Gym Only hatte nie eine (§ 11 PAngV). */
+  /* Regulärer Gym-Only-Preis nur für den Hinweis "Nach der Black Week …", kein Streichpreis (Issue #1, § 5 UWG). */
   const was = fmtPrice(blackWeekPrices(bundles).was);
 
   /* PageView kommt vom Pixel selbst. ViewContent nur mit Consent, sofort oder beim Erteilen auf dieser Seite. */
@@ -75,8 +76,8 @@ export default function BlackWeek() {
       headline={`BLACK WEEK. GYM ONLY. ${p}\u00a0€`}
       accent={`${p}\u00a0€`}
       subline="alle 4 Wochen. Monatlich kündbar. 0\u00a0€ Aufnahmegebühr."
-      priceLine={`${p} € statt ${was} € alle 4 Wochen, Laufzeit 1 Monat, monatlich kündbar, keine Aufnahmegebühr, nur online, Abschluss bis 30.11.2026.`}
-      priceNote={<>Regulär kostet Gym Only {was} € alle 4 Wochen bei 3 Monaten Laufzeit. In der Black Week {p} €, dauerhaft, mit 1 Monat Laufzeit.</>}
+      priceLine={`${p} € alle 4 Wochen, Laufzeit 1 Monat, monatlich kündbar, keine Aufnahmegebühr, nur online, Abschluss bis 30.11.2026.`}
+      priceNote={<>In der Black Week {p}&nbsp;€ alle 4 Wochen, dauerhaft, mit 1 Monat Laufzeit. {afterText(was)}</>}
       bullets={[]}
       included={[
         { label: "Gym komplett", sub: "Alle Geräte, Freihantelbereich, Kunstrasenbahn" },
@@ -86,11 +87,12 @@ export default function BlackWeek() {
         { label: "3D Scan und Assessment", sub: "Zum Start", wide: true },
         { label: "Monatlich kündbar", sub: "Laufzeit 1 Monat", wide: true },
       ]}
-      feeNote={{ label: "Black Week Preis", now: `${p}\u00a0€`, was: `${was}\u00a0€` }}
+      feeNote={{ label: "Black Week Preis", now: `${p}\u00a0€` }}
       notIncluded={<><span className="font-bold text-white">Nicht drin: Classes und Coaching.</span> Dafür gibt es <Link to="/start39" className="underline hover:text-[#FBFF00]">START 39 mit 4 Classes je 4 Wochen</Link> oder Drop In und Trial Pass im <Link to="/shop" className="underline hover:text-[#FBFF00]">Shop</Link>.</>}
       cta="Jetzt sichern"
       ctaNote="Nur bis 30.11.2026. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt."
       stickyLabel={`${p} € alle 4 Wochen`}
+      countdown={ended ? "" : countdown.label}
       forYou={forYou}
       frame={[
         { t: "SCAN ZUM START.", c: "Scaneca 3D-Körperscan und Assessment. Dein Nullpunkt, gemessen, nicht geschätzt." },

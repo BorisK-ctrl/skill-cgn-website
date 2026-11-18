@@ -65,6 +65,7 @@ export interface LandingProps {
   frame?: readonly { t: string; c: string }[];   // Ablauf "Dein Start. Gemessen.", drei Schritte
   urbanText?: string;          // Text im Urban-Sports-Block
   stickyLabel?: string;        // feste Leiste mobil, Standard "39 € alle vier Wochen"
+  countdown?: string;          // z. B. "Endet in 11 Tagen 4 Std", unter der Preiszeile und in der festen Leiste
 }
 
 export default function CampaignLanding(p: LandingProps) {
@@ -104,6 +105,7 @@ export default function CampaignLanding(p: LandingProps) {
             <h1 className="campaign-display text-[68px] uppercase leading-[0.82] sm:text-[96px] md:text-[128px] lg:text-[144px]">{hasAccent ? p.headline.slice(0, -accent.length) : p.headline}{hasAccent && <span className="text-[#FBFF00]">{accent}</span>}{p.h1Sub && <span className="campaign-mono mt-3 block text-[11px] tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
             <p className="campaign-display mt-3 text-3xl uppercase leading-none text-white/85 sm:text-4xl md:text-5xl">{p.subline}</p>
             <p className="campaign-mono mt-5 text-[11px] uppercase leading-relaxed tracking-[0.14em] text-[#FBFF00] sm:text-xs">{p.priceLine}</p>
+            {p.countdown && <p className="campaign-mono mt-2 inline-block border border-[#FBFF00] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white sm:text-xs" role="timer">{p.countdown}</p>}
             {p.priceNote && <p className="mt-3 max-w-xl border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75 md:text-sm">{p.priceNote}</p>}
             {p.included ? (
               <div className="mt-5">
@@ -204,7 +206,7 @@ export default function CampaignLanding(p: LandingProps) {
       {/* 3. Feste Leiste, nur mobil und nur solange das Formular nicht im Bild ist */}
       <div className={`fixed inset-x-0 bottom-0 z-40 border-t-2 border-[#FBFF00] bg-black transition-transform duration-200 md:hidden ${formVisible ? "translate-y-full" : "translate-y-0"}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-hidden={formVisible}>
         <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-          <span className="campaign-mono text-[11px] uppercase tracking-[0.12em] text-white">{p.stickyLabel ?? "39 € alle vier Wochen"}</span>
+          <span className="campaign-mono text-[11px] uppercase tracking-[0.12em] text-white">{p.stickyLabel ?? "39 € alle vier Wochen"}{p.countdown && <span className="block text-[10px] text-[#FBFF00]">{p.countdown}</span>}</span>
           <button type="button" onClick={toForm} tabIndex={formVisible ? -1 : 0} className="campaign-button flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black">{p.stickyLabel ? p.cta : "Jetzt starten"} <ArrowDown className="h-3.5 w-3.5" /></button>
         </div>
       </div>
