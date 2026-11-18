@@ -79,7 +79,7 @@ export default function BlackWeek() {
       accent={`${p}\u00a0€`}
       afterAccent={<PriceStamp />}
       subline={"alle 4 Wochen. Monatlich kündbar. 0\u00a0€ Aufnahmegebühr."}
-      image={{ src: "/img/gym/04-geraetepark.webp", alt: "Technogym Gerätepark bei SKILL CGN in Köln" }}
+      video={{ src: "/video/blackweek-boris.mp4", poster: "/video/blackweek-boris-poster.webp", label: "Boris, Founder von SKILL CGN, erklärt den Black Week Deal: Gym Only für 29 € alle 4 Wochen" }}
       priceLine={`${p} € alle 4 Wochen, Laufzeit 1 Monat, monatlich kündbar, keine Aufnahmegebühr, nur online, Abschluss bis 30.11.2026.`}
       priceNote={<>In der Black Week {p}&nbsp;€ alle 4 Wochen, dauerhaft, mit 1 Monat Laufzeit. {afterText(was)}</>}
       bullets={[]}

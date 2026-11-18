@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { ArrowDown, Check, MapPin, ScanLine, ClipboardList, Users } from "lucide-react";
 import { openCookieSettings } from "@/lib/pixel";
 import GymGallery from "@/components/GymGallery";
+import PromoVideo from "@/components/PromoVideo";
 
 const LOGO_WHITE = "/img/manus/skill-cgn-original-white_18b77f12.svg";
 const V1_VIDEO = "/img/manus/v1-layered-offer-stack-9x16_v2.mp4";   // v2: Zeile "12 weeks, then 49 €" durch "Monatlich kündbar" ersetzt (2026-10-22)
@@ -68,7 +69,8 @@ export interface LandingProps {
   countdown?: string;          // z. B. "Endet in 11 Tagen 4 Std", unter der Preiszeile und in der festen Leiste
   afterAccent?: ReactNode;     // z. B. Aktionsstempel direkt hinter dem gelben Preis
   timer?: ReactNode;           // großer Countdown unter der Preiszeile (statt der Textzeile countdown)
-  image?: { src: string; alt: string };   // Bild statt Kampagnenvideo (das Video zeigt "START FOR 39€", passt nicht zu anderen Angeboten)
+  image?: { src: string; alt: string };
+  video?: { src: string; poster: string; label: string };   // eigenes Hochkant-Video statt Bild/Kampagnenvideo, auch mobil   // Bild statt Kampagnenvideo (das Video zeigt "START FOR 39€", passt nicht zu anderen Angeboten)
 }
 
 export default function CampaignLanding(p: LandingProps) {
@@ -146,11 +148,14 @@ export default function CampaignLanding(p: LandingProps) {
         </div>
 
         {/* Desktop: Video rechts */}
-        <aside className="hidden lg:block"><div className="sticky top-8">{p.image ? <div className="mx-auto w-full max-w-[420px] bg-[#2A3133] p-3"><img src={p.image.src} alt={p.image.alt} className="aspect-[3/4] w-full object-cover" width={1080} height={1440} loading="eager" /></div> : <LazyVideo label={`${p.campaign} Kampagnenvideo mit echten SKILL Models`} />}<p className="campaign-display mt-5 text-5xl uppercase leading-none text-white/85">Show up.<br /><span className="text-[#FBFF00]">Earn it.</span></p></div></aside>
+        <aside className="hidden lg:block"><div className="sticky top-8">{p.video ? <PromoVideo {...p.video} className="mx-auto w-full max-w-[380px]" /> : p.image ? <div className="mx-auto w-full max-w-[420px] bg-[#2A3133] p-3"><img src={p.image.src} alt={p.image.alt} className="aspect-[3/4] w-full object-cover" width={1080} height={1440} loading="eager" /></div> : <LazyVideo label={`${p.campaign} Kampagnenvideo mit echten SKILL Models`} />}<p className="campaign-display mt-5 text-5xl uppercase leading-none text-white/85">Show up.<br /><span className="text-[#FBFF00]">Earn it.</span></p></div></aside>
       </div>
 
       {/* 5. Danach: Video (mobil), Für dich wenn, Ablauf, Coach, Urban Sports, FAQ, Knopf */}
-      {!p.image &&       <section className="border-t border-white/10 bg-[#2A3133] py-14 lg:hidden">
+      {p.video && <section className="border-t border-white/10 bg-[#2A3133] py-14 lg:hidden">
+        <div className="mx-auto max-w-[1480px] px-5"><p className={kicker}>20 Sekunden mit Boris</p><h2 className={h2}>DER DEAL<br /><span className="text-[#FBFF00]">IN KURZ.</span></h2><div className="mt-8"><PromoVideo {...p.video} className="mx-auto w-full max-w-[340px]" /></div></div>
+      </section>}
+      {!p.image && !p.video &&       <section className="border-t border-white/10 bg-[#2A3133] py-14 lg:hidden">
         <div className="mx-auto max-w-[1480px] px-5"><p className={kicker}>Real people. Real coaching.</p><h2 className={h2}>SHOW UP.<br /><span className="text-[#FBFF00]">EARN IT.</span></h2><div className="mt-8"><LazyVideo label={`${p.campaign} Kampagnenvideo mit echten SKILL Models`} /></div></div>
       </section>}
 

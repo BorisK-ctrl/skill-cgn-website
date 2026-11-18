@@ -289,6 +289,3 @@ iframe { -webkit-overflow-scrolling: touch; overflow: auto; }
   .nav-link.active::after { content: ""; @apply absolute left-0 right-0 -bottom-1 h-0.5 bg-yellow; }
 }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-
-/* Langsamer Zoom der Black-Week-Bildstrecke im Hero (HeroSlideshow) */
-@keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.12); } }

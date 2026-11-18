@@ -19,7 +19,7 @@ import { OPENING_HOURS } from "@/components/Footer";
 import GymGallery from "@/components/GymGallery";
 import PriceStamp from "@/components/PriceStamp";
 import Countdown from "@/components/Countdown";
-import HeroSlideshow from "@/components/HeroSlideshow";
+import PromoVideo from "@/components/PromoVideo";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
 import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, afterText } from "@/lib/blackweek";
@@ -146,7 +146,7 @@ export default function Home() {
             {/* Gesicht: Boris. Während Black Week das Gym selbst (Gym Only: ohne Coaching, also kein Coaching-Bild) */}
             <div className="flex items-center gap-4 lg:flex-col lg:items-start lg:gap-5">
               {bwHero ? <>
-              <HeroSlideshow price={fmtPrice(bw.now)} />
+              <PromoVideo src="/video/blackweek-boris.mp4" poster="/video/blackweek-boris-poster.webp" label="Boris, Founder von SKILL CGN, erklärt den Black Week Deal: Gym Only für 29 € alle 4 Wochen" className="mx-auto w-full max-w-[300px] sm:max-w-[340px] lg:mx-0 lg:max-w-[360px]" />
               </> : <>
               <img src={BORIS_PHOTO} alt="Boris, Founder SKILL CGN" width={840} height={1050} className="h-24 w-20 shrink-0 object-cover border-2 border-primary sm:h-32 sm:w-28 lg:h-auto lg:w-full lg:max-w-[360px] lg:aspect-[4/5]" loading="eager" />
               <div><p className="text-sm md:text-base font-bold leading-snug">„Progression vor Perfektion.“</p><p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-primary">Boris, Founder</p></div>
