@@ -23,12 +23,13 @@ export function useBlackWeekActive(): boolean {
 export interface Promo { key: "blackweek" | "start39"; path: string; label: string; banner: string; cta: string; line: string; sticky: string; nav: string; ends?: string }
 const START39_PROMO: Promo = { key: "start39", path: "/start39", label: "START 39:", banner: "39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr", cta: "START 39 sichern",
   line: "39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr · nur Neukunden", sticky: "START 39 sichern · 39 € alle vier Wochen", nav: "START 39" };
-const BLACKWEEK_PROMO: Promo = { key: "blackweek", path: "/blackweek", label: "Black Week:", banner: "Gym Only 29\u00a0€ statt 34\u00a0€ alle 4 Wochen", cta: "Gym Only 29\u00a0€ sichern",
-  line: "29\u00a0€ statt 34\u00a0€ alle 4 Wochen · monatlich kündbar", sticky: "Black Week · Gym Only 29\u00a0€ sichern", nav: "Black Week", ends: BLACK_WEEK.end };
+const BLACKWEEK_PROMO: Promo = { key: "blackweek", path: "/blackweek", label: "Black Week:", banner: "Gym Only 29\u00a0€ alle 4 Wochen", cta: "Gym Only 29\u00a0€ sichern",
+  line: "29\u00a0€ alle 4 Wochen · monatlich kündbar", sticky: "Black Week · Gym Only 29\u00a0€ sichern", nav: "Black Week", ends: BLACK_WEEK.end };
 export function usePromo(): Promo { return useBlackWeekActive() ? BLACKWEEK_PROMO : START39_PROMO; }
 
 /** Reguläres Gym Only (Magicline 1215471120, Term 1215471130): 34 € alle 4 Wochen, 3 Monate Mindestlaufzeit, keine Aufnahmegebühr.
- *  Einziger zulässiger Streichpreis für Black Week (§ 11 PAngV: niedrigster Preis der letzten 30 Tage). Eine Aufnahmegebühr hatte Gym Only nie. */
+ *  Kein Streichpreis (Review Issue #1): Gym Only 34 € wurde nie öffentlich angeboten, ein Vergleich wäre nach § 5 UWG angreifbar.
+ *  Der Preis erscheint nur im Hinweis afterText(): "Nach der Black Week kostet Gym Only 34 € …". */
 export const ONLY_GYM_REGULAR = { rateBundleId: 1215471120, price: 34 } as const;
 /** Live-Preise aus dem rate-bundle, Fallback die Listenpreise. */
 export function blackWeekPrices(bundles: { id: number; terms?: { price: number }[] }[] | null) {
@@ -45,4 +46,28 @@ export function useDaysLeft(end?: string): string {
     setTxt(days > 1 ? `noch ${days} Tage` : days === 1 ? "nur noch bis morgen" : days === 0 ? "nur noch heute" : "");
   }, [end]);
   return txt;
+}
+
+/** Einziger Ort, an dem der reguläre Preis vorkommt, überall gleich (kein Streichpreis). */
+export const afterText = (was: number | string) => `Nach der Black Week kostet Gym Only ${was}\u00a0€ alle 4 Wochen mit 3 Monaten Laufzeit.`;
+
+/* Countdown /blackweek (Issue #1): Ziel 30.11.2026 23:59:59 Berliner Zeit (MEZ = UTC+1). Zeitbasis ist der Server (Date-Header einer
+   HEAD-Anfrage), die Gerätezeit nur als Ersatz. Erster Render ohne Timer (Prerender), dann jede Minute neu. Nach Ablauf: ended = true. */
+export const BLACK_WEEK_ENDS_AT = Date.parse("2026-11-30T23:59:59+01:00");
+export function countdownLabel(msLeft: number): string {
+  if (msLeft <= 0) return "";
+  const h = Math.floor(msLeft / 3600000);
+  if (h < 24) return "Endet heute um 23:59";
+  const d = Math.floor(h / 24), rest = h % 24;
+  return `Endet in ${d} ${d === 1 ? "Tag" : "Tagen"}${rest ? ` ${rest} Std` : ""}`;
+}
+export function useBlackWeekCountdown(): { label: string; ended: boolean } {
+  const [state, setState] = useState({ label: "", ended: false });
+  useEffect(() => {
+    let offset = 0, timer = 0, on = true;
+    const tick = () => { const left = BLACK_WEEK_ENDS_AT - (Date.now() + offset); if (on) setState({ label: countdownLabel(left), ended: left <= 0 }); };
+    fetch("/", { method: "HEAD", cache: "no-store" }).then(r => { const d = Date.parse(r.headers.get("date") || ""); if (d) offset = d - Date.now(); }).catch(() => {}).finally(() => { tick(); timer = window.setInterval(tick, 60000); });
+    return () => { on = false; window.clearInterval(timer); };
+  }, []);
+  return state;
 }

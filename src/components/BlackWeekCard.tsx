@@ -1,9 +1,10 @@
 /* Tarifkarte "Gym Only, Black Week" im Stil der /memberships-Karten. Ersetzt dort bis 30.11.2026 die START-39-Karte (links).
-   Streichpreis nur gegen das reguläre Gym Only (34 €, 3 Monate), keine Aufnahmegebühr-Streichung: Gym Only hatte nie eine. */
+   Kein Streichpreis (Issue #1); der reguläre Preis steht nur im Hinweis afterText(). */
 import { Link } from "react-router-dom";
 import { ArrowRight, Check, Minus, Zap } from "lucide-react";
 import { fmtPrice } from "@/lib/useRateBundles";
 import { trackCta } from "@/lib/events";
+import { afterText } from "@/lib/blackweek";
 
 export const GYM_ONLY_FEATURES = ["Gym komplett, alle Geräte", "Dusche, Getränke, Trainingshandtuch", "3D Scan und Assessment zum Start", "Monatlich kündbar"] as const;
 
@@ -16,9 +17,8 @@ export default function BlackWeekCard({ now, was, big, parking }: { now: number;
         <div className="flex items-end gap-2 mb-1">
           <span className={`${big ? "text-6xl" : "text-5xl"} font-black leading-none tracking-tight font-mono text-primary`}>{fmtPrice(now)}</span>
           <div className={big ? "mb-2" : "mb-1"}><span className={`${big ? "text-lg" : "text-base"} font-black text-foreground/60`}>€</span><span className={`block ${big ? "text-xs" : "text-[10px]"} text-foreground/40 font-bold uppercase`}>alle vier Wochen</span></div>
-          <span className={`${big ? "mb-2 text-lg" : "mb-1 text-base"} ml-1 font-mono font-bold text-foreground/40`}><s>{fmtPrice(was)} €</s></span>
         </div>
-        <p className={`${big ? "text-xs" : "text-[10px]"} text-foreground/50 leading-relaxed`}>Monatlich kündbar, 1 Monat Laufzeit. Statt regulär {fmtPrice(was)} € bei 3 Monaten Laufzeit. Abschluss bis 30.11.2026.</p>
+        <p className={`${big ? "text-xs" : "text-[10px]"} text-foreground/50 leading-relaxed`}>Monatlich kündbar, 1 Monat Laufzeit. Abschluss bis 30.11.2026. {afterText(fmtPrice(was))}</p>
       </div>
       <div className="space-y-3 flex-1">
         {GYM_ONLY_FEATURES.map(f => <div key={f} className="flex items-start gap-3"><span className="w-5 h-5 bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5"><Check className="w-3 h-3 text-primary" /></span><span className="text-sm text-foreground/80">{f}</span></div>)}
