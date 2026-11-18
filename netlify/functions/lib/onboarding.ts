@@ -18,6 +18,7 @@ export const CALENDARS = {
   service: "c_03da334cdae727c1bbc66f80fdf15ba4b89ff4373699a4a49604d654a7fb5b53@group.calendar.google.com",
   classes: "c_7cc0ae41a2adbe7729eb7e814141aa9506940dea0351dae300a6caa33cb1a916@group.calendar.google.com",
   onboarding: "c_9251c5d9f2fdb7bf2dd82c0e8614a83f5271de3f3df7ce73417c8c572892e9bd@group.calendar.google.com",
+  probetraining: "c_e279c7fea8188faef6b25641272f630312cde07f505ffcabfb4f1bc3117a4d15@group.calendar.google.com",
   absences: ["c_5ebef3d12c85fb6383f61f5b1da9f4ff17ced0381db9a6884aca28d8aa237329@group.calendar.google.com", "c_7f486f3269c0fafd67cb6ba6f016b105dbbefbf914005dcc33db5f3820c83540@group.calendar.google.com"],
   /* Onboarding, Probetraining, Personal Training, Erstgespräch, Six Week onboarding */
   appointments: ["c_9251c5d9f2fdb7bf2dd82c0e8614a83f5271de3f3df7ce73417c8c572892e9bd@group.calendar.google.com", "c_e279c7fea8188faef6b25641272f630312cde07f505ffcabfb4f1bc3117a4d15@group.calendar.google.com",
@@ -25,6 +26,13 @@ export const CALENDARS = {
     "c_fdeef1e9e7a842a331724120ca2c94b407e98294f721e42ca127ea6c3be7a152@group.calendar.google.com"],
 };
 export const DURATION_MIN = 90, STEP_MIN = 30, LEAD_HOURS = 12, HORIZON_DAYS = 21;
+
+/** Terminarten. Probetraining (Boris, 2026-11-18): dieselben vier Coaches, nur wenn der Coach in der Zeit keinen Kurs gibt; 60 Minuten. */
+export const KINDS = {
+  onboarding: { label: "Onboarding", calendar: CALENDARS.onboarding, durationMin: 90, leadHours: 12, source: "website-onboarding" },
+  probetraining: { label: "Probetraining", calendar: CALENDARS.probetraining, durationMin: 60, leadHours: 3, source: "website-probetraining" },
+} as const;
+export type Kind = keyof typeof KINDS;
 
 /** Google-Kalender-Termin, so wie events.list ihn liefert (nur die Felder, die hier zählen). */
 export interface GEvent { id?: string; created?: string; summary?: string; description?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string };
@@ -102,6 +110,15 @@ export interface OnbToken { n: string; e: string; p?: string; o?: string; r?: st
 const SECRET = () => (process.env.ONBOARDING_SECRET || "").trim();
 const b64 = (s: string) => Buffer.from(s).toString("base64url");
 const mac = (body: string) => createHmac("sha256", SECRET()).update(body).digest("base64url");
+/** Beliebige kleine Daten signieren (z. B. .ics-Link in der Bestätigungsmail). */
+export function signData(data: Record<string, unknown>): string { const body = b64(JSON.stringify(data)); return `${body}.${mac(body)}`; }
+export function verifyData<T>(tok: string): T | null {
+  if (!SECRET()) return null;
+  const [body, sig] = String(tok || "").split("."); if (!body || !sig) return null;
+  const exp = Buffer.from(mac(body)), got = Buffer.from(sig);
+  if (exp.length !== got.length || !timingSafeEqual(exp, got)) return null;
+  try { return JSON.parse(Buffer.from(body, "base64url").toString()) as T; } catch { return null; }
+}
 export function signToken(t: Omit<OnbToken, "x">, days = 60): string {
   const body = b64(JSON.stringify({ ...t, x: Math.floor(Date.now() / 1000) + days * 86400 }));
   return `${body}.${mac(body)}`;
