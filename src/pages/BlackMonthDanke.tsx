@@ -13,7 +13,7 @@ import { gadsConversion } from "@/lib/gads";
 import { BLACK_MONTH } from "@/lib/blackmonth";
 
 const BOOKING_URL = (import.meta.env.VITE_BOOKING_URL || "").trim();
-const WA_BORIS = "https://wa.me/4915141277708";
+const WA_BORIS = "https://wa.me/4917610877603";
 const kicker = "campaign-mono text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]";
 
 export default function BlackMonthDanke() {
@@ -58,7 +58,7 @@ export default function BlackMonthDanke() {
           {BOOKING_URL ? (
             <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="campaign-button mt-4 inline-flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white"><CalendarDays className="h-4 w-4" /> Starttermin wählen</a>
           ) : (
-            <p className="mt-3 text-sm leading-relaxed text-white/75">Schreib Boris per WhatsApp an 0151 41277708 mit deinem Wunschtag.</p>
+            <p className="mt-3 text-sm leading-relaxed text-white/75">Schreib Boris per WhatsApp an 0176 10877603 mit deinem Wunschtag.</p>
           )}
           <a href={`${WA_BORIS}?text=${encodeURIComponent("Hi Boris, ich habe Black Month gebucht. Mein Wunschtag für den Start: ")}`} target="_blank" rel="noopener noreferrer" className={`campaign-button mt-3 inline-flex min-h-14 w-full items-center justify-center gap-3 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] ${BOOKING_URL ? "border-2 border-white/30 text-white hover:border-[#FBFF00] hover:text-[#FBFF00]" : "bg-[#FBFF00] text-black hover:bg-white"}`}><MessageCircle className="h-4 w-4" /> WhatsApp an Boris</a>
         </div>
