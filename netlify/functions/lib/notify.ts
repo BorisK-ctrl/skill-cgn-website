@@ -199,7 +199,7 @@ export interface BlackMonthBuyer { name: string; email: string; phone: string; a
 const BM_FROM = CHECKOUT_FROM; // SKILL CGN <info@skill-studios.com>
 const BM_NOTIFY = (process.env.BLACKMONTH_NOTIFY_EMAIL || "Boris.K@skill-studios.com").split(",").map((x: string) => x.trim()).filter(Boolean);
 const BOOKING_URL = (process.env.BOOKING_URL || "").trim();
-const BM_WA = "Schreib Boris per WhatsApp an 0151 41277708 mit deinem Wunschtag.";
+const BM_WA = "Schreib Boris per WhatsApp an 0176 10877603 mit deinem Wunschtag.";
 const BM_ADDRESS = "SKILL CGN, Herzogstraße 16, 50667 Köln, zwei Minuten vom Neumarkt.";
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || "";
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -247,7 +247,7 @@ export async function sendBlackMonthReminder(o: BlackMonthBuyer & { appointmentA
     `morgen geht es los: ${bmDate(o.appointmentAt)} um ${bmTime(o.appointmentAt)} Uhr ist dein Starttermin bei SKILL CGN. Komm bitte 10 Minuten früher, wir richten deinen Zugang ein und zeigen dir das Studio.`,
     "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch.",
     "Adresse: " + BM_ADDRESS,
-    "Falls es nicht passt, schreib Boris kurz per WhatsApp an 0151 41277708.",
+    "Falls es nicht passt, schreib Boris kurz per WhatsApp an 0176 10877603.",
     ...bmSignature,
   ];
   return sendFrom(BM_FROM, o.email, "Morgen geht es los, dein Start bei SKILL CGN", bmHtml(paragraphs), { replyTo: "info@skill-studios.com", text: paragraphs.join("\n\n") });

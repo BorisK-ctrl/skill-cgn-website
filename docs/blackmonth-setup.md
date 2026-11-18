@@ -33,7 +33,7 @@ Stand 2026-11-01. Seite `/blackmonth`, Dankeseite `/blackmonth/danke`, Webhook `
 |---|---|---|
 | `STRIPE_WEBHOOK_SECRET` | ja | Signaturprüfung des Webhooks (`whsec_…` vom Endpunkt) |
 | `RESEND_API_KEY` | ja | Mailversand (gesetzt) |
-| `BOOKING_URL` | nein | Link zur Terminbuchung in Mail 1 und 2. Leer: Satz „Schreib Boris per WhatsApp an 0151 41277708 mit deinem Wunschtag.“ |
+| `BOOKING_URL` | nein | Link zur Terminbuchung in Mail 1 und 2. Leer: Satz „Schreib Boris per WhatsApp an 0176 10877603 mit deinem Wunschtag.“ |
 | `BLACKMONTH_CALENDAR_ICS` | für Mail 2 und 3 | Geheime iCal-Adresse des Google Kalenders (Kalender → Einstellungen → „Privatadresse im iCal-Format“). Ohne sie gilt jeder Käufer als ohne Termin, Mail 3 geht nie raus. |
 | `BLACKMONTH_NOTIFY_EMAIL` | nein | Empfänger der Kauf-Info, Standard `Boris.K@skill-studios.com`, zusätzlich immer info@ |
 | `META_CAPI_TOKEN` | nein | Purchase serverseitig an Meta, Pixel 577923356905873 |
