@@ -29,7 +29,20 @@ export async function sendFrom(from: string, to: string | string[], subject: str
   return r.ok;
 }
 export const send = (to: string, subject: string, htmlBody: string, replyTo?: string) => sendFrom(FROM, to, subject, htmlBody, { replyTo });
-const wrap = (inner: string) => `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#000;color:#fff;padding:32px"><p style="color:#FBFF00;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:0 0 16px">SKILL CGN</p>${inner}<p style="color:#888;font-size:12px;margin-top:32px">SKILL CGN · Herzogstraße 16–20 · 50667 Köln · <a href="${SITE}" style="color:#FBFF00">skill-studios.com</a></p></div>`;
+/* Mail-Rahmen in der SKILL CI: Logo (PNG aus /public/img, Gmail zeigt kein SVG), Schwarz, Gelb #FBFF00, Grau #2A3133, keine runden Ecken.
+   Schriften: Bebas Neue (Überschriften), Space Grotesk (Text), IBM Plex Mono (Preise, Labels). Apple Mail lädt sie, Gmail nutzt die Ersatzschriften. */
+export const F_DISPLAY = "'Bebas Neue',Impact,'Arial Narrow Bold',sans-serif";
+export const F_TEXT = "'Space Grotesk',Helvetica,Arial,sans-serif";
+export const F_MONO = "'IBM Plex Mono','Courier New',monospace";
+const FONTS = `<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">`;
+const wrap = (inner: string, preheader = "") => `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark">${FONTS}<style>h1{font-family:${F_DISPLAY};font-weight:400;text-transform:uppercase;letter-spacing:0.5px;line-height:1}a{color:#FBFF00}</style></head>
+<body style="margin:0;padding:0;background:#111516">${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${preheader}</div>` : ""}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#111516"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#000;border-top:6px solid #FBFF00">
+<tr><td style="padding:28px 32px 8px"><a href="${SITE}"><img src="${SITE}/img/mail/logo-white.png" width="180" height="19" alt="SKILL CGN" style="display:block;border:0;width:180px;height:auto"></a></td></tr>
+<tr><td style="padding:16px 32px 32px;font-family:${F_TEXT};font-size:16px;line-height:1.55;color:#fff">${inner}</td></tr>
+<tr><td style="padding:20px 32px;background:#2A3133;font-family:${F_MONO};font-size:11px;line-height:1.7;letter-spacing:1px;color:#9aa3a6;text-transform:uppercase">SKILL CGN · HYROX Official Gym<br>Herzogstraße 16–20 · 50667 Köln · <a href="${SITE}" style="color:#FBFF00;text-decoration:none">skill-studios.com</a></td></tr>
+</table></td></tr></table></body></html>`;
 
 export async function sendBookingMails(b: Booking) {
   const start = new Date(b.start); const when = `${fmtDate(start)}, ${berlinTime(start)} Uhr`;
@@ -47,16 +60,49 @@ export async function sendCancelMail(b: Booking) {
 /* Abbrecher-Mail nach Schritt 1 ohne Vertrag. Absender info@, Link stellt die Sitzung per Token in Schritt 2 wieder her. */
 import type { CheckoutLead } from "./store";
 const CHECKOUT_FROM = process.env.CHECKOUT_FROM_EMAIL || "SKILL CGN <info@skill-studios.com>";
-/* Preiszeile je Kampagne (Abbrecher-Mail). Black Week: 29 €, alles andere wie bisher 39 €. */
+/* ---------- Abbrecher-Mail (10 Minuten nach Schritt 1 ohne Vertrag): Inhalt je Kampagne ---------- */
 const isGymOnly = (offer: string) => /BLACK WEEK|GYM ONLY/i.test(offer);
-export const reminderPriceLine = (campaign: string) => isGymOnly(campaign)
-  ? "Gym Only für 29 € alle 4 Wochen, monatlich kündbar, keine Aufnahmegebühr. Nur bis 30.11.2026."
-  : "39 € alle vier Wochen, monatlich kündbar, keine Gebühr.";
+interface ReminderContent { subject: string; preheader: string; kicker: string; product: string; price: string; per: string; points: string[]; deadline?: string }
+export function reminderContent(campaign: string, firstName: string): ReminderContent {
+  if (isGymOnly(campaign)) return {
+    subject: `${firstName}, dein Gym Only für 29 € ist noch offen`,
+    preheader: "Deine Angaben sind gespeichert. In 2 Minuten fertig, nur bis 30.11.",
+    kicker: "Black Week · nur bis 30.11.", product: "Gym Only", price: "29 €", per: "alle 4 Wochen",
+    points: ["Gym komplett, alle Geräte", "Dusche, Getränke, Handtuch", "3D Scan und Assessment zum Start", "Monatlich kündbar, keine Aufnahmegebühr"],
+    deadline: "Der Black Week Preis gilt nur für Abschlüsse bis 30.11.2026, 23:59 Uhr.",
+  };
+  const name = campaign.replace(/\s+/g, " ").trim() || "START 39";
+  return {
+    subject: `${firstName}, dein ${name} ist noch offen`,
+    preheader: "Deine Angaben sind gespeichert. In 2 Minuten fertig.",
+    kicker: "Nur online · nur Neukunden", product: name, price: "39 €", per: "alle 4 Wochen",
+    points: ["Gym und 4 Classes je 4 Wochen", "3D Scan zum Start, Plan mit deinem Namen", "Dusche, Getränke, Handtuch", "Monatlich kündbar, keine Aufnahmegebühr"],
+  };
+}
+export const reminderPriceLine = (campaign: string) => { const c = reminderContent(campaign, ""); return `${c.product} für ${c.price} ${c.per}`; };
+export function reminderHtml(l: Pick<CheckoutLead, "campaign" | "firstName" | "path" | "token">) {
+  const c = reminderContent(l.campaign, l.firstName);
+  const link = `${SITE}${l.path}?resume=${encodeURIComponent(l.token)}`;
+  const check = (t: string) => `<tr><td width="26" valign="top" style="padding:5px 0;font-family:${F_TEXT};font-weight:700;color:#FBFF00">✓</td><td style="padding:5px 0;font-family:${F_TEXT};font-size:15px;color:#fff">${t}</td></tr>`;
+  const html = wrap(`<p style="margin:0 0 14px;font-family:${F_MONO};font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#FBFF00">${c.kicker}</p>
+<h1 style="margin:0 0 14px;font-family:${F_DISPLAY};font-weight:400;font-size:46px;line-height:0.95;letter-spacing:0.5px;text-transform:uppercase;color:#fff">Fast geschafft,<br><span style="color:#FBFF00">${l.firstName}.</span></h1>
+<p style="margin:0 0 24px;color:#d4d8d9">Du hast deinen Abschluss gestartet, aber noch nicht beendet. Deine Angaben sind gespeichert, du machst genau dort weiter, wo du aufgehört hast.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#2A3133;border-left:6px solid #FBFF00"><tr><td style="padding:20px 22px">
+<p style="margin:0;font-family:${F_MONO};font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa3a6">${c.product}</p>
+<p style="margin:4px 0 12px;font-family:${F_DISPLAY};font-size:56px;line-height:1;color:#FBFF00">${c.price} <span style="font-family:${F_MONO};font-size:13px;letter-spacing:1px;color:#fff">${c.per}</span></p>
+<table role="presentation" cellpadding="0" cellspacing="0">${c.points.map(check).join("")}</table>
+</td></tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0 10px"><tr><td align="center" bgcolor="#FBFF00" style="background:#FBFF00">
+<a href="${link}" style="display:block;padding:18px 20px;font-family:${F_TEXT};font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#000;text-decoration:none;white-space:nowrap">Abschluss fertig machen&nbsp;→</a></td></tr></table>
+<p style="margin:0 0 22px;text-align:center;font-family:${F_MONO};font-size:11px;letter-spacing:1px;color:#9aa3a6">Dauert 2 Minuten. Deine Angaben sind schon drin.</p>
+${c.deadline ? `<p style="margin:0 0 22px;padding:12px 14px;border:2px solid #FBFF00;font-family:${F_MONO};font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#FBFF00">${c.deadline}</p>` : ""}
+<p style="margin:0;color:#d4d8d9;font-size:15px">Hakt etwas? Antworte einfach auf diese Mail oder schreib Boris per <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp</a>.</p>`, c.preheader);
+  return { subject: c.subject, html };
+}
 export async function sendCheckoutReminder(l: CheckoutLead) {
   if (!mailConfigured()) return false;
-  const link = `${SITE}${l.path}?resume=${encodeURIComponent(l.token)}`;
-  const body = wrap(`<h1 style="font-size:28px;margin:0 0 8px">Dein Start bei SKILL wartet.</h1><p>Hey ${l.firstName}, du hast mit ${l.campaign} angefangen und bist bei Schritt 2 stehen geblieben. Deine Angaben sind gesichert, du machst genau dort weiter.</p><p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#FBFF00;color:#000;font-weight:bold;padding:14px 22px;text-decoration:none">Jetzt fertig machen, 2 Minuten</a></p><p style="color:#bbb;font-size:14px">${reminderPriceLine(l.campaign)}</p><p style="color:#bbb;font-size:14px">Hakt etwas? Antworte einfach auf diese Mail oder schreib Boris per <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp</a>.</p>`);
-  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: CHECKOUT_FROM, to: l.email, subject: "Dein Start bei SKILL wartet", html: body, reply_to: "info@skill-studios.com" }) });
+  const { subject, html } = reminderHtml(l);
+  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: CHECKOUT_FROM, to: l.email, subject, html, reply_to: "info@skill-studios.com" }) });
   return r.ok;
 }
 
@@ -105,15 +151,26 @@ export async function sendContractMails(c: ContractMail) {
 <tr><td style="padding:4px 12px 4px 0;color:#888">Start</td><td>${start || "—"}</td></tr>
 <tr><td style="padding:4px 12px 4px 0;color:#888">Zahlung</td><td>${pay}</td></tr>
 </table><p style="margin-top:16px">Scan-Termin vereinbaren, am ersten Trainingstag Einweisung.</p>`));
-  const customer = c.email ? await send(c.email, `Willkommen bei SKILL CGN, ${c.firstName}`, wrap(`<h1 style="font-size:28px;margin:0 0 8px">Du bist dabei.</h1>
-<p style="font-size:18px;margin:0 0 16px">Dein <strong>${c.offerName}</strong> Vertrag ist angelegt (Vertragsnummer ${c.contractId})${start ? `, Start am ${start}` : ""}. ${c.price} € alle vier Wochen.</p>
-<p><strong>So geht es weiter</strong></p>
-<p>1. Schreib Boris kurz per <a href="https://wa.me/4917610877603?text=${encodeURIComponent(`Hi Boris, ich habe gerade ${c.offerName} abgeschlossen, ${c.firstName}. Wann kann ich zum Scan kommen?`)}" style="color:#FBFF00">WhatsApp</a> für deinen 3D-Scan-Termin.</p>
-<p>2. Komm zu deinem ersten Training in die Herzogstraße 16–20, zwei Minuten vom Neumarkt. Wir richten vor Ort alles ein und zeigen dir das Studio.</p>
+  /* Willkommensmail in der CI: Kunde sieht den Produktnamen, nicht den internen Magicline-Namen */
+  const product = isGymOnly(c.offerName) ? "Gym Only · Black Week" : c.offerName;
+  const row = (k: string, v: string) => `<tr><td style="padding:6px 16px 6px 0;font-family:${F_MONO};font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#9aa3a6;white-space:nowrap" valign="top">${k}</td><td style="padding:6px 0;font-family:${F_TEXT};font-size:15px;font-weight:700;color:#fff">${v}</td></tr>`;
+  const step = (n: string, t: string) => `<tr><td width="38" valign="top" style="padding:10px 0;font-family:${F_DISPLAY};font-size:28px;line-height:1;color:#FBFF00">${n}</td><td style="padding:10px 0;font-family:${F_TEXT};font-size:15px;line-height:1.5;color:#d4d8d9">${t}</td></tr>`;
+  const wa = `https://wa.me/4917610877603?text=${encodeURIComponent(`Hi Boris, ich habe gerade ${product} abgeschlossen, ${c.firstName}. Wann kann ich zum Scan kommen?`)}`;
+  const customer = c.email ? await send(c.email, `Willkommen bei SKILL CGN, ${c.firstName}`, wrap(`<p style="margin:0 0 14px;font-family:${F_MONO};font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#FBFF00">Vertrag angelegt</p>
+<h1 style="margin:0 0 20px;font-family:${F_DISPLAY};font-weight:400;font-size:46px;line-height:0.95;text-transform:uppercase;color:#fff">Du bist dabei,<br><span style="color:#FBFF00">${c.firstName}.</span></h1>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#2A3133;border-left:6px solid #FBFF00"><tr><td style="padding:16px 20px"><table role="presentation" cellpadding="0" cellspacing="0">
+${row("Tarif", product)}${row("Beitrag", `${c.price}&nbsp;€ alle 4 Wochen`)}${start ? row("Start", start) : ""}${row("Vertrag", c.contractId)}
+</table></td></tr></table>
+<p style="margin:26px 0 4px;font-family:${F_MONO};font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#9aa3a6">So geht es weiter</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+${step("01", `Schreib Boris kurz per <a href="${wa}" style="color:#FBFF00">WhatsApp</a> für deinen 3D-Scan-Termin.`)}
+${step("02", "Komm zu deinem ersten Training in die Herzogstraße 16–20, zwei Minuten vom Neumarkt. Wir richten vor Ort alles ein und zeigen dir das Studio.")}
 ${isGymOnly(c.offerName)
-  ? `<p>3. Du trainierst im Gym, wann es dir passt: Montag bis Donnerstag 7 bis 22 Uhr, Freitag 7 bis 20 Uhr, Samstag und Sonntag 9 bis 20 Uhr. Handtuch und Getränke gibt es bei uns.</p>`
-  : `<p>3. Kurse buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>. Handtuch und Getränke gibt es bei uns.</p>`}
-<p style="color:#888;font-size:12px;margin-top:16px">Die Vertragsunterlagen kommen separat aus unserem Mitgliedersystem (Magicline). Kündigen kannst du jederzeit unter <a href="${SITE}/kuendigung" style="color:#FBFF00">skill-studios.com/kuendigung</a>.</p>`), STAFF_EMAIL) : false;
+  ? step("03", "Trainier, wann es dir passt: Montag bis Donnerstag 7 bis 22 Uhr, Freitag 7 bis 20 Uhr, Samstag und Sonntag 9 bis 20 Uhr. Handtuch und Getränke gibt es bei uns.")
+  : step("03", `Kurse buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>. Handtuch und Getränke gibt es bei uns.`)}
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 18px"><tr><td align="center" bgcolor="#FBFF00" style="background:#FBFF00"><a href="${wa}" style="display:block;padding:18px 20px;font-family:${F_TEXT};font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#000;text-decoration:none;white-space:nowrap">Scan-Termin per WhatsApp&nbsp;→</a></td></tr></table>
+<p style="margin:0;font-size:12px;line-height:1.6;color:#9aa3a6">Die Vertragsunterlagen kommen separat aus unserem Mitgliedersystem (Magicline). Kündigung online unter <a href="${SITE}/kuendigung" style="color:#FBFF00">skill-studios.com/kuendigung</a>.</p>`, `${product}: ${c.price} € alle 4 Wochen${start ? `, Start ${start}` : ""}. So geht es weiter.`), STAFF_EMAIL) : false;
   return { staff, customer };
 }
 
