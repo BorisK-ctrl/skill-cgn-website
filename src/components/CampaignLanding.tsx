@@ -85,8 +85,10 @@ export default function CampaignLanding(p: LandingProps) {
   const toForm = (smooth = true) => {
     const sec = formRef.current; if (!sec) return;
     const input = [...sec.querySelectorAll<HTMLInputElement>("input:not([type=hidden])")].find(i => !i.value) || sec.querySelector<HTMLInputElement>("input");
-    if (input) { input.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "center" }); input.focus({ preventScroll: true }); }
-    else sec.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+    if (input) { input.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "center" }); input.focus({ preventScroll: true }); return; }
+    sec.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+    /* Formular lädt noch (Angebot kommt live aus Magicline): kurz warten, dann ins erste Feld */
+    let n = 0; const t = window.setInterval(() => { const i = sec.querySelector<HTMLInputElement>("input:not([type=hidden])"); if (i || ++n > 30) { window.clearInterval(t); if (i) { i.scrollIntoView({ behavior: "smooth", block: "center" }); i.focus({ preventScroll: true }); } } }, 100);
   };
   /* Von der Startseite mit #formular: gleich zum Formular, sobald es da ist */
   useEffect(() => {
