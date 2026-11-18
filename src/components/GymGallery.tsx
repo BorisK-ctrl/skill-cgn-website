@@ -23,11 +23,13 @@ export const GYM_IMAGES = [
 
 type Variant = "home" | "campaign";
 
-const styles: Record<Variant, { card: string; label: string; text: string; arrow: string; counter: string; track: string }> = {
+/* Startseite: auf dem Handy etwas flachere Bilder und nur die Bildüberschrift, damit die Galerie direkt unter dem Hero kurz bleibt */
+const styles: Record<Variant, { card: string; label: string; text: string; arrow: string; counter: string; track: string; img: string }> = {
   home: {
     card: "bg-card border border-foreground/10",
     label: "font-mono text-xs uppercase tracking-widest text-primary",
-    text: "text-foreground/60 text-sm leading-relaxed",
+    text: "hidden sm:block text-foreground/60 text-sm leading-relaxed",
+    img: "aspect-[4/5] sm:aspect-[3/4]",
     arrow: "w-11 h-11 bg-background/80 backdrop-blur-sm border border-foreground/20 rounded-full flex items-center justify-center text-foreground/70 hover:text-primary hover:border-primary transition-all disabled:opacity-30 disabled:hover:text-foreground/70 disabled:hover:border-foreground/20",
     counter: "font-mono text-xs tracking-widest text-foreground/50",
     track: "bg-foreground/10",
@@ -36,6 +38,7 @@ const styles: Record<Variant, { card: string; label: string; text: string; arrow
     card: "bg-[#2A3133] border border-white/10",
     label: "campaign-mono text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]",
     text: "text-sm leading-relaxed text-white/65",
+    img: "aspect-[3/4]",
     arrow: "campaign-button w-11 h-11 border-2 border-[#FBFF00] flex items-center justify-center text-[#FBFF00] hover:bg-[#FBFF00] hover:text-black disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#FBFF00]",
     counter: "campaign-mono text-[10px] tracking-[0.22em] text-white/40",
     track: "bg-white/15",
@@ -78,7 +81,7 @@ export default function GymGallery({ variant, limit }: { variant: Variant; limit
               width={1080} height={1440}
               loading={idx < 4 ? "eager" : "lazy"} decoding="async"
               alt={`${img.label} bei SKILL CGN in Köln`}
-              className="block aspect-[3/4] w-full object-cover" />
+              className={`block ${s.img} w-full object-cover`} />
             <figcaption className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <span className={s.label}>{img.label}</span>

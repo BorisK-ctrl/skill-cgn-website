@@ -6,7 +6,7 @@
  * Preise live aus dem Magicline rate-bundle, mit Fallback für das Prerendering und für Ladefehler.
  * Black Month (bis 30.11.2026): Banner kommt global aus dem Layout und ersetzt so lange den START-39-Banner; dazu Hero-Knopf und Karte vor den Preisen.
  */
-import { useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { ArrowRight, ChevronDown, MapPin, Clock, Phone, Star, Check, CalendarDays, ScanLine, Users, GlassWater, ShowerHead, Dumbbell, Bike, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { usePageMeta } from "@/lib/meta";
@@ -102,6 +102,15 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 // ─── Seite ────────────────────────────────────────────────────────────────────
 
+/* Reihenfolge der Startseite (Boris, 19.11.2026, von fünf Blickwinkeln geprüft): erst das Gym zeigen, dann Bewertungen, dann Preise.
+   Black Week verkauft Gym Only (ohne Classes, ohne Coaching): Coaches, "Kein normales Gym" und Formate bleiben bis 30.11. aus, Standort und
+   Öffnungszeiten rücken nach vorn. Danach (START 39) kommen die Coaching-Argumente direkt nach dem Gym. Bedingte Abschnitte (Black Month,
+   Parken, Scan-Vergleich) blenden sich wie bisher selbst aus. */
+type Section = "hero" | "reviews" | "blackmonth" | "prices" | "parking" | "inklusive" | "trial" | "coaches" | "warum" | "scan" | "gym" | "formate" | "standort" | "faq" | "schluss";
+const ORDER_BLACKWEEK: Section[] = ["hero", "gym", "reviews", "blackmonth", "prices", "inklusive", "standort", "trial", "faq", "schluss"];
+const ORDER: Section[] = ["hero", "gym", "coaches", "warum", "reviews", "blackmonth", "prices", "parking", "inklusive", "trial", "scan", "formate", "standort", "faq", "schluss"];
+const BW_HERO_TEXT = "Trainier, wann es dir passt: morgens ab 7, unter der Woche bis 22 Uhr. Hanteln, Geräte, Sprintbahn, alles da. Dusche, Getränke und Handtuch inklusive. Zum Start zeigt dir der 3D Scan, wo du stehst. Passt es nicht, kündigst du zum nächsten Monat.";
+
 export default function Home() {
   usePageMeta("SKILL CGN, Dein Coach. Dein Plan. Training mit System in der Kölner Innenstadt", "Betreutes Training mit Coach in jeder Class, 3D Körperscan und Plan. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt, Parken inklusive. Probetraining kostenlos.");
   const { bundles } = useRateBundles();
@@ -114,17 +123,9 @@ export default function Home() {
   const daysLeft = useDaysLeft(promo.key === "blackweek" && berlinToday() <= BLACK_FRIDAY_DATE ? BLACK_FRIDAY_DATE : promo.ends);
   const price = (key: "start39" | "mitgliedschaft" | "unlimited", months: 1 | 12) => fmtPrice(offerPrice(bundles, key, months) ?? 0);
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <FaqJsonLd items={faqItems} />
-
-      {/* ── 0. KAMPAGNEN-BANNER: immer nur ein Angebot (usePromo: bis 30.11. Black Week, sonst START 39) ── */}
-      {!blackMonth && <Link to={promo.path} onClick={() => trackCta(`cta_${promo.key}_banner`)} className="campaign-button relative z-20 mt-20 flex items-center justify-center gap-3 bg-primary px-4 py-3 text-center text-primary-foreground hover:bg-white">
-        <Zap className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] sm:text-xs"><span className="font-black">{promo.label}</span> {promo.banner}{daysLeft && <> · <span className="font-black">{daysLeft}</span></>}</span>
-        <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-      </Link>}
-
+  /* Die Abschnitte der Startseite. Welche in welcher Reihenfolge erscheinen, steht in ORDER_BLACKWEEK und ORDER. */
+  const blocks: Record<Section, ReactNode> = {
+    hero: <>
       {/* ── 1. HERO: ein Ziel ── */}
       <section className="relative overflow-hidden border-b-4 border-primary">
         <div className="campaign-grid absolute inset-0 opacity-70" />
@@ -136,7 +137,7 @@ export default function Home() {
                 <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Black Week.<br /><span className="text-primary">Gym Only.</span><br />{fmtPrice(bw.now)}&nbsp;€.<PriceStamp /><span className="mt-4 block font-mono text-[11px] normal-case leading-relaxed tracking-[0.16em] text-foreground/60 sm:text-xs">Fitnessstudio Köln · Herzogstraße, zwei Minuten vom Neumarkt</span></h1>
               ) : <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Dein Coach.<br /><span className="text-primary">Dein Plan.</span><br />Mitten in Köln.</h1>}
               <p className={`campaign-display mt-4 text-3xl md:text-5xl uppercase leading-none text-foreground/80 ${bwHero ? "hidden sm:block" : ""}`}>Show up. Earn it.</p>
-              <p className={`mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed ${bwHero ? "order-last sm:order-none" : ""}`}>{bwHero ? "Trainier, wann es dir passt: morgens ab 7, unter der Woche bis 22 Uhr. Hanteln, Geräte, Sprintbahn, alles da. Dusche, Getränke und Handtuch inklusive. Zum Start zeigt dir der 3D Scan, wo du stehst. Passt es nicht, kündigst du zum nächsten Monat." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
+              <p className={`mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed ${bwHero ? "hidden sm:block" : ""}`}>{bwHero ? BW_HERO_TEXT : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
               <div className="mt-8 max-w-md">
                 <Link data-promo-cta to={promo.formPath} onClick={() => trackCta(`cta_${promo.key}_hero`)} className={`${ctaBtn} w-full`}>{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
                 <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">{promo.line}</p>
@@ -155,10 +156,14 @@ export default function Home() {
               <div><p className="text-sm md:text-base font-bold leading-snug">„Progression vor Perfektion.“</p><p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-primary">Boris, Founder</p></div>
               </>}
             </div>
+            {/* Handy: Text unter dem Video, damit das Video früher im Bild ist */}
+            {bwHero && <p className="-mt-4 text-base text-foreground/70 leading-relaxed sm:hidden">{BW_HERO_TEXT}</p>}
           </div>
         </div>
       </section>
-
+  
+    </>,
+    reviews: <>
       {/* ── 2. DREI BEWERTUNGEN ── */}
       <section className="py-14 bg-card border-b border-foreground/10">
         <div className="container grid md:grid-cols-3 gap-px bg-foreground/10">
@@ -169,7 +174,9 @@ export default function Home() {
           ))}
         </div>
       </section>
-
+  
+    </>,
+    blackmonth: <>
       {/* ── 2b. BLACK MONTH (bis 30.11.2026) ── */}
       {blackMonth && (
         <section className="py-14 bg-background border-b border-foreground/10" id="blackmonth">
@@ -187,7 +194,9 @@ export default function Home() {
           </div>
         </section>
       )}
-
+  
+    </>,
+    prices: <>
       {/* ── 3. PREISE ── */}
       <section className="py-20 bg-background border-b border-foreground/10" id="memberships">
         <div className="container">
@@ -232,10 +241,14 @@ export default function Home() {
           </div>
         </div>
       </section>
-
+  
+    </>,
+    parking: <>
       {/* ── 3a. PARKEN INKLUSIVE ── (nicht während Black Week: Gym Only 29 hat kein Parken, der Block würde irritieren) */}
       {!bwHero && <ParkingSection />}
-
+  
+    </>,
+    inklusive: <>
       {/* ── 3b. INKLUSIVE ── */}
       <section className="py-14 bg-card border-b border-foreground/10" id="inklusive">
         <div className="container">
@@ -247,7 +260,9 @@ export default function Home() {
           </ul>
         </div>
       </section>
-
+  
+    </>,
+    trial: <>
       {/* ── 4. PROBETRAINING IN DREI SCHRITTEN ── */}
       <section className="py-20 bg-card border-b border-foreground/10" id="trial">
         <div className="container">
@@ -260,7 +275,9 @@ export default function Home() {
           <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_steps")} className={bwHero ? "campaign-button mt-8 inline-flex w-full items-center justify-center gap-2 border-2 border-primary px-6 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground md:w-auto" : `${ctaBtn} mt-8 w-full md:w-auto`}>Kostenloses Probetraining mit 3D Scan <ArrowRight className="w-4 h-4" /></Link>
         </div>
       </section>
-
+  
+    </>,
+    coaches: <>
       {/* ── 5. COACHES ── */}
       <section className="py-20 bg-background border-b border-foreground/10" id="coaches">
         <div className="container">
@@ -275,7 +292,9 @@ export default function Home() {
           </div>
         </div>
       </section>
-
+  
+    </>,
+    warum: <>
       {/* ── 5b. KEIN NORMALES GYM ── */}
       <section className="py-20 bg-card border-b border-foreground/10">
         <div className="container grid md:grid-cols-[1fr_2fr] gap-10 items-start">
@@ -285,7 +304,9 @@ export default function Home() {
           ))}</div>
         </div>
       </section>
-
+  
+    </>,
+    scan: <>
       {/* ── 6. SCAN-VERGLEICH (ausgeblendet, bis Zahlen da sind) ── */}
       {SCAN_COMPARISON && (
         <section className="py-20 bg-background border-b border-foreground/10" id="scan">
@@ -298,15 +319,20 @@ export default function Home() {
           </div>
         </section>
       )}
-
+  
+    </>,
+    gym: <>
       {/* ── 7. GALERIE, sechs Bilder ── */}
-      <section className="py-20 bg-background border-b border-foreground/10 overflow-hidden" id="gym">
+      <section className="py-12 md:py-20 bg-background border-b border-foreground/10 overflow-hidden" id="gym">
         <div className="container">
-          <div className="mb-8 grid md:grid-cols-[1fr_2fr] gap-6 items-end"><div><div className={badge}>Herzogstraße 16–20</div><h2 className="text-4xl md:text-5xl font-black uppercase tracking-tight leading-none">Ein Blick<br />ins Gym.</h2></div><p className="text-sm text-foreground/60 leading-relaxed max-w-xl">Technogym, Freihantelbereich, Kunstrasenbahn mit HYROX Schlitten, 3D-Körperscan, Wasserbar und Duschen.</p></div>
+          <div className="mb-8 grid md:grid-cols-[1fr_2fr] gap-6 items-end"><div><div className={badge}>Herzogstraße 16–20</div><h2 className="text-4xl md:text-5xl font-black uppercase tracking-tight leading-none">Ein Blick<br />ins Gym.</h2></div><p className="hidden sm:block text-sm text-foreground/60 leading-relaxed max-w-xl">Technogym, Freihantelbereich, Kunstrasenbahn mit HYROX Schlitten, 3D-Körperscan, Wasserbar und Duschen.</p></div>
           <GymGallery variant="home" limit={6} />
+          {bwHero && <Link data-promo-cta to={promo.formPath} onClick={() => trackCta("cta_blackweek_gym")} className={`${ctaBtn} mt-8 w-full sm:w-auto`}>{promo.cta} <ArrowRight className="w-4 h-4" /></Link>}
         </div>
       </section>
-
+  
+    </>,
+    formate: <>
       {/* ── 8. FORMATE als Zeile ── */}
       <section className="py-10 bg-card border-b border-foreground/10">
         <div className="container flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
@@ -315,7 +341,9 @@ export default function Home() {
           <Link to="/classes" className="md:ml-auto inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary hover:underline">Alle Classes <ArrowRight className="w-3.5 h-3.5" /></Link>
         </div>
       </section>
-
+  
+    </>,
+    standort: <>
       {/* ── 9. STANDORT UND ÖFFNUNGSZEITEN ── */}
       <section className="py-20 bg-background border-b border-foreground/10" id="standort">
         <div className="container grid md:grid-cols-2 gap-10 items-start">
@@ -334,7 +362,9 @@ export default function Home() {
           </div>
         </div>
       </section>
-
+  
+    </>,
+    faq: <>
       {/* ── 10. FAQ ── */}
       <section className="py-20 bg-card border-b border-foreground/10" id="faq">
         <div className="container grid md:grid-cols-[1fr_2fr] gap-10 items-start">
@@ -342,7 +372,9 @@ export default function Home() {
           <div className="space-y-2">{faqItems.map(item => <FaqItem key={item.q} q={item.q} a={item.a} />)}</div>
         </div>
       </section>
-
+  
+    </>,
+    schluss: <>
       {/* ── 11. SCHLUSS ── */}
       <section className="relative py-24 bg-primary overflow-hidden">
         <div className="container relative text-center">
@@ -358,6 +390,22 @@ export default function Home() {
           </>}
         </div>
       </section>
+    </>,
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <FaqJsonLd items={faqItems} />
+
+      {/* ── 0. KAMPAGNEN-BANNER: immer nur ein Angebot (usePromo: bis 30.11. Black Week, sonst START 39) ── */}
+      {!blackMonth && <Link to={promo.path} onClick={() => trackCta(`cta_${promo.key}_banner`)} className="campaign-button relative z-20 mt-20 flex items-center justify-center gap-3 bg-primary px-4 py-3 text-center text-primary-foreground hover:bg-white">
+        <Zap className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] sm:text-xs"><span className="font-black">{promo.label}</span> {promo.banner}{daysLeft && <> · <span className="font-black">{daysLeft}</span></>}</span>
+        <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+      </Link>}
+
+      {/* Abschnitte in der Reihenfolge der Aktion (ORDER_BLACKWEEK bzw. ORDER, oben in der Datei) */}
+      {(bwHero ? ORDER_BLACKWEEK : ORDER).map(k => <Fragment key={k}>{blocks[k]}</Fragment>)}
     </div>
   );
 }
