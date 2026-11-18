@@ -27,13 +27,14 @@ export function MinorNotice({ offerName }: { offerName: string }) {
 }
 export interface ResumeData { token: string; firstName: string; lastName: string; email: string; phone: string; months?: number | null; leadUuid?: string; customerNumber?: string }
 /** UTM-Quelle der Sitzung (utm_source/utm_medium/utm_campaign beim ersten Aufruf gemerkt) */
-export function utmSource(): string {
+export function utmSource(withContent = false): string {
   try {
-    const stored = sessionStorage.getItem("skill-utm"); if (stored) return stored;
+    const KEY = withContent ? "skill-utm-content" : "skill-utm";
+    const stored = sessionStorage.getItem(KEY); if (stored) return stored;
     const p = new URLSearchParams(window.location.search);
-    const parts = ["utm_source", "utm_medium", "utm_campaign"].map(k => p.get(k)).filter(Boolean);
+    const parts = ["utm_source", "utm_medium", "utm_campaign", ...(withContent ? ["utm_content"] : [])].map(k => p.get(k)).filter(Boolean);
     const v = parts.length ? parts.join(" / ") : (document.referrer ? "Referrer " + new URL(document.referrer).hostname : "direkt");
-    sessionStorage.setItem("skill-utm", v); return v;
+    sessionStorage.setItem(KEY, v); return v;
   } catch { return "unbekannt"; }
 }
 
@@ -84,10 +85,14 @@ function DoneCard({ n, title, summary, onEdit }: { n: number; title: string; sum
 
 export interface PosOptions { staff: string; startDate: string }
 export interface SummaryRow { label: string; value: string }
-export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
+export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote, startToday, successPath = "/danke", utmContent, notes }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout" | "/blackweek"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
   /** Zusammenfassung vor der Unterschrift: Tarif, Laufzeit, Preis, Classes, Parken. */ summary?: SummaryRow[]; cancelNote?: string;
   /** Vor-Ort-Modus (iPad): kein Interessent, kein Tracking, keine Abbrecher-Mail, Startdatum aus der Auswahl, Erfolg inline statt /danke. */
-  pos?: PosOptions; onSuccess?: (r: ContractResult, info: { firstName: string; lastName: string; email: string }) => void }) {
+  pos?: PosOptions; onSuccess?: (r: ContractResult, info: { firstName: string; lastName: string; email: string }) => void;
+  /** Vertragsstart immer am Tag des Abschlusses (contractStartType CONTRACT_CONCLUSION, z. B. Black Week): kein Datumsfeld. */ startToday?: boolean;
+  /** Ziel nach dem Abschluss, Standard /danke. */ successPath?: string;
+  /** utm_content zusätzlich in die Magicline-Notizen schreiben. */ utmContent?: boolean;
+  /** Eigene Notizen statt "<Angebot> Website, Schritt 1 abgeschickt" und "Onlineabschluss <Angebot> Landingpage". */ notes?: { lead: string; contract: string } }) {
   const KEY = "skill-checkout-" + path.slice(1);
   const isPos = !!pos;
   const navigate = useNavigate();
@@ -144,6 +149,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   }, []);
   useEffect(() => { onStepChange?.(step); }, [step, onStepChange]);
   useEffect(() => { if (pos?.startDate) setForm(f => ({ ...f, startDate: pos.startDate })); }, [pos?.startDate]);
+  /* Vertragsstart am Abschlusstag: Datum immer auf heute halten, auch nach Wiederherstellung aus sessionStorage */
+  useEffect(() => { if (startToday && form.startDate !== today()) setForm(f => ({ ...f, startDate: today() })); }, [startToday, form.startDate]);
 
   const setStep = (n: number) => { userNav.current = true; setStepRaw(n); setErrors({}); setApiError(null); };
   /* Autofocus auf das erste Feld des Schritts, nur nach einem Klick des Nutzers, nicht beim Laden. */
@@ -205,7 +212,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     }
     /* Interessent in Magicline, einmal je Sitzung. Notiz mit Quelle; die uuid macht ihn in Schritt 3 zum Mitglied. */
     if (!lead.uuid) {
-      createLead({ firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), notes: `${offerName} Website, Schritt 1 abgeschickt, Quelle: ${utmSource()}` })
+      createLead({ firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), notes: `${notes?.lead || `${offerName} Website, Schritt 1 abgeschickt`}, Quelle: ${utmSource(utmContent)}` })
         .then(l => { if (l.uuid) { setLead({ uuid: l.uuid, customerNumber: l.customerNumber }); saveLead(tok, { leadUuid: l.uuid, customerNumber: l.customerNumber }); } else saveLead(tok); log("lead", { response: { status: l.status, customerNumber: l.customerNumber, uuid: l.uuid ? "ja" : "nein" } }); })
         .catch(e => { saveLead(tok); log("lead-error", { error: String(e?.message || e) }); });
     } else saveLead(tok);
@@ -264,7 +271,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const request = { rateBundleTermId: term.id, startDate: form.startDate, price: term.price, identityToken: lead.uuid || null, leadCustomerNumber: lead.customerNumber || null, signatureChars: sig.length, strokes: strokes.current.length, firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate, zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), ibanValid: ibanValid(form.iban) };
     try {
       const r: ContractResult = await createContract({
-        rateBundleTermId: term.id, startDate: form.startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}` : `Onlineabschluss ${offerName} Landingpage, Quelle: ${utmSource()}`,
+        rateBundleTermId: term.id, startDate: form.startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}` : `${notes?.contract || `Onlineabschluss ${offerName} Landingpage`}, Quelle: ${utmSource(utmContent)}`,
         firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate,
         street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), iban: form.iban,
       });
@@ -277,7 +284,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       /* Verlangt Magicline noch einen Zahlungsschritt, dorthin statt auf /danke. */
       if (r.paymentUrl) { window.location.href = r.paymentUrl; return; }
       /* Purchase (Meta) und Conversion (Google) feuern auf /danke, erst jetzt. */
-      navigate(`/danke?offer=${encodeURIComponent(offerName)}&vertrag=${encodeURIComponent(r.contractId)}`);
+      navigate(`${successPath}?offer=${encodeURIComponent(offerName)}&vertrag=${encodeURIComponent(r.contractId)}`);
     } catch (ex: any) {
       const res: ContractResult | undefined = ex?.result;
       const msg = String(ex?.message || ex);
@@ -331,7 +338,9 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
               <Field label="PLZ" error={errors.zipCode}><Input inputMode="numeric" autoComplete="postal-code" value={form.zipCode} onChange={v => set("zipCode")(v.replace(/\D/g, "").slice(0, 5))} placeholder="50667" hasError={!!errors.zipCode} /></Field>
               <Field label="Ort" error={errors.city}><Input value={form.city} onChange={set("city")} autoComplete="address-level2" placeholder="Köln" hasError={!!errors.city} /></Field>
             </div>
+            {startToday ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : (
             <Field label="Startdatum" error={errors.startDate} hint={isPos ? "Heute oder ein Datum deiner Wahl." : "Vorbelegt mit dem nächsten Montag, du kannst es ändern."}><Input type="date" value={form.startDate} onChange={set("startDate")} min={today()} hasError={!!errors.startDate} /></Field>
+            )}
             <button type="button" onClick={submitStep2} className={btn}>Weiter zur Zahlung</button>
             {trust}
           </div>

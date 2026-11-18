@@ -19,6 +19,7 @@ import { OPENING_HOURS } from "@/components/Footer";
 import GymGallery from "@/components/GymGallery";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
+import { useBlackWeekActive, BLACK_WEEK } from "@/lib/blackweek";
 
 // ─── Daten ────────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ export default function Home() {
   usePageMeta("SKILL CGN, Dein Coach. Dein Plan. Training mit System in der Kölner Innenstadt", "Betreutes Training mit Coach in jeder Class, 3D Körperscan und Plan. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt, Parken inklusive. Probetraining kostenlos.");
   const { bundles } = useRateBundles();
   const blackMonth = useBlackMonthActive();
+  const blackWeek = useBlackWeekActive();
   const price = (key: "start39" | "mitgliedschaft" | "unlimited", months: 1 | 12) => fmtPrice(offerPrice(bundles, key, months) ?? 0);
 
   return (
@@ -110,6 +112,12 @@ export default function Home() {
         <Zap className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] sm:text-xs"><span className="font-black">START 39:</span> 39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr</span>
         <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+      </Link>}
+
+      {/* ── 0b. BLACK WEEK (bis 30.11.2026): schmaler schwarzer Balken, gelber Text ── */}
+      {blackWeek && <Link to="/blackweek" onClick={() => trackCta("cta_blackweek_bar")} className="relative z-20 flex items-center justify-center gap-2 border-b border-primary/40 bg-black px-4 py-2 text-center text-primary hover:text-white">
+        <span className="font-mono text-[11px] uppercase tracking-[0.14em] sm:text-xs"><span className="font-black">Black Week:</span> Gym Only 29 € alle 4 Wochen, nur bis 30.11.</span>
+        <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       </Link>}
 
       {/* ── 1. HERO: ein Ziel ── */}
@@ -198,6 +206,12 @@ export default function Home() {
               );
             })}
           </div>
+          {blackWeek && (
+            <Link to="/blackweek" onClick={() => trackCta("cta_blackweek_preise")} className="mt-px flex flex-col gap-3 bg-black p-6 hover:bg-primary/10 md:flex-row md:items-center md:justify-between md:p-7">
+              <div><h3 className="text-2xl font-black uppercase tracking-tight">Gym Only</h3><p className="mt-1 text-primary text-xs font-black uppercase tracking-widest">Black Week Preis bis 30.11.</p><p className="mt-2 text-sm text-foreground/70">Gym komplett, ohne Classes. Monatlich kündbar, 0 € Aufnahmegebühr. Nur online, nur Neukunden.</p></div>
+              <div className="flex items-center gap-4"><span><span className="text-5xl font-black font-mono">{fmtPrice(bundles?.find(b => b.id === BLACK_WEEK.rateBundleId)?.terms?.[0]?.price ?? BLACK_WEEK.price)}</span><span className="ml-2 text-sm text-foreground/60">€ alle vier Wochen</span></span><ArrowRight className="h-5 w-5 shrink-0 text-primary" /></div>
+            </Link>
+          )}
         </div>
       </section>
 

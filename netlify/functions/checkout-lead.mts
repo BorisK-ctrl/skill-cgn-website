@@ -1,4 +1,4 @@
-/* Checkout-Abbrecher für /start39 und /back39.
+/* Checkout-Abbrecher für /start39, /back39 und /blackweek.
    POST { token, campaign, path, firstName, lastName, email, phone, months? }  → Lead nach Schritt 1 sichern (10-Minuten-Uhr läuft ab hier)
    POST { token, done: true }                                                 → Vertrag ist da, keine Mail
    GET  ?token=…                                                              → Schritt-1-Daten für die Wiederherstellung aus der Mail */
@@ -9,6 +9,9 @@ import { sendPurchase, capiConfigured } from "./lib/meta-capi";
 import { sendContractMails } from "./lib/notify";
 
 const TOKEN = /^[a-z0-9]{16,48}$/;
+/* Abschlussseite → Kampagnenname (Lead, Vertragsmail, Meta CAPI) */
+const CAMPAIGNS = { "/start39": "START 39", "/back39": "BACK 39", "/blackweek": "BLACK WEEK 29" } as const;
+
 export default async (req: Request) => {
   if (req.method === "GET") {
     const token = new URL(req.url).searchParams.get("token") || "";
@@ -75,8 +78,8 @@ export default async (req: Request) => {
   }
   const email = normEmail(String(b.email || ""));
   const firstName = String(b.firstName || "").trim().slice(0, 80), lastName = String(b.lastName || "").trim().slice(0, 80), phone = String(b.phone || "").trim().slice(0, 40);
-  const path = b.path === "/back39" ? "/back39" : "/start39";
-  const campaign = path === "/back39" ? "BACK 39" : "START 39";
+  const path = (Object.keys(CAMPAIGNS).includes(b.path) ? b.path : "/start39") as keyof typeof CAMPAIGNS;
+  const campaign = CAMPAIGNS[path];
   if (!firstName || !validEmail(email)) return json({ error: "Bitte Vorname und E-Mail angeben" }, 400);
   const existing = await getCheckoutLead(token);
   const lead: CheckoutLead = { token, campaign, path, firstName, lastName, email, phone, months: b.months === 12 ? 12 : b.months === 1 ? 1 : undefined, createdAt: existing?.createdAt || new Date().toISOString(), done: false, mailedAt: existing?.mailedAt,

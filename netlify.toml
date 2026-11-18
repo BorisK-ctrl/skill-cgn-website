@@ -35,6 +35,10 @@
   to = "/start39"
   status = 301
 [[redirects]]
+  from = "/onlygym29"
+  to = "/blackweek"
+  status = 301
+[[redirects]]
   from = "/kraftwerk"
   to = "/start39"
   status = 301
@@ -79,6 +83,11 @@
 [[redirects]]
   from = "/shop/danke.html"
   to = "/shop/danke"
+  status = 301
+  force = true
+[[redirects]]
+  from = "/blackweek.html"
+  to = "/blackweek"
   status = 301
   force = true
 [[redirects]]

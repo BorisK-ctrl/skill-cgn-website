@@ -1,5 +1,5 @@
 /*
- * Gemeinsame Struktur der Abschlussseiten /start39 und /back39.
+ * Gemeinsame Struktur der Abschlussseiten /start39, /back39 und /blackweek.
  * Mobil: Logo + Vertrauen, Headline, Preiszeile, drei Punkte, Knopf → Formular direkt darunter → Bewertungen → Video → Rest.
  * Desktop: links Text und Formular, rechts das Video (sticky). Feste Leiste unten, solange das Formular nicht im Bild ist.
  */
@@ -58,6 +58,13 @@ export interface LandingProps {
   faqs: readonly (readonly [string, string])[];
   beforeForm?: ReactNode;      // z. B. Laufzeitwahl bei BACK 39
   form: ReactNode;             // Checkout oder Platzhalter
+  /* Optional, Standard = START 39. Für Angebote mit anderem Preis oder ohne Classes (Black Week). */
+  accent?: string;             // gelbes Ende der Headline, Standard "39€."
+  notIncluded?: ReactNode;     // Zeile "Nicht drin" unter den Kacheln
+  ctaNote?: ReactNode;         // Kleingedrucktes unter dem ersten Knopf
+  frame?: readonly { t: string; c: string }[];   // Ablauf "Dein Start. Gemessen.", drei Schritte
+  urbanText?: string;          // Text im Urban-Sports-Block
+  stickyLabel?: string;        // feste Leiste mobil, Standard "39 € alle vier Wochen"
 }
 
 export default function CampaignLanding(p: LandingProps) {
@@ -73,7 +80,9 @@ export default function CampaignLanding(p: LandingProps) {
     { icon: ScanLine, n: "01", t: "SCAN ZUM START.", c: "Scaneca 3D-Körperscan mit Auswertung. Dein Nullpunkt, gemessen, nicht geschätzt." },
     { icon: Users, n: "02", t: "PLAN DAZWISCHEN.", c: "Vier gecoachte Classes im Monat, Gym, ein Plan mit deinem Namen drauf." },
     { icon: ClipboardList, n: "03", t: "SCAN ZUR KONTROLLE.", c: "Zweiter Scan nach ein paar Wochen, Vergleich mit dem Start, neuer Plan. Du bleibst, solange es dir etwas bringt. Monatlich kündbar." },
-  ] as const;
+  ].map((f, i) => (p.frame?.[i] ? { ...f, ...p.frame[i] } : f));
+  const accent = p.accent ?? "39€.";
+  const hasAccent = p.headline.endsWith(accent);
 
   return (
     <main className="campaign-page bg-black text-white">
@@ -92,7 +101,7 @@ export default function CampaignLanding(p: LandingProps) {
         <div className="min-w-0">
           {/* 1. Erster Bildschirm */}
           <section className="campaign-grid -mx-5 px-5 md:mx-0 md:px-0">
-            <h1 className="campaign-display text-[68px] uppercase leading-[0.82] sm:text-[96px] md:text-[128px] lg:text-[144px]">{p.headline.replace(/39€\.$/, "")}<span className="text-[#FBFF00]">39€.</span>{p.h1Sub && <span className="campaign-mono mt-3 block text-[11px] tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
+            <h1 className="campaign-display text-[68px] uppercase leading-[0.82] sm:text-[96px] md:text-[128px] lg:text-[144px]">{hasAccent ? p.headline.slice(0, -accent.length) : p.headline}{hasAccent && <span className="text-[#FBFF00]">{accent}</span>}{p.h1Sub && <span className="campaign-mono mt-3 block text-[11px] tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
             <p className="campaign-display mt-3 text-3xl uppercase leading-none text-white/85 sm:text-4xl md:text-5xl">{p.subline}</p>
             <p className="campaign-mono mt-5 text-[11px] uppercase leading-relaxed tracking-[0.14em] text-[#FBFF00] sm:text-xs">{p.priceLine}</p>
             {p.priceNote && <p className="mt-3 max-w-xl border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75 md:text-sm">{p.priceNote}</p>}
@@ -108,6 +117,7 @@ export default function CampaignLanding(p: LandingProps) {
                     <span className="flex items-baseline gap-2"><span className="campaign-display text-3xl leading-none">{p.feeNote.now}</span>{p.feeNote.was && <span className="campaign-mono text-xs font-bold uppercase tracking-[0.12em] text-black/60">statt <s>{p.feeNote.was}</s></span>}</span>
                   </div>
                 )}
+                {p.notIncluded && <p className="mt-3 border-l-4 border-white/30 bg-[#111516] px-4 py-3 text-xs leading-relaxed text-white/70 md:text-sm">{p.notIncluded}</p>}
               </div>
             ) : (
               <ul className="mt-5 space-y-2">
@@ -115,6 +125,7 @@ export default function CampaignLanding(p: LandingProps) {
               </ul>
             )}
             <button type="button" onClick={toForm} className="campaign-button mt-6 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md">{p.cta} <ArrowDown className="h-4 w-4" /></button>
+            {p.ctaNote && <p className="mt-3 text-[11px] leading-relaxed text-white/50 lg:max-w-md">{p.ctaNote}</p>}
           </section>
 
           {/* 2. Formular direkt darunter */}
@@ -171,7 +182,7 @@ export default function CampaignLanding(p: LandingProps) {
       <section className="border-t border-white/10 bg-[#2A3133] py-14 md:py-20">
         <div className="mx-auto grid max-w-[1480px] gap-6 px-5 md:px-10 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
           <div><p className={kicker}>Urban Sports Club</p><h2 className={h2}>DU HAST<br /><span className="text-[#FBFF00]">URBAN SPORTS.</span></h2></div>
-          <p className="max-w-2xl text-base leading-relaxed text-white/70 md:text-lg">Dann kennst du unsere Classes schon. {p.campaign} gibt dir, was Urban Sports nicht hat: Gym und Geräte, 3D Scan, Plan.</p>
+          <p className="max-w-2xl text-base leading-relaxed text-white/70 md:text-lg">{p.urbanText ?? `Dann kennst du unsere Classes schon. ${p.campaign} gibt dir, was Urban Sports nicht hat: Gym und Geräte, 3D Scan, Plan.`}</p>
         </div>
       </section>
 
@@ -193,8 +204,8 @@ export default function CampaignLanding(p: LandingProps) {
       {/* 3. Feste Leiste, nur mobil und nur solange das Formular nicht im Bild ist */}
       <div className={`fixed inset-x-0 bottom-0 z-40 border-t-2 border-[#FBFF00] bg-black transition-transform duration-200 md:hidden ${formVisible ? "translate-y-full" : "translate-y-0"}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-hidden={formVisible}>
         <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-          <span className="campaign-mono text-[11px] uppercase tracking-[0.12em] text-white">39 € alle vier Wochen</span>
-          <button type="button" onClick={toForm} tabIndex={formVisible ? -1 : 0} className="campaign-button flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black">Jetzt starten <ArrowDown className="h-3.5 w-3.5" /></button>
+          <span className="campaign-mono text-[11px] uppercase tracking-[0.12em] text-white">{p.stickyLabel ?? "39 € alle vier Wochen"}</span>
+          <button type="button" onClick={toForm} tabIndex={formVisible ? -1 : 0} className="campaign-button flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black">{p.stickyLabel ? p.cta : "Jetzt starten"} <ArrowDown className="h-3.5 w-3.5" /></button>
         </div>
       </div>
     </main>
