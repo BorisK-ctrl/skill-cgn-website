@@ -128,12 +128,12 @@ export default function Home() {
         <div className="container relative z-10 py-10 md:py-16">
           <a href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-foreground/70 hover:text-primary"><Stars /> 4,9 Sterne bei 167 Google Bewertungen</a>
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-            <div className="max-w-3xl">
+            <div className={`max-w-3xl ${bwHero ? "flex flex-col" : ""}`}>
               {bwHero ? (
                 <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Black Week.<br /><span className="text-primary">Gym Only.</span><br />{fmtPrice(bw.now)}&nbsp;€.<PriceStamp /><span className="mt-4 block font-mono text-[11px] normal-case leading-relaxed tracking-[0.16em] text-foreground/60 sm:text-xs">Fitnessstudio Köln · Herzogstraße, zwei Minuten vom Neumarkt</span></h1>
               ) : <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Dein Coach.<br /><span className="text-primary">Dein Plan.</span><br />Mitten in Köln.</h1>}
-              <p className="campaign-display mt-4 text-3xl md:text-5xl uppercase leading-none text-foreground/80">Show up. Earn it.</p>
-              <p className="mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed">{bwHero ? "Trainier, wann es dir passt: morgens ab 7, unter der Woche bis 22 Uhr. Hanteln, Geräte, Sprintbahn, alles da. Dusche, Getränke und Handtuch inklusive. Zum Start zeigt dir der 3D Scan, wo du stehst. Passt es nicht, kündigst du zum nächsten Monat." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
+              <p className={`campaign-display mt-4 text-3xl md:text-5xl uppercase leading-none text-foreground/80 ${bwHero ? "hidden sm:block" : ""}`}>Show up. Earn it.</p>
+              <p className={`mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed ${bwHero ? "order-last sm:order-none" : ""}`}>{bwHero ? "Trainier, wann es dir passt: morgens ab 7, unter der Woche bis 22 Uhr. Hanteln, Geräte, Sprintbahn, alles da. Dusche, Getränke und Handtuch inklusive. Zum Start zeigt dir der 3D Scan, wo du stehst. Passt es nicht, kündigst du zum nächsten Monat." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
               <div className="mt-8 max-w-md">
                 <Link to={promo.formPath} onClick={() => trackCta(`cta_${promo.key}_hero`)} className={`${ctaBtn} w-full`}>{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
                 <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">{promo.line}</p>

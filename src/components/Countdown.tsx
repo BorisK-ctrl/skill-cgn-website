@@ -14,9 +14,9 @@ export default function Countdown({ variant = "campaign", className = "" }: { va
   return (
     <div className={className} role="timer" aria-label={countdownLabel(left)}>
       <p className={`campaign-mono text-[10px] uppercase tracking-[0.22em] ${lastDay ? "font-bold text-[#FBFF00]" : label}`}>{lastDay ? "Endet heute um 23:59" : "Black Week endet in"}</p>
-      <div className="mt-2 flex gap-2" aria-hidden="true">
+      <div className="mt-2 grid max-w-md auto-cols-fr grid-flow-col gap-2" aria-hidden="true">
         {shown.map(([n, unit]) => (
-          <div key={unit} className={`flex min-w-[64px] flex-col items-center border-2 px-2 py-2 sm:min-w-[76px] ${box}`}>
+          <div key={unit} className={`flex flex-col items-center border-2 px-2 py-2 ${box}`}>
             <span className="campaign-display text-4xl leading-none tabular-nums sm:text-5xl">{String(n).padStart(2, "0")}</span>
             <span className="campaign-mono mt-1 text-[9px] uppercase tracking-[0.2em] text-white/60">{unit}</span>
           </div>

@@ -70,7 +70,8 @@ export interface LandingProps {
   afterAccent?: ReactNode;     // z. B. Aktionsstempel direkt hinter dem gelben Preis
   timer?: ReactNode;           // großer Countdown unter der Preiszeile (statt der Textzeile countdown)
   image?: { src: string; alt: string };
-  video?: { src: string; poster: string; label: string };   // eigenes Hochkant-Video statt Bild/Kampagnenvideo, auch mobil   // Bild statt Kampagnenvideo (das Video zeigt "START FOR 39€", passt nicht zu anderen Angeboten)
+  video?: { src: string; poster: string; label: string };
+  ctaEarly?: boolean;          // Knopf schon direkt unter Preis/Timer (Handy: im ersten Bildschirm)   // eigenes Hochkant-Video statt Bild/Kampagnenvideo, auch mobil   // Bild statt Kampagnenvideo (das Video zeigt "START FOR 39€", passt nicht zu anderen Angeboten)
 }
 
 export default function CampaignLanding(p: LandingProps) {
@@ -110,7 +111,7 @@ export default function CampaignLanding(p: LandingProps) {
         <div className="mx-auto flex max-w-[1480px] flex-col gap-2 px-5 py-4 md:flex-row md:items-center md:justify-between md:px-10">
           <div className="flex items-center justify-between gap-4">
             <img src={LOGO_WHITE} alt="SKILL CGN" className="h-5 w-auto md:h-7" width={160} height={28} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = "/img/logo-white.svg"; }} />
-            {p.badge && <span className="campaign-mono max-w-[44%] shrink-0 border border-[#FBFF00] px-1.5 py-1.5 text-right text-[8px] uppercase leading-snug tracking-[0.14em] text-[#FBFF00] md:hidden">{p.badge}</span>}
+            {p.badge && <span className="campaign-mono min-w-0 max-w-[44%] border border-[#FBFF00] px-1.5 py-1.5 text-right text-[8px] uppercase leading-snug tracking-[0.14em] text-[#FBFF00] md:hidden">{p.badge}</span>}
           </div>
           <a href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" className="campaign-mono flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/70 hover:text-[#FBFF00]"><Stars /> 4,9 Sterne bei 167 Google Bewertungen</a>
           {p.badge && <span className="campaign-mono hidden shrink-0 border border-[#FBFF00] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[#FBFF00] md:inline-block">{p.badge}</span>}
@@ -121,10 +122,11 @@ export default function CampaignLanding(p: LandingProps) {
         <div className="min-w-0">
           {/* 1. Erster Bildschirm */}
           <section className="campaign-grid -mx-5 px-5 md:mx-0 md:px-0">
-            <h1 className="campaign-display text-[68px] uppercase leading-[0.82] sm:text-[96px] md:text-[128px] lg:text-[144px]">{hasAccent ? p.headline.slice(0, -accent.length) : p.headline}{hasAccent && <span className="text-[#FBFF00]">{accent}</span>}{p.afterAccent}{p.h1Sub && <span className="campaign-mono mt-3 block text-[11px] tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
-            <p className="campaign-display mt-3 text-3xl uppercase leading-none text-white/85 sm:text-4xl md:text-5xl">{p.subline}</p>
-            <p className="campaign-mono mt-5 text-[11px] uppercase leading-relaxed tracking-[0.14em] text-[#FBFF00] sm:text-xs">{p.priceLine}</p>
+            <h1 className={`campaign-display uppercase leading-[0.82] ${p.headline.includes("\n") ? "whitespace-pre-line text-[56px] min-[390px]:text-[64px]" : "text-[68px]"} sm:text-[96px] md:text-[128px] lg:text-[144px]`}>{hasAccent ? p.headline.slice(0, -accent.length) : p.headline}{hasAccent && <span className="text-[#FBFF00]">{accent}</span>}{p.afterAccent}{p.h1Sub && <span className="campaign-mono mt-3 block whitespace-normal text-[11px] leading-relaxed tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
+            <p className={`campaign-display mt-3 uppercase leading-none text-white/85 sm:text-4xl md:text-5xl ${p.ctaEarly ? "text-2xl" : "text-3xl"}`}>{p.subline}</p>
+            {p.priceLine && <p className="campaign-mono mt-5 text-[11px] uppercase leading-relaxed tracking-[0.14em] text-[#FBFF00] sm:text-xs">{p.priceLine}</p>}
             {p.timer ? <div className="mt-4">{p.timer}</div> : p.countdown && <p className="campaign-mono mt-2 inline-block border border-[#FBFF00] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white sm:text-xs" role="timer">{p.countdown}</p>}
+            {p.ctaEarly && <button type="button" onClick={() => toForm()} className="campaign-button mt-5 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:max-w-md">{p.cta} <ArrowDown className="h-4 w-4" /></button>}
             {p.priceNote && <p className="mt-3 max-w-xl border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75 md:text-sm">{p.priceNote}</p>}
             {p.included ? (
               <div className="mt-5">
