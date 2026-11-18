@@ -19,7 +19,9 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const promo = usePromo();
-  const navLinks = useBlackMonthActive() ? [{ href: "/blackmonth", label: "Black Month" }, ...baseLinks] : baseLinks;
+  /* Während Black Week wirbt die Seite nur für ein Angebot: START 39 nicht im Menü */
+  const links = promo.key === "blackweek" ? baseLinks.filter(l => l.href !== "/start39") : baseLinks;
+  const navLinks = useBlackMonthActive() ? [{ href: "/blackmonth", label: "Black Month" }, ...links] : links;
   const go = (href: string) => { setMobileMenuOpen(false); navigate(href); };
 
   return (

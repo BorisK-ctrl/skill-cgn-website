@@ -67,6 +67,7 @@ export interface LandingProps {
   stickyLabel?: string;        // feste Leiste mobil, Standard "39 € alle vier Wochen"
   countdown?: string;          // z. B. "Endet in 11 Tagen 4 Std", unter der Preiszeile und in der festen Leiste
   afterAccent?: ReactNode;     // z. B. Aktionsstempel direkt hinter dem gelben Preis
+  timer?: ReactNode;           // großer Countdown unter der Preiszeile (statt der Textzeile countdown)
   image?: { src: string; alt: string };   // Bild statt Kampagnenvideo (das Video zeigt "START FOR 39€", passt nicht zu anderen Angeboten)
 }
 
@@ -107,7 +108,7 @@ export default function CampaignLanding(p: LandingProps) {
             <h1 className="campaign-display text-[68px] uppercase leading-[0.82] sm:text-[96px] md:text-[128px] lg:text-[144px]">{hasAccent ? p.headline.slice(0, -accent.length) : p.headline}{hasAccent && <span className="text-[#FBFF00]">{accent}</span>}{p.afterAccent}{p.h1Sub && <span className="campaign-mono mt-3 block text-[11px] tracking-[0.22em] text-white/60 sm:text-xs">{p.h1Sub}</span>}</h1>
             <p className="campaign-display mt-3 text-3xl uppercase leading-none text-white/85 sm:text-4xl md:text-5xl">{p.subline}</p>
             <p className="campaign-mono mt-5 text-[11px] uppercase leading-relaxed tracking-[0.14em] text-[#FBFF00] sm:text-xs">{p.priceLine}</p>
-            {p.countdown && <p className="campaign-mono mt-2 inline-block border border-[#FBFF00] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white sm:text-xs" role="timer">{p.countdown}</p>}
+            {p.timer ? <div className="mt-4">{p.timer}</div> : p.countdown && <p className="campaign-mono mt-2 inline-block border border-[#FBFF00] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white sm:text-xs" role="timer">{p.countdown}</p>}
             {p.priceNote && <p className="mt-3 max-w-xl border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75 md:text-sm">{p.priceNote}</p>}
             {p.included ? (
               <div className="mt-5">

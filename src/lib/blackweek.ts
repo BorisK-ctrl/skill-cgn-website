@@ -61,13 +61,18 @@ export function countdownLabel(msLeft: number): string {
   const d = Math.floor(h / 24), rest = h % 24;
   return `Endet in ${d} ${d === 1 ? "Tag" : "Tagen"}${rest ? ` ${rest} Std` : ""}`;
 }
-export function useBlackWeekCountdown(): { label: string; ended: boolean } {
-  const [state, setState] = useState({ label: "", ended: false });
+/** Millisekunden bis Black-Week-Ende nach Serverzeit (null bis nach dem Mount bzw. bis die Serverzeit da ist), tickt alle tickMs. */
+export function useBlackWeekMsLeft(tickMs = 60000): number | null {
+  const [left, setLeft] = useState<number | null>(null);
   useEffect(() => {
     let offset = 0, timer = 0, on = true;
-    const tick = () => { const left = BLACK_WEEK_ENDS_AT - (Date.now() + offset); if (on) setState({ label: countdownLabel(left), ended: left <= 0 }); };
-    fetch("/", { method: "HEAD", cache: "no-store" }).then(r => { const d = Date.parse(r.headers.get("date") || ""); if (d) offset = d - Date.now(); }).catch(() => {}).finally(() => { tick(); timer = window.setInterval(tick, 60000); });
+    const tick = () => { if (on) setLeft(BLACK_WEEK_ENDS_AT - (Date.now() + offset)); };
+    fetch("/", { method: "HEAD", cache: "no-store" }).then(r => { const d = Date.parse(r.headers.get("date") || ""); if (d) offset = d - Date.now(); }).catch(() => {}).finally(() => { tick(); timer = window.setInterval(tick, tickMs); });
     return () => { on = false; window.clearInterval(timer); };
-  }, []);
-  return state;
+  }, [tickMs]);
+  return left;
+}
+export function useBlackWeekCountdown(): { label: string; ended: boolean } {
+  const left = useBlackWeekMsLeft();
+  return { label: left == null ? "" : countdownLabel(left), ended: left != null && left <= 0 };
 }

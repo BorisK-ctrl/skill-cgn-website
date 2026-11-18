@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import CampaignLanding from "@/components/CampaignLanding";
 import PriceStamp from "@/components/PriceStamp";
+import Countdown from "@/components/Countdown";
 import StartCheckout from "@/components/StartCheckout";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT } from "@/lib/pixel";
@@ -96,6 +97,7 @@ export default function BlackWeek() {
       ctaNote="Nur bis 30.11.2026. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt."
       stickyLabel={`${p} € alle 4 Wochen`}
       countdown={ended ? "" : countdown.label}
+      timer={ended ? null : <Countdown variant="campaign" />}
       forYou={forYou}
       frame={[
         { t: "SCAN ZUM START.", c: "Scaneca 3D-Körperscan und Assessment. Dein Nullpunkt, gemessen, nicht geschätzt." },

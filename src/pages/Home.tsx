@@ -18,6 +18,8 @@ import { FaqJsonLd } from "@/lib/jsonld";
 import { OPENING_HOURS } from "@/components/Footer";
 import GymGallery from "@/components/GymGallery";
 import PriceStamp from "@/components/PriceStamp";
+import Countdown from "@/components/Countdown";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
 import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, afterText } from "@/lib/blackweek";
@@ -131,10 +133,11 @@ export default function Home() {
                 <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Black Week.<br /><span className="text-primary">Gym Only.</span><br />{fmtPrice(bw.now)}&nbsp;€.<PriceStamp /><span className="mt-4 block font-mono text-[11px] normal-case leading-relaxed tracking-[0.16em] text-foreground/60 sm:text-xs">Fitnessstudio Köln · Herzogstraße, zwei Minuten vom Neumarkt</span></h1>
               ) : <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Dein Coach.<br /><span className="text-primary">Dein Plan.</span><br />Mitten in Köln.</h1>}
               <p className="campaign-display mt-4 text-3xl md:text-5xl uppercase leading-none text-foreground/80">Show up. Earn it.</p>
-              <p className="mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed">{bwHero ? "Das komplette Gym in der Kölner Innenstadt: Technogym, Freihantelbereich, Kunstrasenbahn. Dusche, Getränke und Handtuch inklusive, 3D Scan und Assessment zum Start. Monatlich kündbar, ohne Classes." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
+              <p className="mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed">{bwHero ? "Trainier, wann es dir passt: morgens ab 7, unter der Woche bis 22 Uhr. Hanteln, Geräte, Sprintbahn, alles da. Dusche, Getränke und Handtuch inklusive. Zum Start zeigt dir der 3D Scan, wo du stehst. Passt es nicht, kündigst du zum nächsten Monat." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
               <div className="mt-8 max-w-md">
                 <Link to={promo.path} onClick={() => trackCta(`cta_${promo.key}_hero`)} className={`${ctaBtn} w-full`}>{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
-                <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">{promo.line}{bwHero && <> · <span className="text-primary">{daysLeft || "nur bis 30.11."}</span></>}</p>
+                <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">{promo.line}</p>
+                {bwHero && <Countdown variant="home" className="mt-5" />}
                 {blackMonth && <Link to="/blackmonth" onClick={() => trackCta("cta_blackmonth_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-primary bg-black px-6 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Black Month ansehen <ArrowRight className="w-4 h-4" /></Link>}
                 {bwHero ? <p className="mt-4 text-center text-sm text-foreground/60">Erst ansehen? <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_hero")} className="font-bold text-foreground underline underline-offset-4 hover:text-primary">Kostenloses Probetraining</Link></p>
                   : <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-foreground/30 px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/80 hover:border-primary hover:text-primary">Kostenloses Probetraining</Link>}
@@ -143,8 +146,7 @@ export default function Home() {
             {/* Gesicht: Boris. Während Black Week das Gym selbst (Gym Only: ohne Coaching, also kein Coaching-Bild) */}
             <div className="flex items-center gap-4 lg:flex-col lg:items-start lg:gap-5">
               {bwHero ? <>
-              <img src="/img/gym/04-geraetepark.webp" alt="Technogym Gerätepark bei SKILL CGN in Köln" width={1080} height={1440} className="h-24 w-20 shrink-0 object-cover border-2 border-primary sm:h-32 sm:w-28 lg:h-auto lg:w-full lg:max-w-[360px] lg:aspect-[4/5]" loading="eager" />
-              <div><p className="text-sm md:text-base font-bold leading-snug">Technogym Selection 900.</p><p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-primary">Gerätepark · Herzogstraße 16–20</p></div>
+              <HeroSlideshow price={fmtPrice(bw.now)} />
               </> : <>
               <img src={BORIS_PHOTO} alt="Boris, Founder SKILL CGN" width={840} height={1050} className="h-24 w-20 shrink-0 object-cover border-2 border-primary sm:h-32 sm:w-28 lg:h-auto lg:w-full lg:max-w-[360px] lg:aspect-[4/5]" loading="eager" />
               <div><p className="text-sm md:text-base font-bold leading-snug">„Progression vor Perfektion.“</p><p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-primary">Boris, Founder</p></div>

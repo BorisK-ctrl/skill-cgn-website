@@ -5,6 +5,7 @@ import { WHATSAPP, PHONE_HREF } from "@/lib/magicline";
 import { trackCta } from "@/lib/events";
 import { openCookieSettings } from "@/lib/pixel";
 import { useBlackMonthActive } from "@/lib/blackmonth";
+import { useBlackWeekActive } from "@/lib/blackweek";
 
 export const OPENING_HOURS = [
   { days: "Montag – Donnerstag", hours: "07:00 – 22:00" },
@@ -18,6 +19,7 @@ const linkCls = "text-sm font-bold text-foreground/70 hover:text-primary transit
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const blackMonth = useBlackMonthActive();
+  const blackWeek = useBlackWeekActive();
   return (
     <footer className="bg-card border-t-4 border-primary text-foreground pb-14 lg:pb-0">
       <div className="container py-16">
@@ -34,7 +36,7 @@ export default function Footer() {
           <div>
             <h3 className="text-xs font-black uppercase tracking-widest text-foreground/40 mb-5 font-sans">Navigation</h3>
             <ul className="space-y-3">
-              {[...(blackMonth ? [["Black Month", "/blackmonth"]] : []), ["Classes", "/classes"], ["Memberships", "/memberships#plans"], ["START 39", "/start39"], ["Probetraining", "/probetraining"], ["Shop", "/shop"], ["Kündigung", "/kuendigung"]].map(([label, href]) => (
+              {[...(blackMonth ? [["Black Month", "/blackmonth"]] : []), ["Classes", "/classes"], ["Memberships", "/memberships#plans"], ...(blackWeek ? [] : [["START 39", "/start39"]]), ["Probetraining", "/probetraining"], ["Shop", "/shop"], ["Kündigung", "/kuendigung"]].map(([label, href]) => (
                 <li key={href}><Link to={href} className={linkCls}>{label}</Link></li>
               ))}
             </ul>
