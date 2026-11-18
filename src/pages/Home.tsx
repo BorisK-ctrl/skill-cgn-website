@@ -19,7 +19,7 @@ import { OPENING_HOURS } from "@/components/Footer";
 import GymGallery from "@/components/GymGallery";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
-import { useBlackWeekActive, usePromo, blackWeekPrices } from "@/lib/blackweek";
+import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft } from "@/lib/blackweek";
 import { GYM_ONLY_FEATURES } from "@/components/BlackWeekCard";
 
 // ─── Daten ────────────────────────────────────────────────────────────────────
@@ -104,6 +104,8 @@ export default function Home() {
   const blackWeek = useBlackWeekActive();
   const promo = usePromo();
   const bw = blackWeekPrices(bundles);
+  const bwHero = promo.key === "blackweek";
+  const daysLeft = useDaysLeft(promo.ends);
   const price = (key: "start39" | "mitgliedschaft" | "unlimited", months: 1 | 12) => fmtPrice(offerPrice(bundles, key, months) ?? 0);
 
   return (
@@ -113,7 +115,7 @@ export default function Home() {
       {/* ── 0. KAMPAGNEN-BANNER: immer nur ein Angebot (usePromo: bis 30.11. Black Week, sonst START 39) ── */}
       {!blackMonth && <Link to={promo.path} onClick={() => trackCta(`cta_${promo.key}_banner`)} className="campaign-button relative z-20 mt-20 flex items-center justify-center gap-3 bg-primary px-4 py-3 text-center text-primary-foreground hover:bg-white">
         <Zap className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] sm:text-xs"><span className="font-black">{promo.label}</span> {promo.banner}</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] sm:text-xs"><span className="font-black">{promo.label}</span> {promo.banner}{daysLeft && <> · <span className="font-black">{daysLeft}</span></>}</span>
         <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
       </Link>}
 
@@ -124,14 +126,17 @@ export default function Home() {
           <a href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-foreground/70 hover:text-primary"><Stars /> 4,9 Sterne bei 167 Google Bewertungen</a>
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
             <div className="max-w-3xl">
-              <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Dein Coach.<br /><span className="text-primary">Dein Plan.</span><br />Mitten in Köln.</h1>
+              {bwHero ? (
+                <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Black Week.<br /><span className="text-primary">Gym Only.</span><br />{fmtPrice(bw.now)}&nbsp;€ <span className="sr-only">statt</span><span className="text-foreground/40 line-through decoration-[6px]">{fmtPrice(bw.was)}&nbsp;€</span><span className="mt-4 block font-mono text-[11px] normal-case leading-relaxed tracking-[0.16em] text-foreground/60 sm:text-xs">Fitnessstudio Köln · Herzogstraße, zwei Minuten vom Neumarkt</span></h1>
+              ) : <h1 className="campaign-display text-[60px] sm:text-7xl md:text-8xl lg:text-[112px] uppercase leading-[0.86]">Dein Coach.<br /><span className="text-primary">Dein Plan.</span><br />Mitten in Köln.</h1>}
               <p className="campaign-display mt-4 text-3xl md:text-5xl uppercase leading-none text-foreground/80">Show up. Earn it.</p>
-              <p className="mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed">Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt.</p>
+              <p className="mt-5 max-w-xl text-base md:text-lg text-foreground/70 leading-relaxed">{bwHero ? "Das komplette Gym in der Kölner Innenstadt: Technogym, Freihantelbereich, Kunstrasenbahn. Dusche, Getränke und Handtuch inklusive, 3D Scan und Assessment zum Start. Monatlich kündbar, ohne Classes." : "Betreutes Training mit System: Coach in jeder Class, 3D Körperscan und ein Plan mit deinem Namen. Boutique Gym mit Technogym, zwei Minuten vom Neumarkt."}</p>
               <div className="mt-8 max-w-md">
                 <Link to={promo.path} onClick={() => trackCta(`cta_${promo.key}_hero`)} className={`${ctaBtn} w-full`}>{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
-                <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">{promo.line}</p>
+                <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-foreground/50">{promo.line}{bwHero && <> · <span className="text-primary">{daysLeft || "nur bis 30.11."}</span></>}</p>
                 {blackMonth && <Link to="/blackmonth" onClick={() => trackCta("cta_blackmonth_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-primary bg-black px-6 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Black Month ansehen <ArrowRight className="w-4 h-4" /></Link>}
-                <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-foreground/30 px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/80 hover:border-primary hover:text-primary">Kostenloses Probetraining</Link>
+                {bwHero ? <p className="mt-4 text-center text-sm text-foreground/60">Erst ansehen? <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_hero")} className="font-bold text-foreground underline underline-offset-4 hover:text-primary">Kostenloses Probetraining</Link></p>
+                  : <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_hero")} className="campaign-button mt-4 inline-flex w-full items-center justify-center gap-2 border-2 border-foreground/30 px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/80 hover:border-primary hover:text-primary">Kostenloses Probetraining</Link>}
               </div>
             </div>
             {/* Gesicht: Boris */}
@@ -175,7 +180,7 @@ export default function Home() {
       {/* ── 3. PREISE ── */}
       <section className="py-20 bg-background border-b border-foreground/10" id="memberships">
         <div className="container">
-          <div className="mb-10"><div className={badge}>Preise</div><h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none">Drei Tarife.<br /><span className="text-primary">Ein Coach.</span></h2><p className="mt-4 text-sm text-foreground/50">Keine Gebühr, in keinem Tarif. Abrechnung alle vier Wochen.</p></div>
+          <div className="mb-10"><div className={badge}>Preise</div><h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none">Drei Tarife.<br /><span className="text-primary">{bwHero ? <>Ab {fmtPrice(bw.now)}&nbsp;€.</> : "Ein Coach."}</span></h2><p className="mt-4 text-sm text-foreground/50">Keine Gebühr, in keinem Tarif. Abrechnung alle vier Wochen.</p></div>
           <div className="grid md:grid-cols-3 gap-px bg-foreground/10">
             {TARIFE.map(t => {
               const isStart = t.key === "start39"; const hi = !!t.recommended;
@@ -331,9 +336,16 @@ export default function Home() {
       {/* ── 11. SCHLUSS ── */}
       <section className="relative py-24 bg-primary overflow-hidden">
         <div className="container relative text-center">
+          {bwHero ? <>
+          <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-primary-foreground leading-none">Black Week.<br />Gym Only {fmtPrice(bw.now)}&nbsp;€.</h2>
+          <p className="mt-5 text-primary-foreground/70 text-lg max-w-xl mx-auto leading-relaxed">Statt {fmtPrice(bw.was)}&nbsp;€ alle 4 Wochen. Monatlich kündbar, 3D Scan zum Start. Abschluss bis 30.11.{daysLeft ? `, ${daysLeft}.` : ""}</p>
+          <Link to="/blackweek" onClick={() => trackCta("cta_blackweek_footer")} className="campaign-button mt-8 inline-flex items-center justify-center gap-3 bg-black text-primary font-black uppercase tracking-widest text-sm px-10 py-5 min-h-[60px] hover:bg-white hover:text-black">{promo.cta} <ArrowRight className="w-4 h-4" /></Link>
+          <p className="mt-5 text-sm text-primary-foreground/70">Lieber erst ansehen? <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_footer")} className="font-bold text-primary-foreground underline underline-offset-4">Kostenloses Probetraining mit 3D Scan</Link></p>
+          </> : <>
           <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-primary-foreground leading-none">Dein Coach.<br />Dein Plan.</h2>
           <p className="mt-5 text-primary-foreground/70 text-lg max-w-xl mx-auto leading-relaxed">60 Minuten mit Coach, 3D Scan inklusive. Kostenlos, ohne Bindung.</p>
           <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_footer")} className="campaign-button mt-8 inline-flex items-center justify-center gap-3 bg-black text-primary font-black uppercase tracking-widest text-sm px-10 py-5 min-h-[60px] hover:bg-white hover:text-black">Kostenloses Probetraining mit 3D Scan <ArrowRight className="w-4 h-4" /></Link>
+          </>}
         </div>
       </section>
     </div>

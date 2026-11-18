@@ -10,20 +10,21 @@ import { berlinToday } from "./blackmonth";
 export const BLACK_WEEK = { offer: "BLACK WEEK 29", pixelName: "ONLY GYM 29", rateBundleId: 1215762330, termId: 1215762340, price: 29, end: "2026-11-30", afterPrice: 34 } as const;
 export const blackWeekActive = (today = berlinToday()) => today <= BLACK_WEEK.end;
 
-/** true bis einschließlich 30.11.2026. Erster Render immer true, damit Prerender und Client übereinstimmen. */
+/** true bis einschließlich 30.11.2026. */
 export function useBlackWeekActive(): boolean {
-  const [active, setActive] = useState(true);
+  /* Startwert aus dem Datum (Prerender: Build-Datum, Browser: heute), damit nach dem 30.11. nichts kurz aufblitzt */
+  const [active, setActive] = useState(() => blackWeekActive());
   useEffect(() => { setActive(blackWeekActive()); }, []);
   return active;
 }
 
 /* Die Website wirbt immer nur für ein Angebot (Boris, 18.11.2026): bis 30.11. Black Week, danach wieder START 39 mit den bisherigen Texten.
    Genutzt von Startseiten-Banner, Hero-Knopf, fester Leiste mobil und dem gelben Knopf in der Navigation. */
-export interface Promo { key: "blackweek" | "start39"; path: string; label: string; banner: string; cta: string; line: string; sticky: string; nav: string }
+export interface Promo { key: "blackweek" | "start39"; path: string; label: string; banner: string; cta: string; line: string; sticky: string; nav: string; ends?: string }
 const START39_PROMO: Promo = { key: "start39", path: "/start39", label: "START 39:", banner: "39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr", cta: "START 39 sichern",
   line: "39 € je 4 Wochen · monatlich kündbar · keine Aufnahmegebühr · nur Neukunden", sticky: "START 39 sichern · 39 € alle vier Wochen", nav: "START 39" };
-const BLACKWEEK_PROMO: Promo = { key: "blackweek", path: "/blackweek", label: "Black Week:", banner: "Gym Only 29\u00a0€ alle 4 Wochen · nur bis 30.11.", cta: "Gym Only 29\u00a0€ sichern",
-  line: "29\u00a0€ alle 4 Wochen · monatlich kündbar · 0\u00a0€ Aufnahmegebühr · nur bis 30.11.", sticky: "Black Week · Gym Only 29\u00a0€ sichern", nav: "Black Week" };
+const BLACKWEEK_PROMO: Promo = { key: "blackweek", path: "/blackweek", label: "Black Week:", banner: "Gym Only 29\u00a0€ statt 34\u00a0€ alle 4 Wochen", cta: "Gym Only 29\u00a0€ sichern",
+  line: "29\u00a0€ statt 34\u00a0€ alle 4 Wochen · monatlich kündbar", sticky: "Black Week · Gym Only 29\u00a0€ sichern", nav: "Black Week", ends: BLACK_WEEK.end };
 export function usePromo(): Promo { return useBlackWeekActive() ? BLACKWEEK_PROMO : START39_PROMO; }
 
 /** Reguläres Gym Only (Magicline 1215471120, Term 1215471130): 34 € alle 4 Wochen, 3 Monate Mindestlaufzeit, keine Aufnahmegebühr.
@@ -33,4 +34,15 @@ export const ONLY_GYM_REGULAR = { rateBundleId: 1215471120, price: 34 } as const
 export function blackWeekPrices(bundles: { id: number; terms?: { price: number }[] }[] | null) {
   const of = (id: number, fb: number) => bundles?.find(b => b.id === id)?.terms?.[0]?.price ?? fb;
   return { now: of(BLACK_WEEK.rateBundleId, BLACK_WEEK.price), was: of(ONLY_GYM_REGULAR.rateBundleId, ONLY_GYM_REGULAR.price) };
+}
+
+/** "noch 12 Tage", "nur noch heute" bis zum Enddatum (Berliner Datum). Erst nach dem Mount, damit Prerender und Client übereinstimmen. */
+export function useDaysLeft(end?: string): string {
+  const [txt, setTxt] = useState("");
+  useEffect(() => {
+    if (!end) return;
+    const days = Math.round((Date.parse(end + "T12:00:00Z") - Date.parse(berlinToday() + "T12:00:00Z")) / 86400000);
+    setTxt(days > 1 ? `noch ${days} Tage` : days === 1 ? "nur noch bis morgen" : days === 0 ? "nur noch heute" : "");
+  }, [end]);
+  return txt;
 }
