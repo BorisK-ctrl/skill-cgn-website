@@ -304,7 +304,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     } finally { setPending(false); }
   };
 
-  const btn = "campaign-button flex min-h-14 w-full items-center justify-center gap-2 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white disabled:opacity-60";
+  const btn = "campaign-button flex min-h-14 w-full items-center justify-center gap-2 bg-[#FBFF00] px-4 py-4 text-center text-sm font-bold uppercase leading-snug tracking-[0.1em] text-black sm:px-6 sm:tracking-[0.14em] hover:bg-white disabled:opacity-60";
   const trust = <p className="campaign-mono mt-3 text-center text-[10px] uppercase tracking-[0.16em] text-white/45">{cardAvailable ? "Sicher bezahlen per Karte, Apple Pay, Google Pay oder SEPA · keine Gebühr" : "Sicher bezahlen per SEPA-Lastschrift · keine Gebühr"}</p>;
   const contactNote = <p className="mt-2 text-center text-[11px] text-white/45">Wir melden uns bei Fragen per WhatsApp oder E-Mail. <Link to="/datenschutz" target="_blank" className="underline hover:text-white">Datenschutz</Link></p>;
   const ibanOk = ibanValid(form.iban);
@@ -391,7 +391,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
               </div>
             )}
             {submitHint && <p role="alert" className="flex items-start gap-2 border-l-4 border-[#FBFF00] bg-[#FBFF00]/10 px-3 py-2.5 text-sm font-bold text-[#FBFF00]"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> Bitte prüfen: {submitHint}</p>}
-            <button type="button" onClick={submit} disabled={pending} className={btn}>{pending ? <><Loader2 className="h-4 w-4 animate-spin" /> {payMethod === "card" ? "Weiter zu Stripe …" : "Wird angelegt …"}</> : payMethod === "card" ? `Weiter zur Kartenzahlung, ${price} €` : `Vertrag abschließen für ${price} €`}</button>
+            <button type="button" onClick={submit} disabled={pending} className={btn}>{pending ? <><Loader2 className="h-4 w-4 animate-spin" /> {payMethod === "card" ? "Weiter zu Stripe …" : "Wird angelegt …"}</> : payMethod === "card" ? `Weiter zur Kartenzahlung, ${price}\u00a0€` : `Vertrag abschließen für ${price}\u00a0€`}</button>
             <p className="text-center text-[11px] text-white/45">{isPos ? "Erste Abbuchung zum Startdatum. Bestätigung kommt per E-Mail." : cancelNote || (months === 12 ? "12 Monate Laufzeit. Erste Abbuchung zum Startdatum." : "Monatlich kündbar. Erste Abbuchung zum Startdatum.")}</p>
             {trust}
           </div>
