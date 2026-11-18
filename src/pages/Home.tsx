@@ -19,7 +19,8 @@ import { OPENING_HOURS } from "@/components/Footer";
 import GymGallery from "@/components/GymGallery";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
-import { useBlackWeekActive, usePromo, BLACK_WEEK } from "@/lib/blackweek";
+import { useBlackWeekActive, usePromo, blackWeekPrices } from "@/lib/blackweek";
+import { GYM_ONLY_FEATURES } from "@/components/BlackWeekCard";
 
 // ─── Daten ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ export default function Home() {
   const blackMonth = useBlackMonthActive();
   const blackWeek = useBlackWeekActive();
   const promo = usePromo();
+  const bw = blackWeekPrices(bundles);
   const price = (key: "start39" | "mitgliedschaft" | "unlimited", months: 1 | 12) => fmtPrice(offerPrice(bundles, key, months) ?? 0);
 
   return (
@@ -177,6 +179,18 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-px bg-foreground/10">
             {TARIFE.map(t => {
               const isStart = t.key === "start39"; const hi = !!t.recommended;
+              /* Bis 30.11.: links Gym Only (Black Week) statt START 39, Streichpreis = reguläres Gym Only */
+              if (isStart && blackWeek) return (
+              <div key="blackweek" className="relative flex flex-col p-7 md:p-8 border-t-4 border-primary bg-card">
+                <span className="absolute right-4 top-4 bg-primary px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-primary-foreground">Black Week · bis 30.11.</span>
+                <h3 className="text-2xl font-black uppercase tracking-tight pr-24">Gym Only</h3>
+                <p className="mt-1 text-primary text-xs font-black uppercase tracking-widest">Ohne Classes</p>
+                <div className="mt-5"><span className="text-5xl font-black font-mono">{fmtPrice(bw.now)}</span><span className="ml-2 text-sm text-foreground/60">€ alle vier Wochen</span><span className="ml-2 font-mono text-lg font-bold text-foreground/40"><s>{fmtPrice(bw.was)} €</s></span><p className="mt-1 text-xs text-foreground/50">Monatlich kündbar, 1 Monat Laufzeit. Statt regulär {fmtPrice(bw.was)} € bei 3 Monaten Laufzeit. Nur online, nur Neukunden.</p></div>
+                <ul className="mt-5 space-y-2 flex-1">{GYM_ONLY_FEATURES.map(f => <li key={f} className="flex items-start gap-2 text-sm text-foreground/75"><Check className="mt-0.5 w-4 h-4 text-primary shrink-0" />{f}</li>)}</ul>
+                <ParkingLine perWeek={0} />
+                <Link to="/blackweek" onClick={() => trackCta("cta_blackweek_preise")} className="campaign-button mt-6 inline-flex items-center justify-center gap-2 border-2 border-primary px-5 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Gym Only {fmtPrice(bw.now)}&nbsp;€ sichern <ArrowRight className="w-4 h-4" /></Link>
+              </div>
+              );
               return (
               <div key={t.key} className={`relative flex flex-col p-7 md:p-8 ${hi ? "bg-primary/10 border-t-4 border-primary" : isStart ? "border-t-4 border-foreground/30 bg-card" : "bg-background"}`}>
                 {(isStart || hi) && <span className="absolute right-4 top-4 bg-primary px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-primary-foreground">{hi ? "Empfohlen" : "Nur Neukunden"}</span>}
@@ -201,12 +215,6 @@ export default function Home() {
               );
             })}
           </div>
-          {blackWeek && (
-            <Link to="/blackweek" onClick={() => trackCta("cta_blackweek_preise")} className="mt-px flex flex-col gap-3 bg-black p-6 hover:bg-primary/10 md:flex-row md:items-center md:justify-between md:p-7">
-              <div><h3 className="text-2xl font-black uppercase tracking-tight">Gym Only</h3><p className="mt-1 text-primary text-xs font-black uppercase tracking-widest">Black Week Preis bis 30.11.</p><p className="mt-2 text-sm text-foreground/70">Gym komplett, ohne Classes. Monatlich kündbar, 0 € Aufnahmegebühr. Nur online, nur Neukunden.</p></div>
-              <div className="flex items-center gap-4"><span><span className="text-5xl font-black font-mono">{fmtPrice(bundles?.find(b => b.id === BLACK_WEEK.rateBundleId)?.terms?.[0]?.price ?? BLACK_WEEK.price)}</span><span className="ml-2 text-sm text-foreground/60">€ alle vier Wochen</span></span><ArrowRight className="h-5 w-5 shrink-0 text-primary" /></div>
-            </Link>
-          )}
         </div>
       </section>
 

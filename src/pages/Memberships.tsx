@@ -9,6 +9,8 @@ import { Link } from "react-router-dom";
 import { usePageMeta } from "@/lib/meta";
 import { useRateBundles, offerPrice, fmtPrice } from "@/lib/useRateBundles";
 import { TARIFE, PARKING, START39_OFFER, START39_RULE, parkingLabel, type Tarif } from "@/lib/tarife";
+import BlackWeekCard from "@/components/BlackWeekCard";
+import { useBlackWeekActive, blackWeekPrices } from "@/lib/blackweek";
 import { ParkingLine, ParkingSteps } from "@/components/Parking";
 
 type Tier = "12months" | "monthly";
@@ -64,6 +66,13 @@ function Card({ t, tier, price, idx, big }: { t: Tarif; tier: Tier; price: numbe
   );
 }
 
+/** START 39 während Black Week durch die Gym-Only-Karte ersetzt (nur eine beworbene Aktion), sonst die normale Karte. */
+function PlanCard(props: { t: Tarif; tier: Tier; price: number | null; idx: number; big: boolean }) {
+  const active = useBlackWeekActive(); const { bundles } = useRateBundles(); const p = blackWeekPrices(bundles);
+  if (active && props.t.key === "start39") return <BlackWeekCard now={p.now} was={p.was} big={props.big} parking={<ParkingLine perWeek={0} />} />;
+  return <Card {...props} />;
+}
+
 function Carousel({ tier, priceOf }: { tier: Tier; priceOf: (t: Tarif) => number | null }) {
   const [activeIdx, setActiveIdx] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -83,7 +92,7 @@ function Carousel({ tier, priceOf }: { tier: Tier; priceOf: (t: Tarif) => number
         {activeIdx > 0 && <button onClick={() => scrollTo(activeIdx - 1)} className={`${arrow} left-1`} aria-label="Vorheriger Tarif"><ChevronLeft className="w-4 h-4" /></button>}
         {activeIdx < TARIFE.length - 1 && <button onClick={() => scrollTo(activeIdx + 1)} className={`${arrow} right-1`} aria-label="Nächster Tarif"><ChevronRight className="w-4 h-4" /></button>}
         <div ref={scrollRef} onScroll={handleScroll} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 px-4 py-5">
-          {TARIFE.map((t, idx) => <div key={t.key} className={`snap-center flex-shrink-0 w-[84vw] max-w-[360px] transition-all duration-300 ${idx === activeIdx ? "opacity-100" : "opacity-60"}`}><Card t={t} tier={tier} price={priceOf(t)} idx={idx} big={false} /></div>)}
+          {TARIFE.map((t, idx) => <div key={t.key} className={`snap-center flex-shrink-0 w-[84vw] max-w-[360px] transition-all duration-300 ${idx === activeIdx ? "opacity-100" : "opacity-60"}`}><PlanCard t={t} tier={tier} price={priceOf(t)} idx={idx} big={false} /></div>)}
         </div>
       </div>
       <div className="flex justify-center gap-2 mt-2">{TARIFE.map((_, idx) => <button key={idx} onClick={() => scrollTo(idx)} className={`h-2 transition-all duration-300 ${idx === activeIdx ? "bg-primary w-6" : "bg-foreground/20 w-2"}`} aria-label={`Tarif ${idx + 1}`} />)}</div>
@@ -144,7 +153,7 @@ export default function Memberships() {
           {error && <p className="text-center text-sm text-primary font-bold mb-8">Die Live-Preise konnten nicht geladen werden, angezeigt werden die Listenpreise.</p>}
           <Carousel tier={tier} priceOf={priceOf} />
           <div className="hidden md:grid md:grid-cols-3 gap-6 items-stretch pt-4">
-            {TARIFE.map((t, idx) => <div key={t.key} id={`plan-${t.key}`} className={`relative scroll-mt-24 ${t.recommended ? "md:-translate-y-3" : ""}`}><Card t={t} tier={tier} price={priceOf(t)} idx={idx} big /></div>)}
+            {TARIFE.map((t, idx) => <div key={t.key} id={`plan-${t.key}`} className={`relative scroll-mt-24 ${t.recommended ? "md:-translate-y-3" : ""}`}><PlanCard t={t} tier={tier} price={priceOf(t)} idx={idx} big /></div>)}
           </div>
           <p className="text-center text-xs text-foreground/40 mt-8">Alle Preise inkl. MwSt. · Keine Gebühr · Abrechnung alle vier Wochen · 14 Tage Widerruf beim Onlineabschluss</p>
         </div>

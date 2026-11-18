@@ -25,3 +25,12 @@ const START39_PROMO: Promo = { key: "start39", path: "/start39", label: "START 3
 const BLACKWEEK_PROMO: Promo = { key: "blackweek", path: "/blackweek", label: "Black Week:", banner: "Gym Only 29\u00a0€ alle 4 Wochen · nur bis 30.11.", cta: "Gym Only 29\u00a0€ sichern",
   line: "29\u00a0€ alle 4 Wochen · monatlich kündbar · 0\u00a0€ Aufnahmegebühr · nur bis 30.11.", sticky: "Black Week · Gym Only 29\u00a0€ sichern", nav: "Black Week" };
 export function usePromo(): Promo { return useBlackWeekActive() ? BLACKWEEK_PROMO : START39_PROMO; }
+
+/** Reguläres Gym Only (Magicline 1215471120, Term 1215471130): 34 € alle 4 Wochen, 3 Monate Mindestlaufzeit, keine Aufnahmegebühr.
+ *  Einziger zulässiger Streichpreis für Black Week (§ 11 PAngV: niedrigster Preis der letzten 30 Tage). Eine Aufnahmegebühr hatte Gym Only nie. */
+export const ONLY_GYM_REGULAR = { rateBundleId: 1215471120, price: 34 } as const;
+/** Live-Preise aus dem rate-bundle, Fallback die Listenpreise. */
+export function blackWeekPrices(bundles: { id: number; terms?: { price: number }[] }[] | null) {
+  const of = (id: number, fb: number) => bundles?.find(b => b.id === id)?.terms?.[0]?.price ?? fb;
+  return { now: of(BLACK_WEEK.rateBundleId, BLACK_WEEK.price), was: of(ONLY_GYM_REGULAR.rateBundleId, ONLY_GYM_REGULAR.price) };
+}
