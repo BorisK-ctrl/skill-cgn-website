@@ -67,7 +67,7 @@ export async function markEvent(id: string) { await setJSON("stripe-events", id,
 /* Checkout-Abbrecher (START 39 / BACK 39): Schlüssel = Token aus dem Formular. */
 /* Willkommensmail (Issue #2): pendingSince = Abschluss, input = Daten für die Mail, sentAt sobald raus */
 export interface WelcomeState { pendingSince: string; customerId?: number; sentAt?: string; skipped?: string; docs?: number; tries?: number; note?: string; input?: { offerName: string; price: number; startDate?: string } }
-export interface CheckoutLead { welcome?: WelcomeState; token: string; campaign: string; path: string; firstName: string; lastName: string; email: string; phone: string; months?: number; createdAt: string; done?: boolean; mailedAt?: string; leadUuid?: string; customerNumber?: string; utm?: string; abandonedStep?: number; contractId?: string; capi?: { at: string; sent: boolean; status?: number; note?: string };
+export interface CheckoutLead { welcome?: WelcomeState; token: string; campaign: string; path: string; firstName: string; lastName: string; email: string; phone: string; months?: number; createdAt: string; done?: boolean; doneAt?: string; mailedAt?: string; leadUuid?: string; customerNumber?: string; utm?: string; abandonedStep?: number; contractId?: string; capi?: { at: string; sent: boolean; status?: number; note?: string };
   /* Kartenweg: Vertragsdaten bis zur Stripe-Bestätigung (Unterschrift wird nach der Vertragsanlage gelöscht) */
   card?: { rateBundleTermId: number; startDate: string; dob: string; street: string; houseNumber: string; zip: string; city: string; signatureSvgBase64?: string; price: number; offerName: string; sourceUrl?: string; fbp?: string; fbc?: string; savedAt: string };
   stripe?: { sessionId?: string; subscriptionId?: string; customerId?: string; paidAt?: string; amount?: number };
@@ -80,6 +80,8 @@ export async function getCheckoutLead(token: string): Promise<CheckoutLead | nul
 export async function saveCheckoutLead(l: CheckoutLead) { await setJSON("checkout-leads", l.token, l); }
 export async function listCheckoutLeadTokens(): Promise<string[]> { return listKeys("checkout-leads", ""); }
 export async function deleteCheckoutLead(token: string) { safeKey(token); const s = store("checkout-leads"); if (!s) { mem["checkout-leads"]?.delete(token); return; } await s.delete(token); }
+/* Tagesbericht (sales-report.mts): Zahlen je Tag ohne Personendaten. Bleibt, wenn checkout-leads nach 30 Tagen gelöscht werden. */
+export async function saveDailyReport(day: string, summary: unknown) { await setJSON("reports", "tag/" + day, summary); }
 
 /* Vertragsanlage-Protokoll, Schlüssel = Zeitstempel + Token */
 export async function saveCheckoutLog(entry: { at: string; token: string; stage: string }) { await setJSON("checkout-log", `${entry.at}_${entry.token || "anon"}_${entry.stage}`, entry); }

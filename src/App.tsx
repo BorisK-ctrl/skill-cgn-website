@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef } from "react";
 import { page } from "@/pages/registry";
 import { track } from "@/lib/pixel";
-import { utmParams } from "@/lib/events";
+import { utmParams, landingSource } from "@/lib/events";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -11,8 +11,8 @@ function ScrollManager() {
   const { pathname, hash } = useLocation();
   /* PageView je Seitenwechsel innerhalb der App (der erste PageView kommt beim Laden des Pixels) */
   const first = useRef(true);
-  /* Klick-IDs und UTM beim ersten Aufruf sichern (Punkt 9) */
-  useEffect(() => { utmParams(); }, []);
+  /* Klick-IDs, UTM und Quelle fürs Team beim ersten Aufruf sichern (Punkt 9), bevor ein Link der Startseite die URL ändert */
+  useEffect(() => { utmParams(); landingSource(); landingSource(true); }, []);
   useEffect(() => { if (first.current) { first.current = false; return; } track("PageView"); }, [pathname]);
   useEffect(() => {
     if (!hash) { window.scrollTo(0, 0); return; }

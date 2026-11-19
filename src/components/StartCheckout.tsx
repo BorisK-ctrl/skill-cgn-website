@@ -9,7 +9,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, Check, Loader2, Eraser, Pencil } from "lucide-react";
 import { createContract, createLead, ibanValid, WHATSAPP, type RateBundleTerm, type ContractResult } from "@/lib/magicline";
 import { trackOnce, trackCustom, trackCustomOnce } from "@/lib/pixel";
-import { utmParams } from "@/lib/events";
+import { utmParams, landingSource, setSessionSource } from "@/lib/events";
 import { membershipPaymentLink } from "@/lib/stripe";
 import { consent } from "@/lib/pixel";
 const cookie = (n: string) => { try { return document.cookie.split("; ").find(c => c.startsWith(n + "="))?.split("=")[1] || ""; } catch { return ""; } };
@@ -25,18 +25,9 @@ export function MinorNotice({ offerName }: { offerName: string }) {
     </div>
   );
 }
-export interface ResumeData { token: string; firstName: string; lastName: string; email: string; phone: string; months?: number | null; leadUuid?: string; customerNumber?: string }
-/** UTM-Quelle der Sitzung (utm_source/utm_medium/utm_campaign beim ersten Aufruf gemerkt) */
-export function utmSource(withContent = false): string {
-  try {
-    const KEY = withContent ? "skill-utm-content" : "skill-utm";
-    const stored = sessionStorage.getItem(KEY); if (stored) return stored;
-    const p = new URLSearchParams(window.location.search);
-    const parts = ["utm_source", "utm_medium", "utm_campaign", ...(withContent ? ["utm_content"] : [])].map(k => p.get(k)).filter(Boolean);
-    const v = parts.length ? parts.join(" / ") : (document.referrer ? "Referrer " + new URL(document.referrer).hostname : "direkt");
-    sessionStorage.setItem(KEY, v); return v;
-  } catch { return "unbekannt"; }
-}
+export interface ResumeData { token: string; firstName: string; lastName: string; email: string; phone: string; months?: number | null; leadUuid?: string; customerNumber?: string; utm?: string }
+/** Quelle der Sitzung, auf der Einstiegsseite bestimmt (lib/events.ts landingSource), auch wenn der Weg über die Startseite führt */
+export const utmSource = (withContent = false): string => landingSource(withContent);
 
 interface Form { firstName: string; lastName: string; email: string; phone: string; birthDate: string; street: string; streetNumber: string; zipCode: string; city: string; startDate: string; iban: string; accountHolder: string }
 type Errors = Partial<Record<keyof Form, string>>;
@@ -133,6 +124,9 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     setForm(f => ({ ...f, firstName: resume.firstName || f.firstName, lastName: resume.lastName || f.lastName, email: resume.email || f.email, phone: resume.phone || f.phone }));
     setToken(resume.token); setStepRaw(s => Math.max(s, 2));
     if (resume.leadUuid) setLead({ uuid: resume.leadUuid, customerNumber: resume.customerNumber || "" });
+    /* Rückkehr über die Erinnerungsmail (nur dort steht ?resume=): Quelle aus Schritt 1 behalten und markieren */
+    const orig = (resume.utm || "").trim().slice(0, 170) || "unbekannt";
+    setSessionSource(/Erinnerungsmail/.test(orig) ? orig : `${orig} · über Erinnerungsmail`);
   }, [resume]);
   useEffect(() => {
     if (!restored) return;
@@ -199,7 +193,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   };
 
   /* Abbrecher-Token an die Netlify Function; scheitert still, wenn die Function nicht erreichbar ist (lokaler Dev). */
-  const saveLead = (tok: string, extra: Record<string, unknown> = {}) => fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, path, firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), months, utm: utmSource(), ...extra }) }).catch(() => {});
+  const saveLead = (tok: string, extra: Record<string, unknown> = {}) => fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, path, firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), months, utm: utmSource(true), ...extra }) }).catch(() => {});
 
   const submitStep1 = () => {
     const e = validate(1); setErrors(e); if (Object.keys(e).length) return;
@@ -266,7 +260,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       /* Karte, Apple Pay, Google Pay: Vertragsdaten sichern, dann zu Stripe. Der Webhook legt den Magicline-Vertrag nach der Zahlung an, /danke wartet darauf. */
       const tok = token || newToken(); if (!token) setToken(tok);
       try {
-        const r = await fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, path, firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), months, utm: utmSource(), leadUuid: lead.uuid || undefined, customerNumber: lead.customerNumber || undefined }) });
+        const r = await fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, path, firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), months, utm: utmSource(true), leadUuid: lead.uuid || undefined, customerNumber: lead.customerNumber || undefined }) });
         if (!r.ok) throw new Error("Sitzung konnte nicht gespeichert werden");
         const r2 = await fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, card: { rateBundleTermId: term.id, startDate: form.startDate, dob: form.birthDate, street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), signatureSvgBase64: sig, price: term.price, offerName, sourceUrl: location.href, fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") } }) });
         if (!r2.ok) throw new Error("Vertragsdaten konnten nicht gespeichert werden");

@@ -22,6 +22,7 @@ export async function completeMembership(l: CheckoutLead, ref: StripeRef, client
     if (!(l as any).failAlertAt) { (l as any).failAlertAt = new Date().toISOString(); await sendContractFailedMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: l.customerNumber, offerName: c.offerName, price: c.price || 39, startDate: c.startDate, payment: l.express ? "express" : "card", months: l.months, token: l.token, error: l.contractError, stripe: l.stripe }).catch(e => console.log("fail mail error", String(e))); }
     await saveCheckoutLead(l); return { ok: false, note: l.contractError };
   }
+  l.doneAt ||= new Date().toISOString(); // Abschlusszeit für den Tagesbericht (sales-report)
   l.done = true; l.contractId = r.contractId; l.customerNumber = r.customerNumber || l.customerNumber; l.contractError = undefined;
   delete (l.card as any).signatureSvgBase64;
   /* Purchase serverseitig, event_id = Vertragsnummer (der Browser feuert auf /danke mit derselben ID) */
@@ -32,7 +33,7 @@ export async function completeMembership(l: CheckoutLead, ref: StripeRef, client
     } catch (e) { l.capi = { at: new Date().toISOString(), sent: false, note: String(e).slice(0, 120) }; }
   }
   await saveCheckoutLead(l);
-  const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: l.customerNumber, contractId: r.contractId, offerName: c.offerName, price: c.price || 39, startDate: c.startDate, payment: l.express ? "express" : "card", months: l.months, token: l.token }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
+  const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: l.customerNumber, contractId: r.contractId, offerName: c.offerName, price: c.price || 39, startDate: c.startDate, payment: l.express ? "express" : "card", months: l.months, token: l.token, source: l.utm, reminded: !!l.mailedAt }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
   /* Ein Paket (Issue #2): Willkommensmail mit Vertrag und SEPA-Mandat, Rest über checkout-reminder */
   l.welcome = { pendingSince: new Date().toISOString(), ...(Number(r.customerId) > 0 ? { customerId: Number(r.customerId) } : {}), input: { offerName: c.offerName, price: c.price || 39, startDate: c.startDate } };
   const welcome = await deliverWelcome(l, { firstName: l.firstName, email: l.email, contractId: r.contractId, offerName: c.offerName, price: c.price || 39, startDate: c.startDate, months: l.months }, { budgetMs: 4000 })
