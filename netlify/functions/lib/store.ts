@@ -1,22 +1,37 @@
 /* Ablage in Netlify Blobs. Lokal ohne Blobs-Kontext: In-Memory-Fallback (nur für den Dev-Server). */
 import { getStore } from "@netlify/blobs";
+import { createHash } from "node:crypto";
 import type { Booking, TicketAccount } from "./types";
+
+/* Sicherheit (Prüfung 19.11.2026): @netlify/blobs setzt den Schlüssel roh in den URL-Pfad und new URL() löst ".." und "%2e%2e" auf,
+   "#" und "?" schneiden ab. Ein Schlüssel aus Nutzereingaben (z. B. E-Mail "../../site:tickets/…") könnte so in einen anderen Store schreiben.
+   Darum: jeder Schlüssel wird hier geprüft, und Schlüssel aus E-Mails werden gehasht (hashKey). */
+const BAD_KEY = /(^|\/)\.{1,2}(\/|$)|%2e|%2f|%5c|%23|%3f|%25|[#?\\\u0000-\u001f\u007f]/i;
+export function safeKey(key: string): string {
+  if (!key || key.length > 600 || BAD_KEY.test(key)) throw new Error("Ungültiger Speicher-Schlüssel");
+  return key;
+}
+/** Kurzer Hash für Schlüssel aus persönlichen Daten (E-Mail): keine Daten im Schlüssel, kein Pfad-Trick möglich. */
+export const hashKey = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32);
 
 const mem: Record<string, Map<string, unknown>> = {};
 function store(name: string) {
   try { return getStore({ name, consistency: "strong" }); } catch { return null; }
 }
 async function getJSON<T>(name: string, key: string): Promise<T | null> {
+  safeKey(key);
   const s = store(name);
   if (!s) return ((mem[name] ||= new Map()).get(key) as T) ?? null;
   return ((await s.get(key, { type: "json" })) as T) ?? null;
 }
 async function setJSON(name: string, key: string, value: unknown) {
+  safeKey(key);
   const s = store(name);
   if (!s) { (mem[name] ||= new Map()).set(key, value); return; }
   await s.setJSON(key, value);
 }
 async function listKeys(name: string, prefix: string): Promise<string[]> {
+  if (prefix) safeKey(prefix);
   const s = store(name);
   if (!s) return [...(mem[name] ||= new Map()).keys()].filter(k => k.startsWith(prefix));
   const { blobs } = await s.list({ prefix });
@@ -64,7 +79,7 @@ export interface CheckoutLead { welcome?: WelcomeState; token: string; campaign:
 export async function getCheckoutLead(token: string): Promise<CheckoutLead | null> { return getJSON<CheckoutLead>("checkout-leads", token); }
 export async function saveCheckoutLead(l: CheckoutLead) { await setJSON("checkout-leads", l.token, l); }
 export async function listCheckoutLeadTokens(): Promise<string[]> { return listKeys("checkout-leads", ""); }
-export async function deleteCheckoutLead(token: string) { const s = store("checkout-leads"); if (!s) { mem["checkout-leads"]?.delete(token); return; } await s.delete(token); }
+export async function deleteCheckoutLead(token: string) { safeKey(token); const s = store("checkout-leads"); if (!s) { mem["checkout-leads"]?.delete(token); return; } await s.delete(token); }
 
 /* Vertragsanlage-Protokoll, Schlüssel = Zeitstempel + Token */
 export async function saveCheckoutLog(entry: { at: string; token: string; stage: string }) { await setJSON("checkout-log", `${entry.at}_${entry.token || "anon"}_${entry.stage}`, entry); }
@@ -106,7 +121,7 @@ export function personKey(email: string): string {
   if (domain === "gmail.com" || domain === "googlemail.com") { local = local.replace(/\./g, ""); domain = "gmail.com"; }
   return `${local}@${domain}`;
 }
-const recKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "p/" : "e/") + personKey(email);
+const recKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "p/" : "e/") + hashKey(personKey(email)); // gehasht, siehe safeKey
 /** Buchung je Kunde und Terminart (Onboarding, Probetraining). */
 export async function getOnboarding(email: string, kind = "onboarding") { return getJSON<OnboardingRecord>("onboarding", recKey(kind, email)); }
 export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboarding", recKey(r.kind, r.email), r); }
@@ -114,6 +129,7 @@ export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboa
 /** Bremse je Schlüssel (z. B. gehashte IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt.
  *  Atomar über etag (onlyIfMatch/onlyIfNew): gleichzeitige Anfragen können sich nicht gegenseitig überschreiben. Bei Dauerkonflikt: ablehnen. */
 export async function allowHit(key: string, limit: number, windowMs: number): Promise<boolean> {
+  safeKey(key);
   const now = Date.now();
   const s = store("ratelimit");
   if (!s) {
@@ -135,6 +151,7 @@ export async function allowHit(key: string, limit: number, windowMs: number): Pr
    Erwerb mit onlyIfNew; eine Sperre älter als ttlMs gilt als verwaist (Funktion abgebrochen) und wird per onlyIfMatch übernommen. */
 const lockMem = new Map<string, number>();
 export async function acquireLock(key: string, ttlMs: number): Promise<string | null> {
+  safeKey(key);
   const owner = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const s = store("locks");
   if (!s) { const t = lockMem.get(key); if (t && Date.now() - t < ttlMs) return null; lockMem.set(key, Date.now()); return owner; }
@@ -147,6 +164,7 @@ export async function acquireLock(key: string, ttlMs: number): Promise<string | 
   return take.modified ? owner : null;
 }
 export async function releaseLock(key: string, owner: string) {
+  safeKey(key);
   const s = store("locks");
   if (!s) { lockMem.delete(key); return; }
   try { const cur = await s.get(key, { type: "json" }) as { owner?: string } | null; if (cur?.owner === owner) await s.delete(key); } catch (e) { console.log("releaseLock", key, String(e)); }
@@ -154,7 +172,8 @@ export async function releaseLock(key: string, owner: string) {
 
 /* ---------- Wunschtermine Onboarding und Probetraining (lib/anfrage.ts): letzte Anfrage je Person und Art. Ein Doppeltipp löst keine zweite Mail aus,
    eine fehlgeschlagene Mail wird beim nächsten Tipp nachgeholt. ---------- */
-export interface AnfrageRecord { kind?: string; name: string; email: string; phone: string; start: string; end: string; note?: string; contract?: string; offer?: string; verified: boolean; plz?: string; usc?: string; earlier?: string; at: string; mails: { staff: boolean; customer: boolean } }
-const anfrageKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "ap/" : "a/") + personKey(email);
+/* Nur was der Doppeltipp-Schutz braucht, keine Namen, Telefonnummern oder Anmerkungen. Schlüssel gehasht. */
+export interface AnfrageRecord { kind?: string; start: string; at: string; earlier?: string; customerAt?: string; mails: { staff: boolean; customer: boolean } }
+const anfrageKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "ap/" : "a/") + hashKey(personKey(email));
 export async function getAnfrage(email: string, kind = "onboarding") { return getJSON<AnfrageRecord>("onboarding", anfrageKey(kind, email)); }
-export async function saveAnfrage(r: AnfrageRecord) { await setJSON("onboarding", anfrageKey(r.kind, r.email), r); }
+export async function saveAnfrage(email: string, r: AnfrageRecord) { await setJSON("onboarding", anfrageKey(r.kind, email), r); }

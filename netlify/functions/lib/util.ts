@@ -12,6 +12,10 @@ export function html(body: string, status = 200) {
 }
 export const normEmail = (e: string) => e.trim().toLowerCase();
 export const validEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+/** Strenger für offene Formulare (Adresse geht in Mails und gehashte Schlüssel): gängige Zeichen, keine Punkte am Rand oder doppelt,
+ *  kein / # ? % \. Domain darf Umlaute haben. */
+export const strictEmail = (e: string) => e.length <= 120 && !e.includes("..")
+  && /^[a-z0-9](?:[a-z0-9._+-]{0,62}[a-z0-9_+-])?@[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,62}[\p{L}\p{N}])?(?:\.[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,62}[\p{L}\p{N}])?)+$/iu.test(e);
 
 /** Datum (YYYY-MM-DD) in Berlin für einen Zeitpunkt. */
 export function berlinDate(d: Date): string { return d.toLocaleDateString("sv-SE", { timeZone: STUDIO_TZ }); }

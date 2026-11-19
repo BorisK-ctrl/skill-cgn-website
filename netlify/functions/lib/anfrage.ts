@@ -92,7 +92,7 @@ export async function sendAnfrageTeam(a: Anfrage): Promise<boolean> {
     ["Wunschtermin", `${day(a.start)}, ${time(a.start)} bis ${time(a.end)} Uhr`],
     ["Kunde", a.name], ["E-Mail", a.email], ["Telefon", a.phone || "keine Angabe"],
     ...(kind === "onboarding"
-      ? [["Vertrag", a.contract ? `${a.contract}${a.verified ? " (Kauf auf der Website)" : " (Angabe des Kunden, bitte prüfen)"}` : "nicht angegeben, Mitgliedschaft bitte prüfen"] as [string, string]]
+      ? [["Vertrag", a.contract ? `${a.contract}${a.verified ? " (laut Kauf auf der Website, bitte in Magicline prüfen)" : " (Angabe des Kunden, bitte prüfen)"}` : "nicht angegeben, Mitgliedschaft bitte prüfen"] as [string, string]]
       : [["PLZ", a.plz || "keine Angabe"] as [string, string], ["Urban Sports Club", a.usc || "keine Angabe"] as [string, string]]),
     ...(a.offer ? [["Angebot", a.offer] as [string, string]] : []),
     ...(a.note ? [["Anmerkung", a.note] as [string, string]] : []),
@@ -106,7 +106,7 @@ export async function sendAnfrageTeam(a: Anfrage): Promise<boolean> {
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0 0"><tr>${btn(calendar, "In Kalender eintragen")}${btn(confirm, "Bestätigung schreiben")}</tr></table>`, `${a.name}: ${dayShort(a.start)}, ${time(a.start)} Uhr`);
   const text = [`${p.label}-Anfrage (Wunschtermin von der Website, steht noch nicht im Kalender)`, "", ...rows.map(([k, v]) => `${k}: ${v}`), "",
     `Bitte Coach finden, im Kalender ${p.label} eintragen und dem Kunden bestätigen. Antworten auf diese Mail gehen direkt an den Kunden.`, "", `In Kalender eintragen: ${calendar}`].join("\n");
-  return sendFrom(CHECKOUT_FROM, STAFF_EMAIL, `${p.label}-Anfrage: ${a.name}, ${dayShort(a.start)} ${time(a.start)} Uhr, bitte bestätigen`, html, { replyTo: a.email, text });
+  return sendFrom(CHECKOUT_FROM, STAFF_EMAIL, `${p.label}-Anfrage: ${a.name}, ${dayShort(a.start)} ${time(a.start)} Uhr, bitte bestätigen`, html, { replyTo: a.email, text, logLabel: `${kind}-anfrage team` });
 }
 
 /** Eingangsbestätigung an den Kunden: Wunschtermin, Bestätigung folgt innerhalb von 24 Stunden. */
@@ -133,5 +133,5 @@ ${label("Fragen?")}
     "Wir schauen, welcher Coach Zeit hat, und bestätigen dir den Termin innerhalb von 24 Stunden per Mail. Passt die Zeit nicht, schlagen wir dir die nächste freie vor.", "",
     `Das erwartet dich (${p.minutes} Minuten mit deinem Coach):`, ...expect.map(([t, d], i) => `${i + 1}. ${t}: ${d}`), `Mitbringen: ${MITBRINGEN}`, "",
     ...(kind === "onboarding" ? [`Deine App: ${TECHNOGYM_APP}`, ""] : []), "Fragen? Antworte einfach auf diese Mail.", "", "SKILL CGN · Herzogstraße 16–20 · 50667 Köln"].join("\n");
-  return sendFrom(CHECKOUT_FROM, a.email, `Deine ${p.label}-Anfrage: ${day(a.start)}, ${time(a.start)} Uhr`, html, { replyTo: STAFF_EMAIL, text });
+  return sendFrom(CHECKOUT_FROM, a.email, `Deine ${p.label}-Anfrage: ${day(a.start)}, ${time(a.start)} Uhr`, html, { replyTo: STAFF_EMAIL, text, logLabel: `${kind}-anfrage kunde` });
 }

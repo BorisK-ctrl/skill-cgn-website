@@ -18,15 +18,19 @@ async function post(from: string, to: string | string[], subject: string, html: 
   return { ok: r.ok, status: r.status, body };
 }
 /** Mail mit wählbarem Absender, optional Textfassung. Team-Mails fallen bei abgelehntem Absender auf den Testabsender (nur an info@) zurück. */
-export async function sendFrom(from: string, to: string | string[], subject: string, htmlBody: string, opts: { replyTo?: string; text?: string; attachments?: MailAttachment[] } = {}) {
-  if (!mailConfigured()) { console.log(`mail übersprungen (RESEND_API_KEY fehlt): ${subject}`); return false; }
+/** E-Mail fürs Protokoll kürzen: m***@example.com */
+const maskMail = (e: string) => e.replace(/^(.)[^@]*@/, "$1***@");
+export async function sendFrom(from: string, to: string | string[], subject: string, htmlBody: string, opts: { replyTo?: string; text?: string; attachments?: MailAttachment[]; logLabel?: string } = {}) {
+  /* logLabel: im Protokoll statt Betreff und Empfänger nur eine neutrale Bezeichnung und gekürzte Adressen (keine Kundendaten im Log) */
+  const logSubject = opts.logLabel || subject;
+  if (!mailConfigured()) { console.log(`mail übersprungen (RESEND_API_KEY fehlt): ${logSubject}`); return false; }
   const list = Array.isArray(to) ? to : [to];
   let r = await post(from, list, subject, htmlBody, opts.replyTo, opts.text, opts.attachments);
   if (!r.ok && (r.status === 403 || r.status === 422) && list.some(t => t.toLowerCase() === STAFF_EMAIL.toLowerCase())) {
     console.log(`mail: Absender ${from} abgelehnt (${r.status} ${r.body}), Team-Mail über Testabsender`);
     r = await post(TEST_FROM, STAFF_EMAIL, subject, htmlBody, opts.replyTo, opts.text);
   }
-  console.log(`mail ${r.ok ? "gesendet" : "FEHLER " + r.status + " " + r.body}: "${subject}" an ${list.join(", ")}`);
+  console.log(`mail ${r.ok ? "gesendet" : "FEHLER " + r.status + (opts.logLabel ? "" : " " + r.body)}: "${logSubject}" an ${opts.logLabel ? list.map(maskMail).join(", ") : list.join(", ")}`);
   return r.ok;
 }
 export const send = (to: string, subject: string, htmlBody: string, replyTo?: string) => sendFrom(FROM, to, subject, htmlBody, { replyTo });
