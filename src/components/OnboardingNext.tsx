@@ -1,13 +1,15 @@
 /*
  * Nächster Schritt nach dem Abschluss (Dankeseiten, /onboarding): Onboarding-Termin buchen und klar sagen, was den Kunden erwartet (Boris, 18.11.2026).
  * Termin direkt auf der Seite (OnboardingBooking, live aus unseren Google-Kalendern, 90 Minuten). Ist die Anbindung nicht eingerichtet:
- * Google-Terminplan (VITE_ONBOARDING_BOOKING_URL, eingebettet) oder WhatsApp an Boris.
+ * Google-Terminplan (VITE_ONBOARDING_BOOKING_URL, eingebettet), sonst derselbe Kalender mit Wunschterminen (ProbetrainingBooking kind="onboarding",
+ * Team bestätigt per Mail, Boris 19.11.2026: Kalender statt WhatsApp). WhatsApp nur noch, wenn auch der nicht lädt.
  */
 import { useState, type ReactNode } from "react";
 import { CalendarCheck, MessageCircle, ScanLine, Watch, ClipboardList, Dumbbell, Shirt, Footprints, ExternalLink, Smartphone, ArrowRight } from "lucide-react";
 import { ONBOARDING_BOOKING_URL, WHATSAPP, TECHNOGYM_APP } from "@/lib/magicline";
 import { trackCta } from "@/lib/events";
 import OnboardingBooking from "@/components/OnboardingBooking";
+import ProbetrainingBooking from "@/components/ProbetrainingBooking";
 
 const kicker = "campaign-mono text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]";
 const EXPECT = [
@@ -17,35 +19,37 @@ const EXPECT = [
   { icon: Dumbbell, t: "Einweisung, dann geht's los", d: "Wir zeigen dir Geräte und Ablauf. Danach startest du durch." },
 ] as const;
 
-/** booking: anderes Buchungs-Widget statt OnboardingBooking (offene Seite /onboarding ohne persönlichen Link), bekommt den WhatsApp-Rückfall und onBooked */
+/** booking: anderes Buchungs-Widget statt OnboardingBooking (offene Seite /onboarding ohne persönlichen Link), bekommt den letzten Rückfall
+ *  (Google-Terminplan oder WhatsApp) und onBooked */
 export default function OnboardingNext({ waText, checkoutToken, contractId, token, booking }: { waText: string; checkoutToken?: string; contractId?: string; token?: string; booking?: (fallback: ReactNode, onBooked: (b: boolean) => void) => ReactNode }) {
   const wa = `${WHATSAPP}?text=${encodeURIComponent(waText)}`;
   const [booked, setBooked] = useState(false);
   const embed = ONBOARDING_BOOKING_URL ? ONBOARDING_BOOKING_URL + (ONBOARDING_BOOKING_URL.includes("?") ? "&" : "?") + "gv=true" : "";
-  /* Bisheriger Weg, solange die Kalender-Anbindung fehlt */
-  const fallback = (
+  /* Letzter Rückfall: eingebetteter Google-Terminplan (falls in Netlify gesetzt), sonst WhatsApp an Boris */
+  const lastResort = ONBOARDING_BOOKING_URL ? (
     <>
-        {ONBOARDING_BOOKING_URL ? (
-          <div className="mt-6 border-2 border-[#FBFF00] bg-white">
-            <iframe src={embed} title="Onboarding-Termin buchen" className="block h-[640px] w-full" loading="eager" />
-            <a href={ONBOARDING_BOOKING_URL} target="_blank" rel="noopener noreferrer" className="campaign-button flex min-h-12 items-center justify-center gap-2 bg-[#FBFF00] px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-black hover:bg-white"><ExternalLink className="h-4 w-4" /> Kalender groß öffnen</a>
-          </div>
-        ) : (
-          <div className="mt-6 border-2 border-[#FBFF00] bg-[#1a2224] p-5">
-            <p className="flex items-start gap-3 text-sm leading-relaxed text-white/80"><CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#FBFF00]" /> Schreib Boris kurz, wann es dir passt. Er meldet sich innerhalb von 24 Stunden mit deinem Termin.</p>
-            <a href={wa} target="_blank" rel="noopener noreferrer" className="campaign-button mt-4 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-4 py-4 text-sm font-bold uppercase tracking-[0.1em] text-black hover:bg-white"><MessageCircle className="h-4 w-4 shrink-0" /> Termin per WhatsApp</a>
-          </div>
-        )}
-        {ONBOARDING_BOOKING_URL && <a href={wa} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-2 text-sm text-white/70 underline underline-offset-4 hover:text-[#FBFF00]"><MessageCircle className="h-4 w-4" /> Kein passender Termin? Schreib Boris</a>}
+      <div className="mt-6 border-2 border-[#FBFF00] bg-white">
+        <iframe src={embed} title="Onboarding-Termin buchen" className="block h-[640px] w-full" loading="eager" />
+        <a href={ONBOARDING_BOOKING_URL} target="_blank" rel="noopener noreferrer" className="campaign-button flex min-h-12 items-center justify-center gap-2 bg-[#FBFF00] px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-black hover:bg-white"><ExternalLink className="h-4 w-4" /> Kalender groß öffnen</a>
+      </div>
+      <a href={wa} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-2 text-sm text-white/70 underline underline-offset-4 hover:text-[#FBFF00]"><MessageCircle className="h-4 w-4" /> Kein passender Termin? Schreib Boris</a>
     </>
+  ) : (
+    <div className="mt-6 border-2 border-[#FBFF00] bg-[#1a2224] p-5">
+      <p className="flex items-start gap-3 text-sm leading-relaxed text-white/80"><CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#FBFF00]" /> Schreib Boris kurz, wann es dir passt. Er meldet sich innerhalb von 24 Stunden mit deinem Termin.</p>
+      <a href={wa} target="_blank" rel="noopener noreferrer" className="campaign-button mt-4 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-4 py-4 text-sm font-bold uppercase tracking-[0.1em] text-black hover:bg-white"><MessageCircle className="h-4 w-4 shrink-0" /> Termin per WhatsApp</a>
+    </div>
   );
+  /* Solange die Google-Anbindung fehlt (oder der persönliche Link nicht geht): Kalender mit Wunschterminen. Ein eingebetteter Google-Terminplan
+     hat Vorrang, weil er echte freie Zeiten kennt. Auf der Dankeseite kommen die Daten aus dem Kauf (checkoutToken). */
+  const fallback = ONBOARDING_BOOKING_URL ? lastResort : <ProbetrainingBooking kind="onboarding" fallback={lastResort} onBooked={setBooked} checkoutToken={checkoutToken} contractId={contractId} />;
   return (
     <section className="mt-12 min-w-0" aria-labelledby="onboarding-h">
       <p className={kicker}>{booked ? "Gebucht" : "Dein nächster Schritt"}</p>
       <h2 id="onboarding-h" className="campaign-display mt-3 text-5xl uppercase leading-[0.88] md:text-6xl">{booked ? "Dein" : "Buch deinen"}<br /><span className="text-[#FBFF00]">Onboarding-Termin.</span></h2>
       <p className="mt-4 text-base leading-relaxed text-white/75">90 Minuten mit Coach, bei uns in der Herzogstraße. Danach trainierst du, wann es dir passt.</p>
 
-      {booking ? booking(fallback, setBooked) : <OnboardingBooking token={token} checkoutToken={checkoutToken} contractId={contractId} waText={waText} fallback={fallback} onBooked={setBooked} />}
+      {booking ? booking(lastResort, setBooked) : <OnboardingBooking token={token} checkoutToken={checkoutToken} contractId={contractId} waText={waText} fallback={fallback} onBooked={setBooked} />}
 
       <p className={`${kicker} mt-12`}>Das erwartet dich beim Onboarding</p>
       <ol className="mt-4 grid gap-px bg-white/15">

@@ -7,6 +7,9 @@
  * zeigt die Seite fallback: Formular mit Weiterleitung zur Google-Terminseite.
  * kind="onboarding": dieselbe Buchung für die offene Seite /onboarding (Mitglieder ohne persönlichen Link, z. B. aus der Magicline-Mail):
  * 90 Minuten, /api/onboarding/frei und /api/onboarding/start, Vertragsnummer optional, kein Lead (ist schon Mitglied).
+ * Wunschtermin (nur Onboarding, Boris 19.11.2026: Kalender statt WhatsApp): ohne Google-Zugang liefert /api/onboarding/frei {anfrage:true, byDay}
+ * mit festen Zeitfenstern. Gleicher Kalender, Absenden an /api/onboarding/anfrage, das Team bestätigt per Mail. Auf der Dankeseite (checkoutToken)
+ * kommen Name, E-Mail und Telefon aus dem Kauf: Zeit antippen, absenden. Kein Nachladen im Hintergrund (feste Zeiten).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -17,7 +20,8 @@ import { trackEvent } from "@/lib/events";
 
 interface Free { start: string; end: string }
 interface Booked extends Free { coach?: string; google?: string; ics?: string }
-type Phase = "loading" | "pick" | "booked" | "fallback" | "error";
+type Phase = "loading" | "pick" | "booked" | "requested" | "fallback" | "error";
+type Mode = "live" | "anfrage";
 
 const TZ = "Europe/Berlin";
 const REFRESH_MS = 60000, REFRESH_MAX = 30, REFRESH_GAP_MS = 15000;
@@ -35,9 +39,16 @@ const CFG = {
     intro: "Tipp auf Tag und Uhrzeit, dann trägst du dich ein. Die Bestätigung kommt sofort per E-Mail.",
     wa: "Hi Boris, ich möchte meinen Onboarding-Termin ausmachen." },
 } as const;
+const ANFRAGE = {
+  intro: "Wähl Tag und Uhrzeit, die dir passen. Wir bestätigen dir den Termin innerhalb von 24 Stunden per Mail.",
+  label: "Wunschtermin, Bestätigung per Mail",
+} as const;
 
-export default function ProbetrainingBooking({ fallback, kind = "probetraining", onBooked }: { fallback: ReactNode; kind?: "probetraining" | "onboarding"; onBooked?: (booked: boolean) => void }) {
+export default function ProbetrainingBooking({ fallback, kind = "probetraining", onBooked, checkoutToken, contractId }: { fallback: ReactNode; kind?: "probetraining" | "onboarding"; onBooked?: (booked: boolean) => void; checkoutToken?: string; contractId?: string }) {
   const cfg = CFG[kind];
+  const [mode, setMode] = useState<Mode>("live");
+  const modeRef = useRef<Mode>("live"); modeRef.current = mode;
+  const [needForm, setNeedForm] = useState(false); // Dankeseite: Kauf nicht gefunden, dann doch Name, E-Mail, Telefon
   const rootRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [byDay, setByDay] = useState<Record<string, Free[]>>({});
@@ -64,23 +75,27 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
     try {
       const r = await fetch(cfg.slots, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
-      if (phaseRef.current === "booked") return;
-      if ((r.ok && j.available === false) || (r.status === 429 && !silent)) { if (!silent) setPhase("fallback"); return; }
+      if (phaseRef.current === "booked" || phaseRef.current === "requested") return;
+      /* Wunschtermine (nur Onboarding): ohne Google-Zugang oder wenn Google gerade nicht antwortet */
+      const wish = kind === "onboarding" && r.ok && j.available === false && j.anfrage === true && !!j.byDay;
+      if (wish && silent && modeRef.current === "live") return; // Google kurz weg: die echte Liste bleibt stehen
+      if (!wish && ((r.ok && j.available === false) || (r.status === 429 && !silent))) { if (!silent) setPhase("fallback"); return; }
       if (!r.ok || !j.byDay) { if (!silent) { setNote(j.error || "Kalender gerade nicht erreichbar."); setPhase("error"); } return; }
       const next: Record<string, Free[]> = j.byDay;
       const days = Object.keys(next).sort();
+      setMode(wish ? "anfrage" : "live");
       setByDay(next);
       setDay(cur => (cur && next[cur] ? cur : days[0] || ""));
       const p = pickRef.current;
       if (p && !Object.values(next).some(list => list.some(f => f.start === p.start))) { setPick(null); setNote(`${when(p.start)} ist inzwischen vergeben. Bitte wähle eine andere Zeit.`); toCalendar(); }
       setPhase("pick");
     } catch { if (!silent) { setNote("Kalender gerade nicht erreichbar."); setPhase("error"); } }
-  }, [cfg.slots]);
+  }, [cfg.slots, kind]);
   useEffect(() => { load(); }, [load]);
 
   /* Live halten: jede Minute (höchstens 30-mal) und beim Zurückkehren in den Tab */
   useEffect(() => {
-    if (phase !== "pick") return;
+    if (phase !== "pick" || mode === "anfrage") return;
     const visible = () => document.visibilityState === "visible" && !busyRef.current;
     const tick = () => { if (visible() && autoCount.current < REFRESH_MAX) { autoCount.current++; load(true); } };
     const back = () => { if (visible() && Date.now() - lastLoad.current > REFRESH_GAP_MS) { autoCount.current = 0; load(true); } };
@@ -88,9 +103,10 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
     document.addEventListener("visibilitychange", back);
     window.addEventListener("focus", back);
     return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back); };
-  }, [phase, load]);
+  }, [phase, mode, load]);
 
   useEffect(() => { onBooked?.(phase === "booked"); }, [phase, onBooked]);
+  const slim = mode === "anfrage" && !!checkoutToken && !needForm; // Dankeseite: Daten aus dem Kauf
   const days = useMemo(() => Object.keys(byDay).sort(), [byDay]);
   const free = byDay[day] || [];
   const choose = (f: Free) => {
@@ -107,6 +123,21 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
     setBusy(true); setFormNote(null); setNote(null);
     const d = Object.fromEntries(new FormData(f).entries()) as Record<string, string>;
     const start = pick.start;
+    if (mode === "anfrage") {
+      /* Wunschtermin absenden. Doppelte Mails verhindert der Server (gleiche Person, gleiche Zeit). */
+      try {
+        const r = await fetch("/api/onboarding/anfrage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...d, start, ...(checkoutToken ? { ct: checkoutToken, cid: contractId } : {}) }) });
+        const j = await r.json().catch(() => null);
+        if (j?.ok && j.start) {
+          setFirst(j.firstName || (d.firstname || "").trim()); setBooked({ start: j.start, end: j.end }); setPhase("requested");
+          trackEvent("onboarding_requested", { content_name: cfg.label }); toCalendar();
+        } else if (j?.needForm) { setNeedForm(true); setFormNote(j.error || "Bitte trag kurz deine Daten ein."); }
+        else if (r.status === 409) { setPick(null); setNote(j?.error || "Diese Zeit ist nicht mehr wählbar. Bitte wähle eine andere."); load(true); toCalendar(); }
+        else setFormNote(j?.error || "Verbindung gestört. Bitte noch einmal tippen.");
+      } catch { setFormNote("Verbindung fehlgeschlagen. Bitte noch einmal tippen."); }
+      finally { setBusy(false); }
+      return;
+    }
     const key = JSON.stringify([d.firstname, d.lastname, d.email, d.phone, d.plz, d.usc, d.vertrag].map(v => (v || "").trim().toLowerCase()));
     try {
       /* 1. Zugang für diese Person (bei Wiederholung mit gleichen Daten wiederverwenden) */
@@ -165,6 +196,15 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
     </div>
   );
 
+  if (phase === "requested" && booked) return (
+    <div ref={rootRef} className="mt-6 max-w-2xl border-2 border-primary bg-card p-5 md:p-7" role="status" aria-live="polite">
+      <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="text-3xl font-black uppercase leading-none">Anfrage ist da{first ? `, ${first}` : ""}.</p></div>
+      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/50">Dein Wunschtermin</p>
+      <p className="mt-1 font-mono text-lg text-primary">{longDay(booked.start)}<br />{timeOf(booked.start)} bis {timeOf(booked.end)} Uhr</p>
+      <p className="mt-2 text-sm leading-relaxed text-foreground/70">Wir schauen, welcher Coach Zeit hat, und bestätigen dir den Termin innerhalb von 24 Stunden per Mail. Passt die Zeit nicht, schlagen wir dir die nächste freie vor.</p>
+    </div>
+  );
+
   if (phase === "booked" && booked) return (
     <div ref={rootRef} className="mt-6 max-w-2xl border-2 border-primary bg-card p-5 md:p-7" role="status" aria-live="polite">
       <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="text-3xl font-black uppercase leading-none">Termin steht{first ? `, ${first}` : ""}.</p></div>
@@ -183,8 +223,8 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
   const otherDay = pick && dayOf(pick.start) !== day;
   return (
     <div ref={rootRef} className="max-w-2xl">
-      <p className="lead mute">{cfg.intro}</p>
-      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/50">Uhrzeiten in Köln · live aus unserem Kalender</p>
+      <p className="lead mute">{mode === "anfrage" ? ANFRAGE.intro : cfg.intro}</p>
+      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/50">Uhrzeiten in Köln · {mode === "anfrage" ? ANFRAGE.label : "live aus unserem Kalender"}</p>
       {note && <p role="alert" className="mt-3 border-l-4 border-primary bg-primary/10 px-3 py-2 text-sm font-bold text-primary">{note}</p>}
       {days.length === 0 ? (
         <div className="mt-3 border-2 border-foreground/15 p-5 text-sm leading-relaxed text-foreground/75">
@@ -209,13 +249,16 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
                 className={`min-h-12 border-2 font-mono text-base font-bold ${pick?.start === f.start ? "border-primary bg-primary text-primary-foreground" : "border-foreground/20 hover:border-primary"}`}>{timeOf(f.start)}</button>
             ))}
           </div>
-          {!pick && <a href={wa} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm text-foreground/70 underline underline-offset-4 hover:text-primary"><MessageCircle className="h-4 w-4" /> Keine passende Zeit? Schreib uns</a>}
+          {!pick && (mode === "anfrage"
+            ? <p className="mt-4 text-sm text-foreground/60">Keine passende Zeit dabei? Wähl die nächstbeste und schreib deine Wunschzeit dazu.</p>
+            : <a href={wa} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm text-foreground/70 underline underline-offset-4 hover:text-primary"><MessageCircle className="h-4 w-4" /> Keine passende Zeit? Schreib uns</a>)}
         </>
       )}
 
       {showForm && (
         <form ref={formRef} onSubmit={submit} noValidate className="mt-8 scroll-mt-24 border-t-2 border-primary pt-6">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">{pick ? `Dein Termin: ${when(pick.start)}` : "Bitte oben eine Uhrzeit wählen"}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">{pick ? `${mode === "anfrage" ? "Dein Wunschtermin" : "Dein Termin"}: ${when(pick.start)}` : "Bitte oben eine Uhrzeit wählen"}</p>
+          {slim ? <p className="mt-3 text-sm leading-relaxed text-foreground/70">Name, E-Mail und Telefon nehmen wir aus deinem Vertrag.</p> : <>
           <label className="label" htmlFor="pt-vn">Vorname</label><input className="input" id="pt-vn" name="firstname" required maxLength={40} autoComplete="given-name" />
           <label className="label" htmlFor="pt-nn">Nachname</label><input className="input" id="pt-nn" name="lastname" required maxLength={40} autoComplete="family-name" />
           <label className="label" htmlFor="pt-em">E-Mail</label><input className="input" id="pt-em" name="email" type="email" required maxLength={120} autoComplete="email" pattern="[^\s@]+@[^\s@]+\.[^\s@]{2,}" title="Bitte eine gültige E-Mail-Adresse, z. B. max@beispiel.de" />
@@ -230,9 +273,15 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
           </> : <>
             <label className="label" htmlFor="pt-vertrag">Vertragsnummer <span className="font-normal text-foreground/50">(optional, steht in deiner Mail von Magicline)</span></label><input className="input" id="pt-vertrag" name="vertrag" inputMode="numeric" maxLength={20} placeholder="z. B. 1215769690" />
           </>}
+          </>}
+          {mode === "anfrage" && <>
+            <label className="label" htmlFor="pt-note">Anmerkung <span className="font-normal text-foreground/50">(optional, z. B. andere Wunschzeit)</span></label>
+            <textarea className="input min-h-[96px] py-3" id="pt-note" name="note" maxLength={300} rows={3} />
+            <div className="hidden" aria-hidden="true"><label htmlFor="pt-web">Website</label><input id="pt-web" name="website" type="text" tabIndex={-1} autoComplete="off" /></div>
+          </>}
           <p className="text-sm mute mt-4">Mit dem Absenden stimmst du zu, dass wir dich zu deinem {cfg.label} per E-Mail und Telefon kontaktieren. <Link to="/datenschutz" className="underline">Datenschutz</Link></p>
           {formNote && <p role="alert" className="mt-4 border-l-4 border-primary bg-primary/10 px-3 py-2 text-sm font-bold text-primary">{formNote}</p>}
-          <div className="btns"><button className="btn w-full justify-center sm:w-auto" type="submit" disabled={busy || !pick}>{busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird eingetragen …</> : pick ? <>{cfg.label} {when(pick.start)} buchen <ArrowRight className="h-4 w-4" /></> : "Erst Uhrzeit wählen"}</button></div>
+          <div className="btns"><button className="btn w-full justify-center sm:w-auto" type="submit" disabled={busy || !pick}>{busy ? <><Loader2 className="h-4 w-4 animate-spin" /> {mode === "anfrage" ? "Wird gesendet …" : "Wird eingetragen …"}</> : pick ? <>{cfg.label} {when(pick.start)} {mode === "anfrage" ? "anfragen" : "buchen"} <ArrowRight className="h-4 w-4" /></> : "Erst Uhrzeit wählen"}</button></div>
         </form>
       )}
     </div>

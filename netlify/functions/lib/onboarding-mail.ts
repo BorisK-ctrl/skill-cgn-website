@@ -8,7 +8,7 @@ import { SITE, STAFF_EMAIL } from "./util";
 
 const WA_NUMBER = "4917610877603";
 const WA_DISPLAY = "0176 10877603";
-const TECHNOGYM_APP = "https://tgapp-link.mywellness.com/39a898ba9"; // wie src/lib/magicline.ts
+export const TECHNOGYM_APP = "https://tgapp-link.mywellness.com/39a898ba9"; // wie src/lib/magicline.ts
 export const MITBRINGEN = "Sportklamotten und saubere Hallenschuhe. Handtuch, Getränke und Dusche haben wir.";
 /* Probetraining: Inhalt wie auf /probetraining (FAQ) */
 const PROBE_EXPECT = [

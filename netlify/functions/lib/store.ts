@@ -151,3 +151,9 @@ export async function releaseLock(key: string, owner: string) {
   if (!s) { lockMem.delete(key); return; }
   try { const cur = await s.get(key, { type: "json" }) as { owner?: string } | null; if (cur?.owner === owner) await s.delete(key); } catch (e) { console.log("releaseLock", key, String(e)); }
 }
+
+/* ---------- Onboarding-Wunschtermine (lib/anfrage.ts): letzte Anfrage je Person. Ein Doppeltipp löst keine zweite Mail aus,
+   eine fehlgeschlagene Mail wird beim nächsten Tipp nachgeholt. ---------- */
+export interface AnfrageRecord { name: string; email: string; phone: string; start: string; end: string; note?: string; contract?: string; offer?: string; verified: boolean; at: string; mails: { staff: boolean; customer: boolean } }
+export async function getAnfrage(email: string) { return getJSON<AnfrageRecord>("onboarding", "a/" + personKey(email)); }
+export async function saveAnfrage(r: AnfrageRecord) { await setJSON("onboarding", "a/" + personKey(r.email), r); }

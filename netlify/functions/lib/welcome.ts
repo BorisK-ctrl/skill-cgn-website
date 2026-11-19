@@ -70,13 +70,14 @@ export function offerCopy(offerName: string, months?: number): OfferCopy {
   };
 }
 
-/** Termin-Button: persönlicher Link zur Terminwahl (/onboarding, Google-Kalender-Anbindung), sonst Google-Terminplan (ONBOARDING_BOOKING_URL), sonst WhatsApp an Boris. */
+/** Termin-Button: persönlicher Link zur Terminwahl (/onboarding?t=…, Google-Kalender-Anbindung), sonst Google-Terminplan (ONBOARDING_BOOKING_URL), sonst die offene Seite /onboarding (Wunschtermin). */
 function scanButton(copy: OfferCopy, personal?: string): { label: string; href: string } {
   if (personal) return { label: "Onboarding-Termin buchen", href: personal };
   /* Nie die Probetraining-Terminseite als Onboarding-Link (stand am 19.11.2026 versehentlich in Netlify) */
   const raw = process.env.ONBOARDING_BOOKING_URL?.trim(), booking = raw && !raw.includes("AcZssZ10Q9b0R58FnSdP") ? raw : "";
   if (booking) return { label: "Onboarding-Termin buchen", href: booking };
-  return { label: "Onboarding-Termin per WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(copy.waText)}` };
+  /* Ohne Google-Anbindung: offene Seite mit Kalender (Wunschtermin, das Team bestätigt). Boris, 19.11.2026: Kalender statt WhatsApp. */
+  return { label: "Onboarding-Termin wählen", href: `${SITE}/onboarding` };
 }
 
 export interface WelcomeOnboarding { url?: string; booked?: { start: string; end: string } }

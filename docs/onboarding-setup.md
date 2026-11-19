@@ -12,6 +12,19 @@ Schutz beim Probetraining (jeder kann sich selbst einen Buchungszugang ausstelle
 
 **Wichtig nach dem Einschalten:** Die alte Google-Terminseite für Probetrainings (Terminplan in info@) kennt die Onboardings und Probetrainings der Website nicht. Sie kann einen Coach doppelt belegen. Deshalb nach dem ersten erfolgreichen Test die Terminseite in Google Kalender deaktivieren. Bis dahin liest die Website ihre Buchungen aus info@ mit und plant drumherum.
 
+## Ohne Google-Zugang: Wunschtermin (seit 19.11.2026)
+
+Solange die Google-Werte in Netlify fehlen (oder Google gerade nicht antwortet), zeigen Dankeseiten und /onboarding trotzdem den Kalender, nicht WhatsApp. Der Kunde wählt einen **Wunschtermin**, das Team bestätigt.
+
+- Uhrzeiten: feste Fenster aus den echten Schichten (`WEEK` in `netlify/functions/lib/anfrage.ts`): Mo 9:00 bis 10:00, Di 14:00 bis 16:30, Mi 14:00 bis 15:00, Do 9:00 und 14:00 bis 16:30, Fr 9:00, 9:30 und 14:00 bis 17:30 (Start, 90 Minuten). Frühestens 30 Stunden im Voraus, drei Wochen sichtbar, 24. bis 26.12., 31.12. und 1.1. gesperrt.
+- Absenden: `/api/onboarding/anfrage`. Auf der Dankeseite kommen Name, E-Mail und Telefon aus dem Kauf (Zeit antippen, absenden). Auf /onboarding trägt der Kunde sie ein, Vertragsnummer und Anmerkung optional.
+- Mail ans Team (info@), Betreff "Onboarding-Anfrage: Name, Tag Uhrzeit, bitte bestätigen", mit zwei Knöpfen: **In Kalender eintragen** (Google Kalender, Kalender Onboarding wählen) und **Bestätigung schreiben** (fertige Mail an den Kunden). Antworten auf die Teammail gehen direkt an den Kunden.
+- Mail an den Kunden: Wunschtermin, "wir bestätigen innerhalb von 24 Stunden", was ihn erwartet, App.
+- **Es entsteht kein Kalendereintrag.** Zwei Kunden können dieselbe Zeit anfragen. Das Team bestätigt oder schlägt die nächste freie Zeit vor.
+- Die Willkommensmail verlinkt ohne Google-Zugang https://skill-studios.com/onboarding statt WhatsApp.
+
+Sobald Google eingerichtet ist, zeigt derselbe Kalender automatisch echte freie Zeiten und bucht sofort. Am Code muss dafür nichts geändert werden.
+
 ## Regel für freie Zeiten
 
 Onboardings machen Peter, Nic, Noah und Boris (`STAFF` in `netlify/functions/lib/onboarding.ts`). Ein Start ist buchbar, wenn mindestens einer von ihnen
@@ -56,7 +69,7 @@ Danach einmal neu veröffentlichen (Deploys → Trigger deploy).
 
 Ohne Delegation geht es auch: `GOOGLE_SA_SUBJECT` leer lassen und jeden Kalender aus `CALENDARS` in Google Kalender mit der Adresse des Dienstkontos teilen (Onboarding und Probetraining: "Änderungen an Terminen vornehmen", alle anderen: "Alle Termindetails sehen", info@ und boris.k@ ebenso). Achtung: Die Workspace-Einstellung für externe Freigaben kann das Schreiben verbieten. Deshalb ist die Delegation einfacher.
 
-Solange eine Variable fehlt, zeigt die Dankeseite wie bisher den WhatsApp-Weg, die Mails enthalten keinen Buchungslink und /probetraining leitet zur Google-Terminseite.
+Solange eine Variable fehlt, zeigen Dankeseite und /onboarding den Kalender mit Wunschterminen (siehe oben), die Willkommensmail verlinkt /onboarding und /probetraining leitet zur Google-Terminseite.
 
 ## Erster Test nach dem Einrichten
 
