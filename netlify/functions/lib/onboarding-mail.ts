@@ -8,6 +8,7 @@ import { SITE, STAFF_EMAIL } from "./util";
 
 const WA_NUMBER = "4917610877603";
 const WA_DISPLAY = "0176 10877603";
+const TECHNOGYM_APP = "https://tgapp-link.mywellness.com/39a898ba9"; // wie src/lib/magicline.ts
 export const MITBRINGEN = "Sportklamotten und saubere Hallenschuhe. Handtuch, Getränke und Dusche haben wir.";
 /* Probetraining: Inhalt wie auf /probetraining (FAQ) */
 const PROBE_EXPECT = [
@@ -42,12 +43,15 @@ ${label("Das erwartet dich")}
 <p style="margin:0 0 6px;font-size:14px;color:#d4d8d9">${o.minutes} Minuten mit deinem Coach.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${c.expect.map(([t, d], i) => step(i + 1, `<strong style="color:#fff">${t}</strong><br>${d}`)).join("")}</table>
 <p style="margin:10px 0 0;padding:12px 14px;border:1px solid #3a4245;font-size:14px;color:#d4d8d9"><strong style="color:#fff">Mitbringen:</strong> ${MITBRINGEN}</p>
+${o.kind === "probetraining" ? "" : `${label("Deine App")}
+<p style="margin:0;font-size:14px;line-height:1.6;color:#d4d8d9">Lade dir schon jetzt unsere App von Technogym herunter, dann ist zum Onboarding alles startklar: <a href="${TECHNOGYM_APP}" style="color:#FBFF00">App herunterladen</a></p>`}
 ${label("Termin passt doch nicht?")}
 <p style="margin:0;font-size:14px;line-height:1.6;color:#d4d8d9">Schreib Boris per <a href="${wa}" style="color:#FBFF00">WhatsApp ${WA_DISPLAY}</a> oder antworte auf diese Mail. Wir finden einen neuen Termin.</p>`,
     `${when}, ${hours}: dein ${c.label} bei SKILL CGN.`);
   const text = [`Termin steht, ${first(o.name)}.`, "", `${c.label}: ${when}, ${hours}`, `Mit ${o.coach}, Herzogstraße 16–20, 50667 Köln, zwei Minuten vom Neumarkt.`, "",
     `In Google Kalender: ${o.google}`, `Apple / Outlook: ${o.ics}`, "",
     `Das erwartet dich (${o.minutes} Minuten mit deinem Coach):`, ...c.expect.map(([t, d], i) => `${i + 1}. ${t}: ${d}`), `Mitbringen: ${MITBRINGEN}`, "",
+    ...(o.kind === "probetraining" ? [] : [`Deine App: Lade dir unsere App von Technogym herunter: ${TECHNOGYM_APP}`, ""]),
     `Termin passt doch nicht? WhatsApp ${WA_DISPLAY} oder auf diese Mail antworten.`, "", `SKILL CGN · Herzogstraße 16–20 · 50667 Köln · ${SITE.replace(/^https?:\/\//, "")}`].join("\n");
   return { subject: `Dein ${c.label}: ${day(o.start)}, ${time(o.start)} Uhr`, html, text };
 }

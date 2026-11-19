@@ -4,8 +4,9 @@
  * Google-Terminplan (VITE_ONBOARDING_BOOKING_URL, eingebettet) oder WhatsApp an Boris.
  */
 import { useState } from "react";
-import { CalendarCheck, MessageCircle, ScanLine, Watch, ClipboardList, Dumbbell, Shirt, Footprints, ExternalLink } from "lucide-react";
-import { ONBOARDING_BOOKING_URL, WHATSAPP } from "@/lib/magicline";
+import { CalendarCheck, MessageCircle, ScanLine, Watch, ClipboardList, Dumbbell, Shirt, Footprints, ExternalLink, Smartphone, ArrowRight } from "lucide-react";
+import { ONBOARDING_BOOKING_URL, WHATSAPP, TECHNOGYM_APP } from "@/lib/magicline";
+import { trackCta } from "@/lib/events";
 import OnboardingBooking from "@/components/OnboardingBooking";
 
 const kicker = "campaign-mono text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]";
@@ -61,6 +62,14 @@ export default function OnboardingNext({ waText, checkoutToken, contractId, toke
         <li className="flex items-center gap-2 border border-white/25 px-3 py-2 text-sm font-bold"><Footprints className="h-4 w-4 text-[#FBFF00]" /> Saubere Hallenschuhe</li>
       </ul>
       <p className="mt-3 text-sm text-white/60">Handtuch, Getränke und Dusche haben wir für dich.</p>
+
+      {/* Letzter Schritt: Technogym App (Boris, 19.11.2026) */}
+      <div className="mt-10 border-2 border-[#FBFF00] bg-[#1a2224] p-5">
+        <p className={kicker}>Deine App</p>
+        <p className="mt-3 flex items-start gap-3 text-base font-bold text-white"><Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-[#FBFF00]" /> Lade dir unsere App von Technogym herunter.</p>
+        <p className="mt-2 text-sm leading-relaxed text-white/70">Am besten gleich, dann ist zum Onboarding alles startklar.</p>
+        <a href={TECHNOGYM_APP} target="_blank" rel="noopener noreferrer" onClick={() => trackCta("cta_app_danke")} className="campaign-button mt-4 flex min-h-14 w-full items-center justify-center gap-2 border-2 border-[#FBFF00] px-4 text-sm font-bold uppercase tracking-[0.1em] text-[#FBFF00] hover:bg-[#FBFF00] hover:text-black">App herunterladen <ArrowRight className="h-4 w-4 shrink-0" /></a>
+      </div>
     </section>
   );
 }
