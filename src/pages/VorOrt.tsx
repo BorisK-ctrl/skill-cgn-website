@@ -16,6 +16,7 @@ import { START39_TERM_ID } from "@/lib/magicline";
 import { useRateBundles, fmtPrice } from "@/lib/useRateBundles";
 import { TARIFE } from "@/lib/tarife";
 import { BLACK_WEEK, blackWeekActive } from "@/lib/blackweek";
+import { berlinToday } from "@/lib/blackmonth";
 
 const LOGO_WHITE = "/img/manus/skill-cgn-original-white_18b77f12.svg";
 const ORDER = ["START 39", "BACK 39", "SKILL Mitgliedschaft", "SKILL Unlimited"];
@@ -24,6 +25,10 @@ const today = () => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.to
 const kicker = "campaign-mono text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]";
 const isBW = (b: { id: number } | null | undefined) => b?.id === BLACK_WEEK.rateBundleId;
 const GYM_ONLY = /only gym|gym only/i;
+/* StartCheckout merkt sich Formular, Schritt und Interessent im sessionStorage (Schlüssel je Seite). Am Tresen vor und nach jedem Kunden leeren,
+   sonst sieht der nächste Kunde die Daten des vorigen und sein Vertrag hängt am falschen Interessenten (Prüfung 19.11.2026). */
+const POS_KEY = "skill-checkout-vor-ort";
+const clearPosSession = () => { try { sessionStorage.removeItem(POS_KEY); } catch {} };
 const BW_END = new Date(BLACK_WEEK.end + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 /** Leistungen je Angebot für die Kundenansicht, aus den Tarifdaten. Gym Only ohne Kurse; Black Week laut Magicline mit Dusche, Getränken, Handtuch.
     Unbekannte Angebote nur mit dem, was sicher drin ist (keine Kurse versprechen). */
@@ -61,14 +66,28 @@ export default function VorOrt() {
   const terms = useMemo(() => (bundle ? [...bundle.terms].sort((a, b) => a.termValue - b.termValue) : []), [bundle]);
   useEffect(() => { if (terms.length && !terms.some(t => t.id === termId)) setTermId(terms.find(t => t.id === START39_TERM_ID)?.id ?? terms[0].id); }, [terms, termId]);
   const term: RateBundleTerm | null = terms.find(t => t.id === termId) || null;
-  /* Black Week startet immer am Tag des Abschlusses: kein Datumsfeld, Start heute */
+  /* Black Week startet immer am Tag des Abschlusses: kein Datumsfeld, Start heute (bei jedem Rendern neu, nicht aus dem Stand von gestern) */
   const bw = isBW(bundle);
-  useEffect(() => { if (bw) setStartDate(today()); }, [bw]);
+  const start = bw ? today() : startDate;
+  /* Das iPad bleibt tagelang offen: an einem neuen Tag (Köln) im Team-Modus neu laden, damit Angebote, Black-Week-Ende und Starttag stimmen.
+     Nie mitten im Kundenmodus; die Übergabe prüft vorher selbst. */
+  const loadedDay = useRef(berlinToday());
+  const modeRef = useRef(mode); modeRef.current = mode;
+  const newDay = () => berlinToday() !== loadedDay.current;
+  useEffect(() => {
+    clearPosSession(); // Reste eines abgebrochenen Kunden, etwa vor einem Neuladen
+    const check = () => { if (newDay() && modeRef.current === "team") window.location.reload(); };
+    const t = window.setInterval(check, 60000);
+    document.addEventListener("visibilitychange", check);
+    return () => { window.clearInterval(t); document.removeEventListener("visibilitychange", check); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const fee = term ? termFees(term) : "";
   const priceLine = term ? `${fmtPrice(term.price)} € alle ${term.paymentFrequencyValue} ${term.paymentFrequencyUnit === "WEEK" ? "Wochen" : "Monate"}, ${termLabel(term)}, ${termFees(term) === "keine" ? "0 € Aufnahmegebühr" : "Gebühr: " + termFees(term)}` : "";
 
   const onSuccess = (r: ContractResult, info: { firstName: string }) => { setDone({ r, firstName: info.firstName }); setCount(c => c + 1); setMode("fertig"); window.scrollTo({ top: 0 }); };
-  const backToTeam = () => { window.clearTimeout(backTimer.current); setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
+  const backToTeam = () => { window.clearTimeout(backTimer.current); clearPosSession(); if (newDay()) { window.location.reload(); return; } setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
+  /* Übergabe: neuer Tag oder Black Week vorbei → erst neu laden; jeder Kunde beginnt leer */
+  const handover = () => { if (newDay() || (bw && !blackWeekActive())) { window.location.reload(); return; } clearPosSession(); setMode("kunde"); window.scrollTo({ top: 0 }); };
   /* Willkommensbild läuft nach 30 Sekunden von selbst zurück ins Team */
   useEffect(() => { if (mode !== "fertig") return; backTimer.current = window.setTimeout(backToTeam, 30000); return () => window.clearTimeout(backTimer.current); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Dreifach-Tipp auf das Logo holt das Team zurück, ohne dass der Kunde einen "Abbrechen"-Knopf sieht */
@@ -95,13 +114,13 @@ export default function VorOrt() {
               {fee === "keine"
                 ? <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Aufnahmegebühr</dt><dd className={`font-bold ${bw ? "text-[#FBFF00]" : ""}`}>0&nbsp;€</dd></div>
                 : <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Gebühr</dt><dd className="font-bold">{fee}</dd></div>}
-              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{bw ? "Heute, " : ""}{fmtDe(startDate)}</dd></div>
+              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{bw ? "Heute, " : ""}{fmtDe(start)}</dd></div>
             </dl>
             {bw && <p className="mt-4 text-xs text-white/55">Nur bis {BW_END}. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt.</p>}
             <p className="mt-5 flex items-center gap-2 text-xs text-white/45"><Lock className="h-3.5 w-3.5" /> Deine Daten gehen direkt in unser Mitgliedersystem, nichts wird auf diesem iPad gespeichert.</p>
           </aside>
           <section className="mt-8 lg:mt-0">
-            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate }} startToday={bw} onSuccess={onSuccess} />
+            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate: start }} startToday={bw} onSuccess={onSuccess} />
           </section>
         </div>
       </main>
@@ -170,7 +189,7 @@ export default function VorOrt() {
             <div>
               <p className={kicker}>3. Start</p>
               {bw ? <>
-                <p className="campaign-field mt-3 flex min-h-[52px] items-center text-base font-bold">Heute, {fmtDe(startDate)}</p>
+                <p className="campaign-field mt-3 flex min-h-[52px] items-center text-base font-bold">Heute, {fmtDe(start)}</p>
                 <p className="mt-2 text-xs text-white/45">Der Black Week Deal startet immer am Tag des Abschlusses.</p>
               </> : <>
                 <input type="date" value={startDate} min={today()} onChange={e => setStartDate(e.target.value)} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
@@ -182,7 +201,7 @@ export default function VorOrt() {
         {term && (
           <div className="mt-10 border-2 border-[#FBFF00] bg-[#1a2224] p-6 md:flex md:items-center md:justify-between md:gap-6">
             <div><p className={kicker}>Bereit zur Übergabe</p><p className="mt-2 text-lg font-bold">{bundle?.name} · {fmtPrice(term.price)} € alle 4 Wochen · {termLabel(term)} · Start {bw ? "heute" : fmtDe(startDate)}</p><p className="mt-1 text-sm text-white/55">Der Kunde sieht nur dieses Angebot und die drei Schritte. Dreifach-Tipp auf das Logo holt dich zurück.</p></div>
-            <button type="button" onClick={() => setMode("kunde")} className="campaign-button mt-5 inline-flex min-h-16 w-full items-center justify-center gap-3 bg-[#FBFF00] px-8 py-4 text-base font-bold uppercase tracking-[0.14em] text-black hover:bg-white md:mt-0 md:w-auto"><Tablet className="h-5 w-5" /> iPad an Kunden übergeben <ArrowRight className="h-5 w-5" /></button>
+            <button type="button" onClick={handover} className="campaign-button mt-5 inline-flex min-h-16 w-full items-center justify-center gap-3 bg-[#FBFF00] px-8 py-4 text-base font-bold uppercase tracking-[0.14em] text-black hover:bg-white md:mt-0 md:w-auto"><Tablet className="h-5 w-5" /> iPad an Kunden übergeben <ArrowRight className="h-5 w-5" /></button>
           </div>
         )}
       </div>
