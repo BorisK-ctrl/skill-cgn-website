@@ -116,7 +116,7 @@ export const bookedView = (rec: { start: string; end: string; staff?: string; ki
 
 /* ---------- Kalender des Kunden: Google-Vorlage und .ics (Apple, Outlook) ---------- */
 const TITLES: Record<Kind, string> = { onboarding: "Onboarding bei SKILL CGN", probetraining: "Probetraining bei SKILL CGN" };
-const DETAILS = "Mitbringen: Sportklamotten und saubere Hallenschuhe. Handtuch, Getränke und Dusche haben wir. Fragen: WhatsApp 0176 10877603.";
+const DETAILS = "Mitbringen: Sportklamotten und saubere Sportschuhe. Handtuch, Getränke und Dusche haben wir. Fragen: WhatsApp 0176 10877603.";
 const ADDRESS = "SKILL CGN, Herzogstraße 16-20, 50667 Köln";
 const stamp = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 export function googleCalLink(kind: Kind, start: string, end: string) {

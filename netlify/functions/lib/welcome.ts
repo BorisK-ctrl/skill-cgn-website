@@ -34,7 +34,7 @@ export const ONBOARDING_EXPECT = [
   ["Dein Trainingsplan", "Wir erstellen ihn für dich, passend zu deinem Scan und deinem Ziel."],
   ["Einweisung, dann geht's los", "Wir zeigen dir Geräte und Ablauf. Danach startest du durch."],
 ] as const;
-const MITBRINGEN = "Mitbringen: Sportklamotten und saubere Hallenschuhe. Handtuch, Getränke und Dusche haben wir.";
+const MITBRINGEN = "Mitbringen: Sportklamotten und saubere Sportschuhe. Handtuch, Getränke und Dusche haben wir.";
 /* /kursplan läuft ohne Open-API-Schlüssel nur mit Testdaten, daher hier der Weg, den es sicher gibt */
 const kursplan = `Classes buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>.`;
 const facilities = "Dusche, Getränke und Handtuch sind drin.";

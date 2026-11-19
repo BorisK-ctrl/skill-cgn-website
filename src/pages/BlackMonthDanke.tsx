@@ -63,7 +63,7 @@ export default function BlackMonthDanke() {
           <a href={`${WA_BORIS}?text=${encodeURIComponent("Hi Boris, ich habe Black Month gebucht. Mein Wunschtag für den Start: ")}`} target="_blank" rel="noopener noreferrer" className={`campaign-button mt-3 inline-flex min-h-14 w-full items-center justify-center gap-3 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] ${BOOKING_URL ? "border-2 border-white/30 text-white hover:border-[#FBFF00] hover:text-[#FBFF00]" : "bg-[#FBFF00] text-black hover:bg-white"}`}><MessageCircle className="h-4 w-4" /> WhatsApp an Boris</a>
         </div>
         <div className="mt-8 space-y-2 text-sm text-white/65">
-          <p><strong className="text-white">Mitbringen:</strong> Sportsachen, saubere Hallenschuhe, Handtuch.</p>
+          <p><strong className="text-white">Mitbringen:</strong> Sportsachen, saubere Sportschuhe, Handtuch.</p>
           <p><strong className="text-white">Adresse:</strong> SKILL CGN, Herzogstraße 16, 50667 Köln, zwei Minuten vom Neumarkt.</p>
           <p>Die Rechnung kommt separat von Stripe. AGB und Widerruf: <Link to="/agb" className="underline text-[#FBFF00]">skill-studios.com/agb</Link></p>
         </div>

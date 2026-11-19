@@ -131,7 +131,7 @@ export async function sendShopMails(o: ShopOrder) {
 <p><strong>So geht es weiter</strong></p>
 <p>1. Kurs aussuchen: <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>, dort siehst du den Live-Kursplan.</p>
 <p>2. Komm 10 Minuten vor der Class in die Herzogstraße 16–20, nenn am Empfang deine E-Mail-Adresse, wir legen dein Ticket an.</p>
-<p>3. Handtuch und Getränke bekommst du bei uns, Hallenschuhe und Sportkleidung bringst du mit.</p>
+<p>3. Handtuch und Getränke bekommst du bei uns, saubere Sportschuhe und Sportkleidung bringst du mit.</p>
 <p>Fragen oder Kurs vorab reservieren? <a href="https://wa.me/4917610877603" style="color:#FBFF00">WhatsApp +49 176 10877603</a></p>
 <p style="color:#888;font-size:12px;margin-top:16px">Die Rechnung kommt separat von Stripe. Guthaben: ${o.credits} Kurse${o.ptCredits ? `, ${o.ptCredits} Personal-Training-Einheiten` : ""}${o.validUntil ? `, gültig bis ${o.validUntil}` : ""}.</p>`), STAFF_EMAIL) : false;
   return { staff, customer };
@@ -203,7 +203,7 @@ export async function sendBlackMonthWelcome(o: BlackMonthBuyer) {
     `Hi${first ? " " + first : ""},`,
     "deine Zahlung ist angekommen, du bist dabei. Dein Black Month bei SKILL CGN: 6 Monate Gym, die Zeit läuft ab deinem ersten Trainingstag.",
     "Start bis spätestens 15.12.2026. " + bookingLine(),
-    "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch.",
+    "Mitbringen: Sportsachen, saubere Sportschuhe, Handtuch.",
     "Adresse: " + BM_ADDRESS,
     "Die Rechnung kommt separat von Stripe. AGB und Widerruf findest du unter skill-studios.com/agb.",
     ...bmSignature,
@@ -217,7 +217,7 @@ export async function sendBlackMonthNudge(o: BlackMonthBuyer) {
     `Hi${first ? " " + first : ""},`,
     "dein Black Month wartet. Du hast noch keinen Starttermin, dabei beginnen deine 6 Monate erst mit dem ersten Training. Je früher du startest, desto mehr hast du davon.",
     "Start bis spätestens 15.12.2026. " + bookingLine(),
-    "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch. Adresse: " + BM_ADDRESS,
+    "Mitbringen: Sportsachen, saubere Sportschuhe, Handtuch. Adresse: " + BM_ADDRESS,
     ...bmSignature,
   ];
   return sendFrom(BM_FROM, o.email, "Dein Starttermin fehlt noch, Black Month bei SKILL CGN", bmHtml(paragraphs), { replyTo: "info@skill-studios.com", text: paragraphs.join("\n\n") });
@@ -228,7 +228,7 @@ export async function sendBlackMonthReminder(o: BlackMonthBuyer & { appointmentA
   const paragraphs = [
     `Hi${first ? " " + first : ""},`,
     `morgen geht es los: ${bmDate(o.appointmentAt)} um ${bmTime(o.appointmentAt)} Uhr ist dein Starttermin bei SKILL CGN. Komm bitte 10 Minuten früher, wir richten deinen Zugang ein und zeigen dir das Studio.`,
-    "Mitbringen: Sportsachen, saubere Hallenschuhe, Handtuch.",
+    "Mitbringen: Sportsachen, saubere Sportschuhe, Handtuch.",
     "Adresse: " + BM_ADDRESS,
     "Falls es nicht passt, schreib Boris kurz per WhatsApp an 0176 10877603.",
     ...bmSignature,

@@ -8,9 +8,9 @@ import { gcalConfigured } from "./lib/gcal";
 import { KINDS } from "./lib/onboarding";
 import { cachedFreeByDay } from "./lib/booking";
 import { allowHit } from "./lib/store";
-import { anfrageByDay, ANFRAGE_MIN } from "./lib/anfrage";
+import { anfrageByDay, anfrageMinutes } from "./lib/anfrage";
 
-const anfrage = () => json({ available: false, anfrage: true, durationMin: ANFRAGE_MIN, byDay: anfrageByDay() });
+const anfrage = () => json({ available: false, anfrage: true, durationMin: anfrageMinutes("onboarding"), byDay: anfrageByDay(new Date(), "onboarding") });
 
 export default async (req: Request) => {
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);

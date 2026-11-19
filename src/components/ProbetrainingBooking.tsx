@@ -7,9 +7,10 @@
  * zeigt die Seite fallback: Formular mit Weiterleitung zur Google-Terminseite.
  * kind="onboarding": dieselbe Buchung für die offene Seite /onboarding (Mitglieder ohne persönlichen Link, z. B. aus der Magicline-Mail):
  * 90 Minuten, /api/onboarding/frei und /api/onboarding/start, Vertragsnummer optional, kein Lead (ist schon Mitglied).
- * Wunschtermin (nur Onboarding, Boris 19.11.2026: Kalender statt WhatsApp): ohne Google-Zugang liefert /api/onboarding/frei {anfrage:true, byDay}
- * mit festen Zeitfenstern. Gleicher Kalender, Absenden an /api/onboarding/anfrage, das Team bestätigt per Mail. Auf der Dankeseite (checkoutToken)
- * kommen Name, E-Mail und Telefon aus dem Kauf: Zeit antippen, absenden. Kein Nachladen im Hintergrund (feste Zeiten).
+ * Wunschtermin (Boris 19.11.2026: Kalender statt WhatsApp bzw. statt Formular mit Weiterleitung): ohne Google-Zugang liefern /api/onboarding/frei
+ * und /api/probetraining/slots {anfrage:true, byDay} mit festen Zeitfenstern. Gleicher Kalender, Absenden an /api/<art>/anfrage, das Team bestätigt
+ * per Mail. Probetraining: danach Lead in Magicline wie bisher. Onboarding auf der Dankeseite (checkoutToken): Name, E-Mail und Telefon kommen aus
+ * dem Kauf, Zeit antippen, absenden. Kein Nachladen im Hintergrund (feste Zeiten).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -32,17 +33,16 @@ const dayOf = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZ
 const when = (iso: string) => `${dayChip(dayOf(iso))}, ${timeOf(iso)} Uhr`;
 
 const CFG = {
-  probetraining: { label: "Probetraining", slots: "/api/probetraining/slots", start: "/api/probetraining/start", lead: true, google: true,
+  probetraining: { label: "Probetraining", slots: "/api/probetraining/slots", start: "/api/probetraining/start", anfrage: "/api/probetraining/anfrage", lead: true, google: true,
     intro: "30 Minuten mit Coach: Erstgespräch und 3D Scan. Tipp auf Tag und Uhrzeit, dann trägst du dich ein. Die Bestätigung kommt sofort per E-Mail.",
+    anfrageIntro: "30 Minuten mit Coach: Erstgespräch und 3D Scan. Wähl Tag und Uhrzeit, die dir passen. Wir bestätigen dir den Termin innerhalb von 24 Stunden per Mail.",
     wa: "Hallo, ich möchte ein Probetraining buchen." },
-  onboarding: { label: "Onboarding", slots: "/api/onboarding/frei", start: "/api/onboarding/start", lead: false, google: false,
+  onboarding: { label: "Onboarding", slots: "/api/onboarding/frei", start: "/api/onboarding/start", anfrage: "/api/onboarding/anfrage", lead: false, google: false,
     intro: "Tipp auf Tag und Uhrzeit, dann trägst du dich ein. Die Bestätigung kommt sofort per E-Mail.",
+    anfrageIntro: "Wähl Tag und Uhrzeit, die dir passen. Wir bestätigen dir den Termin innerhalb von 24 Stunden per Mail.",
     wa: "Hi Boris, ich möchte meinen Onboarding-Termin ausmachen." },
 } as const;
-const ANFRAGE = {
-  intro: "Wähl Tag und Uhrzeit, die dir passen. Wir bestätigen dir den Termin innerhalb von 24 Stunden per Mail.",
-  label: "Wunschtermin, Bestätigung per Mail",
-} as const;
+const ANFRAGE_LABEL = "Wunschtermin, Bestätigung per Mail";
 
 export default function ProbetrainingBooking({ fallback, kind = "probetraining", onBooked, checkoutToken, contractId }: { fallback: ReactNode; kind?: "probetraining" | "onboarding"; onBooked?: (booked: boolean) => void; checkoutToken?: string; contractId?: string }) {
   const cfg = CFG[kind];
@@ -76,8 +76,8 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
       const r = await fetch(cfg.slots, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
       if (phaseRef.current === "booked" || phaseRef.current === "requested") return;
-      /* Wunschtermine (nur Onboarding): ohne Google-Zugang oder wenn Google gerade nicht antwortet */
-      const wish = kind === "onboarding" && r.ok && j.available === false && j.anfrage === true && !!j.byDay;
+      /* Wunschtermine: ohne Google-Zugang oder wenn Google gerade nicht antwortet */
+      const wish = r.ok && j.available === false && j.anfrage === true && !!j.byDay;
       if (wish && silent && modeRef.current === "live") return; // Google kurz weg: die echte Liste bleibt stehen
       if (!wish && ((r.ok && j.available === false) || (r.status === 429 && !silent))) { if (!silent) setPhase("fallback"); return; }
       if (!r.ok || !j.byDay) { if (!silent) { setNote(j.error || "Kalender gerade nicht erreichbar."); setPhase("error"); } return; }
@@ -90,7 +90,7 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
       if (p && !Object.values(next).some(list => list.some(f => f.start === p.start))) { setPick(null); setNote(`${when(p.start)} ist inzwischen vergeben. Bitte wähle eine andere Zeit.`); toCalendar(); }
       setPhase("pick");
     } catch { if (!silent) { setNote("Kalender gerade nicht erreichbar."); setPhase("error"); } }
-  }, [cfg.slots, kind]);
+  }, [cfg.slots]);
   useEffect(() => { load(); }, [load]);
 
   /* Live halten: jede Minute (höchstens 30-mal) und beim Zurückkehren in den Tab */
@@ -106,7 +106,7 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
   }, [phase, mode, load]);
 
   useEffect(() => { onBooked?.(phase === "booked"); }, [phase, onBooked]);
-  const slim = mode === "anfrage" && !!checkoutToken && !needForm; // Dankeseite: Daten aus dem Kauf
+  const slim = mode === "anfrage" && kind === "onboarding" && !!checkoutToken && !needForm; // Dankeseite: Daten aus dem Kauf
   const days = useMemo(() => Object.keys(byDay).sort(), [byDay]);
   const free = byDay[day] || [];
   const choose = (f: Free) => {
@@ -126,11 +126,19 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
     if (mode === "anfrage") {
       /* Wunschtermin absenden. Doppelte Mails verhindert der Server (gleiche Person, gleiche Zeit). */
       try {
-        const r = await fetch("/api/onboarding/anfrage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...d, start, ...(checkoutToken ? { ct: checkoutToken, cid: contractId } : {}) }) });
+        const r = await fetch(cfg.anfrage, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...d, start, ...(checkoutToken && kind === "onboarding" ? { ct: checkoutToken, cid: contractId } : {}) }) });
         const j = await r.json().catch(() => null);
         if (j?.ok && j.start) {
+          /* Probetraining: Lead in Magicline mit dem Wunschtermin (einmal je Person und Seitenaufruf, Fehler blockieren nichts) */
+          const leadKey = JSON.stringify([d.firstname, d.lastname, d.email, d.phone].map(v => (v || "").trim().toLowerCase()));
+          if (cfg.lead && leadRef.current !== leadKey && d.email) {
+            leadRef.current = leadKey;
+            createLead({ firstname: d.firstname.trim(), lastname: d.lastname.trim(), email: d.email.trim(), phone: d.phone.trim(),
+              notes: `Probetraining über Website. PLZ ${(d.plz || "").trim()}. Urban Sports Club: ${d.usc || "?"}. Wunschtermin (noch zu bestätigen): ${longDay(j.start)}, ${timeOf(j.start)} Uhr.${d.note?.trim() ? ` Anmerkung: ${d.note.trim().slice(0, 300)}` : ""}` }).catch(err => console.warn("lead", err));
+            track("Lead", { content_name: cfg.label });
+          }
           setFirst(j.firstName || (d.firstname || "").trim()); setBooked({ start: j.start, end: j.end }); setPhase("requested");
-          trackEvent("onboarding_requested", { content_name: cfg.label }); toCalendar();
+          trackEvent(`${kind}_requested`, { content_name: cfg.label }); toCalendar();
         } else if (j?.needForm) { setNeedForm(true); setFormNote(j.error || "Bitte trag kurz deine Daten ein."); }
         else if (r.status === 409) { setPick(null); setNote(j?.error || "Diese Zeit ist nicht mehr wählbar. Bitte wähle eine andere."); load(true); toCalendar(); }
         else setFormNote(j?.error || "Verbindung gestört. Bitte noch einmal tippen.");
@@ -209,7 +217,7 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
     <div ref={rootRef} className="mt-6 max-w-2xl border-2 border-primary bg-card p-5 md:p-7" role="status" aria-live="polite">
       <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="text-3xl font-black uppercase leading-none">Termin steht{first ? `, ${first}` : ""}.</p></div>
       <p className="mt-4 font-mono text-lg text-primary">{longDay(booked.start)}<br />{timeOf(booked.start)} bis {timeOf(booked.end)} Uhr</p>
-      <p className="mt-2 text-sm leading-relaxed text-foreground/70">{booked.coach ? `Mit ${booked.coach}, ` : ""}Herzogstraße 16–20, zwei Minuten vom Neumarkt. Die Bestätigung kommt per Mail. Bring Sportkleidung und saubere Hallenschuhe mit.</p>
+      <p className="mt-2 text-sm leading-relaxed text-foreground/70">{booked.coach ? `Mit ${booked.coach}, ` : ""}Herzogstraße 16–20, zwei Minuten vom Neumarkt. Die Bestätigung kommt per Mail. Bring Sportkleidung und saubere Sportschuhe mit.</p>
       {(booked.google || booked.ics) && (
         <div className="mt-4 grid grid-cols-2 gap-2">
           {booked.google && <a href={booked.google} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center justify-center gap-2 border-2 border-foreground/30 px-3 text-[11px] font-black uppercase tracking-widest hover:border-primary"><CalendarPlus className="h-4 w-4 shrink-0" /> Google</a>}
@@ -223,8 +231,8 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
   const otherDay = pick && dayOf(pick.start) !== day;
   return (
     <div ref={rootRef} className="max-w-2xl">
-      <p className="lead mute">{mode === "anfrage" ? ANFRAGE.intro : cfg.intro}</p>
-      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/50">Uhrzeiten in Köln · {mode === "anfrage" ? ANFRAGE.label : "live aus unserem Kalender"}</p>
+      <p className="lead mute">{mode === "anfrage" ? cfg.anfrageIntro : cfg.intro}</p>
+      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/50">Uhrzeiten in Köln · {mode === "anfrage" ? ANFRAGE_LABEL : "live aus unserem Kalender"}</p>
       {note && <p role="alert" className="mt-3 border-l-4 border-primary bg-primary/10 px-3 py-2 text-sm font-bold text-primary">{note}</p>}
       {days.length === 0 ? (
         <div className="mt-3 border-2 border-foreground/15 p-5 text-sm leading-relaxed text-foreground/75">

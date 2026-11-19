@@ -13,7 +13,7 @@ import { createLead, GOOGLE_BOOKING, WHATSAPP } from "@/lib/magicline";
 const PROBETRAINING_FAQ: [string, string][] = [
   ["Wann soll ich da sein?", "Zu deiner gebuchten Uhrzeit. In den 30 Minuten machen wir das Erstgespräch und den 3D Scan."],
   ["Was passiert beim 3D Scan?", "Der Scaneca Scan dauert wenige Minuten. Du bekommst Körperfett, Muskelmasse und Haltung als Zahlen, der Coach erklärt dir, was sie bedeuten."],
-  ["Was soll ich mitbringen?", "Sportkleidung und saubere Hallenschuhe. Handtuch und Getränke bekommst du von uns."],
+  ["Was soll ich mitbringen?", "Sportkleidung und saubere Sportschuhe. Handtuch und Getränke bekommst du von uns."],
   ["Ich habe keine Erfahrung. Geht das?", "Ja. Das Probetraining ist genau dafür da. Der Coach passt alles an dein Level an."],
   ["Ich habe eine Verletzung oder Einschränkung.", "Sag es dem Coach vorher. Wir finden Übungen, die passen, oder sagen dir ehrlich, wenn etwas nicht geht."],
   ["Kann ich den Termin verschieben?", "Ja, kurz per WhatsApp oder als Antwort auf die Bestätigungsmail."],
@@ -21,8 +21,8 @@ const PROBETRAINING_FAQ: [string, string][] = [
 
 /*
  * Probetraining (30 Minuten mit Coach). Kalender zuerst (ProbetrainingBooking): freie Zeiten live aus unseren Google-Kalendern, Uhrzeit wählen,
- * dann Daten. Ohne Google-Anbindung (/api/probetraining/slots liefert available:false) der bisherige Weg: Formular → Lead in Magicline →
- * Weiterleitung zur Google-Terminseite.
+ * dann Daten. Ohne Google-Anbindung derselbe Kalender mit Wunschterminen (Team bestätigt per Mail, Lead in Magicline wie bisher).
+ * Nur wenn auch das nicht lädt, der alte Weg: Formular → Lead in Magicline → Weiterleitung zur Google-Terminseite.
  */
 export default function Probetraining() {
   usePageMeta("Kostenloses Probetraining in Köln mit 3D Scan — SKILL CGN", "30 Minuten mit Coach, 3D Körperscan inklusive. Du siehst deinen Startpunkt in Zahlen. Kostenlos, unverbindlich. Jetzt Termin wählen.");

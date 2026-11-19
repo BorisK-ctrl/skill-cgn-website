@@ -14,12 +14,15 @@ Schutz beim Probetraining (jeder kann sich selbst einen Buchungszugang ausstelle
 
 ## Ohne Google-Zugang: Wunschtermin (seit 19.11.2026)
 
-Solange die Google-Werte in Netlify fehlen (oder Google gerade nicht antwortet), zeigen Dankeseiten und /onboarding trotzdem den Kalender, nicht WhatsApp. Der Kunde wählt einen **Wunschtermin**, das Team bestätigt.
+Solange die Google-Werte in Netlify fehlen (oder Google gerade nicht antwortet), zeigen Dankeseiten, /onboarding und /probetraining trotzdem den Kalender, nicht WhatsApp und nicht die Weiterleitung zu Google. Der Kunde wählt einen **Wunschtermin**, das Team bestätigt.
 
-- Uhrzeiten: feste Fenster aus den echten Schichten (`WEEK` in `netlify/functions/lib/anfrage.ts`): Mo 9:00 bis 10:00, Di 14:00 bis 16:30, Mi 14:00 bis 15:00, Do 9:00 und 14:00 bis 16:30, Fr 9:00, 9:30 und 14:00 bis 17:30 (Start, 90 Minuten). Frühestens 30 Stunden im Voraus, drei Wochen sichtbar, 24. bis 26.12., 31.12. und 1.1. gesperrt.
-- Absenden: `/api/onboarding/anfrage`. Auf der Dankeseite kommen Name, E-Mail und Telefon aus dem Kauf (Zeit antippen, absenden). Auf /onboarding trägt der Kunde sie ein, Vertragsnummer und Anmerkung optional.
-- Mail ans Team (info@), Betreff "Onboarding-Anfrage: Name, Tag Uhrzeit, bitte bestätigen", mit zwei Knöpfen: **In Kalender eintragen** (Google Kalender, Kalender Onboarding wählen) und **Bestätigung schreiben** (fertige Mail an den Kunden). Antworten auf die Teammail gehen direkt an den Kunden.
-- Mail an den Kunden: Wunschtermin, "wir bestätigen innerhalb von 24 Stunden", was ihn erwartet, App.
+- Uhrzeiten: feste Fenster aus den echten Schichten (`PLAN` in `netlify/functions/lib/anfrage.ts`).
+  - Onboarding (90 Minuten): Mo 9:00 bis 10:00, Di 14:00 bis 16:30, Mi 14:00 bis 15:00, Do 9:00 und 14:00 bis 16:30, Fr 9:00, 9:30 und 14:00 bis 17:30. Frühestens 30 Stunden im Voraus.
+  - Probetraining (30 Minuten): nur Zeiten, die in mindestens zwei von drei Wochen frei waren, Mo bis Fr zwischen 9:00 und 19:00. Frühestens 24 Stunden im Voraus.
+  - Drei Wochen sichtbar, 24. bis 26.12., 31.12. und 1.1. gesperrt.
+- Absenden: `/api/onboarding/anfrage` bzw. `/api/probetraining/anfrage`. Auf der Dankeseite kommen Name, E-Mail und Telefon aus dem Kauf (Zeit antippen, absenden). Auf /onboarding trägt der Kunde sie ein, Vertragsnummer und Anmerkung optional. Auf /probetraining wie bisher Name, E-Mail, Telefon, PLZ, Urban Sports Club, dazu Anmerkung optional; danach legt die Seite den Lead in Magicline an (mit dem Wunschtermin in den Notizen).
+- Mail ans Team (info@), Betreff "Onboarding-Anfrage: …" bzw. "Probetraining-Anfrage: Name, Tag Uhrzeit, bitte bestätigen", mit zwei Knöpfen: **In Kalender eintragen** (Google Kalender, passenden Kalender wählen) und **Bestätigung schreiben** (fertige Mail an den Kunden). Antworten auf die Teammail gehen direkt an den Kunden. Hat dieselbe Person schon einmal angefragt, steht die frühere Anfrage dabei.
+- Mail an den Kunden: Wunschtermin, "wir bestätigen innerhalb von 24 Stunden", was ihn erwartet (Onboarding mit App).
 - **Es entsteht kein Kalendereintrag.** Zwei Kunden können dieselbe Zeit anfragen. Das Team bestätigt oder schlägt die nächste freie Zeit vor.
 - Die Willkommensmail verlinkt ohne Google-Zugang https://skill-studios.com/onboarding statt WhatsApp.
 

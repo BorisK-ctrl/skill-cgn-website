@@ -64,7 +64,7 @@ export default function OnboardingNext({ waText, checkoutToken, contractId, toke
       <p className={`${kicker} mt-10`}>Mitbringen</p>
       <ul className="mt-3 flex flex-wrap gap-2">
         <li className="flex items-center gap-2 border border-white/25 px-3 py-2 text-sm font-bold"><Shirt className="h-4 w-4 text-[#FBFF00]" /> Sportklamotten</li>
-        <li className="flex items-center gap-2 border border-white/25 px-3 py-2 text-sm font-bold"><Footprints className="h-4 w-4 text-[#FBFF00]" /> Saubere Hallenschuhe</li>
+        <li className="flex items-center gap-2 border border-white/25 px-3 py-2 text-sm font-bold"><Footprints className="h-4 w-4 text-[#FBFF00]" /> Saubere Sportschuhe</li>
       </ul>
       <p className="mt-3 text-sm text-white/60">Handtuch, Getränke und Dusche haben wir für dich.</p>
 
