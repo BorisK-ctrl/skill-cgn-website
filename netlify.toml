@@ -163,14 +163,15 @@
   status = 301
   force = true
 
-# Team-Tool (läuft auf Railway). Sobald der CNAME tool.skill-studios.com bei STRATO gesetzt ist, hier die Ziel-Domain tauschen.
+# Team-Tool: läuft bis zum Umzug weiter bei Manus. Die Railway-Instanz tool-production-4250 antwortet nicht mehr ("Not Found", geprüft 20.11.2026).
+# Nach dem Umzug (privates Repo BorisK-ctrl/skill-team-tool) hier die neue Adresse eintragen.
 [[redirects]]
   from = "/team"
-  to = "https://tool-production-4250.up.railway.app/team"
+  to = "https://skillgymkoeln-chjkqzei.manus.space/team"
   status = 302
 [[redirects]]
   from = "/team/*"
-  to = "https://tool-production-4250.up.railway.app/team/:splat"
+  to = "https://skillgymkoeln-chjkqzei.manus.space/team/:splat"
   status = 302
 
 # Unbekannte Pfade: echte 404 statt Startseite
