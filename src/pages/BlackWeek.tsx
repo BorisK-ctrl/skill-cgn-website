@@ -13,7 +13,7 @@ import StartCheckout from "@/components/StartCheckout";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT } from "@/lib/pixel";
 import { useRateBundles, fmtPrice } from "@/lib/useRateBundles";
-import { BLACK_WEEK, blackWeekPrices, afterText, useBlackWeekCountdown } from "@/lib/blackweek";
+import { BLACK_WEEK, useBlackWeekCountdown } from "@/lib/blackweek";
 import { PARKING } from "@/lib/tarife";
 import { WHATSAPP } from "@/lib/magicline";
 import { FaqJsonLd, OffersJsonLd } from "@/lib/jsonld";
@@ -35,7 +35,6 @@ export default function BlackWeek() {
   const resume = useResume();
   const p = fmtPrice(term?.price ?? BLACK_WEEK.price);
   /* Regulärer Gym-Only-Preis nur für den Hinweis "Nach der Black Week …", kein Streichpreis (Issue #1, § 5 UWG). */
-  const was = fmtPrice(blackWeekPrices(bundles).was);
 
   /* PageView kommt vom Pixel selbst. ViewContent nur mit Consent, sofort oder beim Erteilen auf dieser Seite. */
   useEffect(() => {
@@ -53,9 +52,9 @@ export default function BlackWeek() {
     ["Wie lange läuft der Vertrag?", "Laufzeit 1 Monat, verlängert sich automatisch um jeweils 1 Monat. Kündigungsfrist 1 Monat zum Laufzeitende, Kündigung per Mail reicht."],
     ["Gibt es eine Aufnahmegebühr?", "Nein, keine Aufnahmegebühr."],
     ["Was ist drin?", "Gym komplett, Dusche, Getränke, Trainingshandtuch, 3D Scan und Assessment zum Start."],
-    ["Was ist nicht drin?", "Classes und Coaching. Dafür gibt es START 39, Drop In oder Trial Pass."],
+    ["Was ist nicht drin?", "Kurse und Coaching. Dafür gibt es Drop In und Trial Pass im Shop."],
     ["Wer kann buchen?", "Alle ab 18 ohne laufenden SKILL Vertrag. Ein Wechsel aus einem laufenden Vertrag ist nicht möglich."],
-    ["Bis wann?", `Abschluss bis 30.11.2026. Danach kostet Gym Only ${BLACK_WEEK.afterPrice} € alle 4 Wochen mit 3 Monaten Laufzeit.`],
+    ["Bis wann?", `Abschluss bis 30.11.2026. Für dich bleibt es danach dauerhaft bei ${BLACK_WEEK.price} € alle vier Wochen, solange dein Vertrag läuft.`],
     ["Widerruf?", "14 Tage ab Abschluss, Details in den AGB."],
     [PARKING.faqQ, "Parken ist im Black Week Angebot nicht enthalten. Das Parkhaus Brückenstraße liegt zwei Minuten zu Fuß entfernt."],
     ["Wann habt ihr geöffnet?", "Montag bis Donnerstag 7 bis 22 Uhr, Freitag 7 bis 20 Uhr, Samstag und Sonntag 9 bis 20 Uhr. Herzogstraße 16 bis 20, zwei Minuten vom Neumarkt."],
@@ -83,7 +82,9 @@ export default function BlackWeek() {
       subline={"Alle 4 Wochen. Monatlich kündbar.\n0\u00a0€\u00a0Aufnahmegebühr."}
       video={{ src: "/video/blackweek-boris.mp4", poster: "/video/blackweek-boris-poster.webp", label: "Boris, Founder von SKILL CGN, erklärt den Black Week Deal: Gym Only für 29 € alle 4 Wochen" }}
       priceLine="Nur online · nur Neukunden · Abschluss bis 30.11.2026"
-      priceNote={<>In der Black Week {p}&nbsp;€ alle 4 Wochen, dauerhaft, mit 1 Monat Laufzeit. {afterText(was)}</>}
+      /* Darstellung nach Boris (19.11.2026). Kein Vergleichspreis: ONLY GYM 34 € ist ein anderer Tarif (3 Monate, Getränke und Handtuch extra),
+         39 € gibt es nur als START 39 mit Kursen, selbst ein Angebot. Alles hier ist durch den Magicline-Vertrag 1215762340 gedeckt. */
+      priceNote={<><span className="block font-bold text-white">{p}&nbsp;€ alle vier Wochen · dauerhaft</span><span className="block">Monatlich kündbar · 0&nbsp;€ Aufnahmegebühr</span><span className="mt-2 block">Enthalten sind Gym-Zugang und freies Training, Getränke, Duschen, Trainingshandtuch sowie 3D-Körperscan und Assessment zum Start. Kurse und Coaching sind nicht enthalten.</span></>}
       bullets={[]}
       included={[
         { label: "Gym komplett", short: "Gym komplett", sub: "Alle Geräte, Freihantelbereich, Kunstrasenbahn" },
@@ -94,7 +95,7 @@ export default function BlackWeek() {
         { label: "Monatlich kündbar", short: "Monatlich kündbar", sub: "Laufzeit 1 Monat", wide: true },
       ]}
       feeNote={{ label: "Black Week Preis", now: `${p}\u00a0€` }}
-      notIncluded={<><span className="font-bold text-white">Nicht drin: Classes und Coaching.</span> Dafür gibt es <Link to="/start39" className="underline hover:text-[#FBFF00]">START 39 mit 4 Classes je 4 Wochen</Link> oder Drop In und Trial Pass im <Link to="/shop" className="underline hover:text-[#FBFF00]">Shop</Link>.</>}
+      notIncluded={<><span className="font-bold text-white">Nicht drin: Kurse und Coaching.</span> Dafür gibt es Drop In und Trial Pass im <Link to="/shop" className="underline hover:text-[#FBFF00]">Shop</Link>.</>}
       cta="Jetzt sichern"
       ctaNote="Nur bis 30.11.2026. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt."
       stickyLabel={`${p} € alle 4 Wochen`}
