@@ -50,7 +50,9 @@ export async function seenEvent(id: string): Promise<boolean> { return !!(await 
 export async function markEvent(id: string) { await setJSON("stripe-events", id, { at: new Date().toISOString() }); }
 
 /* Checkout-Abbrecher (START 39 / BACK 39): Schlüssel = Token aus dem Formular. */
-export interface CheckoutLead { token: string; campaign: string; path: string; firstName: string; lastName: string; email: string; phone: string; months?: number; createdAt: string; done?: boolean; mailedAt?: string; leadUuid?: string; customerNumber?: string; utm?: string; abandonedStep?: number; contractId?: string; capi?: { at: string; sent: boolean; status?: number; note?: string };
+/* Willkommensmail (Issue #2): pendingSince = Abschluss, input = Daten für die Mail, sentAt sobald raus */
+export interface WelcomeState { pendingSince: string; customerId?: number; sentAt?: string; skipped?: string; docs?: number; tries?: number; note?: string; input?: { offerName: string; price: number; startDate?: string } }
+export interface CheckoutLead { welcome?: WelcomeState; token: string; campaign: string; path: string; firstName: string; lastName: string; email: string; phone: string; months?: number; createdAt: string; done?: boolean; mailedAt?: string; leadUuid?: string; customerNumber?: string; utm?: string; abandonedStep?: number; contractId?: string; capi?: { at: string; sent: boolean; status?: number; note?: string };
   /* Kartenweg: Vertragsdaten bis zur Stripe-Bestätigung (Unterschrift wird nach der Vertragsanlage gelöscht) */
   card?: { rateBundleTermId: number; startDate: string; dob: string; street: string; houseNumber: string; zip: string; city: string; signatureSvgBase64?: string; price: number; offerName: string; sourceUrl?: string; fbp?: string; fbc?: string; savedAt: string };
   stripe?: { sessionId?: string; subscriptionId?: string; customerId?: string; paidAt?: string; amount?: number };
@@ -92,4 +94,60 @@ export async function listBlackMonth(): Promise<BlackMonthRecord[]> {
   const keys = await listKeys("blackmonth", "s/"); const out: BlackMonthRecord[] = [];
   for (const k of keys) { const r = await getJSON<BlackMonthRecord>("blackmonth", k); if (r) out.push(r); }
   return out;
+}
+
+/* ---------- Termine mit Coach über die Website (Onboarding): ein Datensatz je Käufer (E-Mail), damit ein Link nicht mehrfach bucht ---------- */
+export interface OnboardingRecord { email: string; name: string; phone?: string; offer?: string; ref?: string; kind?: string; start: string; end: string; staff: string; eventId: string; calendarId?: string;
+  bookedAt: string; uncertain?: string[]; mails: { customer: boolean; staff: boolean }; cancelledAt?: string; resentAt?: string }
+/** Schlüssel je Person: Kleinbuchstaben, ohne +Zusatz, bei Gmail ohne Punkte. Sonst bucht jemand mit a+1@…, a+2@… beliebig oft. */
+export function personKey(email: string): string {
+  const e = email.trim().toLowerCase(); const at = e.lastIndexOf("@"); if (at < 1) return e;
+  let local = e.slice(0, at).split("+")[0], domain = e.slice(at + 1);
+  if (domain === "gmail.com" || domain === "googlemail.com") { local = local.replace(/\./g, ""); domain = "gmail.com"; }
+  return `${local}@${domain}`;
+}
+const recKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "p/" : "e/") + personKey(email);
+/** Buchung je Kunde und Terminart (Onboarding, Probetraining). */
+export async function getOnboarding(email: string, kind = "onboarding") { return getJSON<OnboardingRecord>("onboarding", recKey(kind, email)); }
+export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboarding", recKey(r.kind, r.email), r); }
+
+/** Bremse je Schlüssel (z. B. gehashte IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt.
+ *  Atomar über etag (onlyIfMatch/onlyIfNew): gleichzeitige Anfragen können sich nicht gegenseitig überschreiben. Bei Dauerkonflikt: ablehnen. */
+export async function allowHit(key: string, limit: number, windowMs: number): Promise<boolean> {
+  const now = Date.now();
+  const s = store("ratelimit");
+  if (!s) {
+    const m = (mem["ratelimit"] ||= new Map()); const cur = ((m.get(key) as number[]) || []).filter(t => now - t < windowMs);
+    if (cur.length >= limit) return false; cur.push(now); m.set(key, cur); return true;
+  }
+  for (let i = 0; i < 6; i++) {
+    const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
+    const cur = (Array.isArray(got?.data) ? (got!.data as number[]) : []).filter(t => now - t < windowMs);
+    if (cur.length >= limit) return false;
+    cur.push(now);
+    const r = got?.etag ? await s.setJSON(key, cur, { onlyIfMatch: got.etag }) : await s.setJSON(key, cur, { onlyIfNew: true });
+    if (r.modified) return true;
+  }
+  return false;
+}
+
+/* ---------- Kurze Sperren (Netlify Blobs, starke Konsistenz): immer nur eine Buchung je Kunde und je Rasterzelle gleichzeitig ----------
+   Erwerb mit onlyIfNew; eine Sperre älter als ttlMs gilt als verwaist (Funktion abgebrochen) und wird per onlyIfMatch übernommen. */
+const lockMem = new Map<string, number>();
+export async function acquireLock(key: string, ttlMs: number): Promise<string | null> {
+  const owner = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const s = store("locks");
+  if (!s) { const t = lockMem.get(key); if (t && Date.now() - t < ttlMs) return null; lockMem.set(key, Date.now()); return owner; }
+  const r = await s.setJSON(key, { owner, at: Date.now() }, { onlyIfNew: true });
+  if (r.modified) return owner;
+  const cur = await s.getWithMetadata(key, { type: "json" }) as { data: { owner: string; at: number } | null; etag?: string } | null;
+  if (!cur?.data) { const again = await s.setJSON(key, { owner, at: Date.now() }, { onlyIfNew: true }); return again.modified ? owner : null; }
+  if (Date.now() - Number(cur.data.at || 0) < ttlMs || !cur.etag) return null;
+  const take = await s.setJSON(key, { owner, at: Date.now() }, { onlyIfMatch: cur.etag });
+  return take.modified ? owner : null;
+}
+export async function releaseLock(key: string, owner: string) {
+  const s = store("locks");
+  if (!s) { lockMem.delete(key); return; }
+  try { const cur = await s.get(key, { type: "json" }) as { owner?: string } | null; if (cur?.owner === owner) await s.delete(key); } catch (e) { console.log("releaseLock", key, String(e)); }
 }

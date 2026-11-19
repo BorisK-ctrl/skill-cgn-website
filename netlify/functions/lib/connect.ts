@@ -9,7 +9,7 @@ export interface ServerContractInput {
   street: string; houseNumber: string; zip: string; city: string;
   paymentChoice: "BANK_TRANSFER" | "DIRECT_DEBIT"; iban?: string; accountHolder?: string;
 }
-export async function createContractServer(i: ServerContractInput): Promise<{ ok: boolean; status: number; contractId: string; customerNumber: string; raw: string }> {
+export async function createContractServer(i: ServerContractInput): Promise<{ ok: boolean; status: number; contractId: string; customerId?: string; customerNumber: string; raw: string }> {
   /* MAGICLINE_DRY_RUN=1 nur lokal: kein Vertrag im echten System */
   if (process.env.MAGICLINE_DRY_RUN === "1") { console.log(`[magicline dry-run] contract ${i.firstname} ${i.lastname} <${i.email}> term ${i.rateBundleTermId} start ${i.startDate}`); return { ok: true, status: 200, contractId: "DRY-RUN", customerNumber: "DRY-RUN", raw: "" }; }
   const payload = {
@@ -23,7 +23,7 @@ export async function createContractServer(i: ServerContractInput): Promise<{ ok
   const r = await fetch(`${API}/rate-bundle`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload) });
   const txt = await r.text(); let j: any = {}; try { j = JSON.parse(txt); } catch {}
   const contractId = j?.id != null && String(j.id) !== String(j.customerId ?? "") ? String(j.id) : "";
-  return { ok: r.ok && !!contractId, status: r.status, contractId, customerNumber: j?.customerNumber ? String(j.customerNumber) : "", raw: txt.slice(0, 1500) };
+  return { ok: r.ok && !!contractId, status: r.status, contractId, customerId: j?.customerId != null ? String(j.customerId) : undefined, customerNumber: j?.customerNumber ? String(j.customerNumber) : "", raw: txt.slice(0, 1500) };
 }
 
 /** Interessent anlegen wie im Browser (src/lib/magicline.ts createLead). uuid = identityToken für den Vertrag. */

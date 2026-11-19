@@ -10,17 +10,18 @@ export const mailConfigured = () => !!process.env.RESEND_API_KEY;
 
 /* MAIL_DRY_RUN=1 (nur lokal): nichts senden, Mail ins Protokoll schreiben. */
 const DRY = process.env.MAIL_DRY_RUN === "1";
-async function post(from: string, to: string | string[], subject: string, html: string, replyTo?: string, text?: string) {
-  if (DRY) { console.log(`[mail dry-run] von ${from} an ${Array.isArray(to) ? to.join(", ") : to}: "${subject}"\n${text || html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400)}`); return { ok: true, status: 200, body: "" }; }
-  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to, subject, html, text, reply_to: replyTo }) });
+export interface MailAttachment { filename: string; content: string } // content Base64
+async function post(from: string, to: string | string[], subject: string, html: string, replyTo?: string, text?: string, attachments?: MailAttachment[]) {
+  if (DRY) { console.log(`[mail dry-run] von ${from} an ${Array.isArray(to) ? to.join(", ") : to}: "${subject}"${attachments?.length ? ` [Anhänge: ${attachments.map(a => a.filename).join(", ")}]` : ""}\n${text || html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400)}`); return { ok: true, status: 200, body: "" }; }
+  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to, subject, html, text, reply_to: replyTo, ...(attachments?.length ? { attachments } : {}) }) });
   const body = r.ok ? "" : (await r.text().catch(() => "")).slice(0, 200);
   return { ok: r.ok, status: r.status, body };
 }
 /** Mail mit wählbarem Absender, optional Textfassung. Team-Mails fallen bei abgelehntem Absender auf den Testabsender (nur an info@) zurück. */
-export async function sendFrom(from: string, to: string | string[], subject: string, htmlBody: string, opts: { replyTo?: string; text?: string } = {}) {
+export async function sendFrom(from: string, to: string | string[], subject: string, htmlBody: string, opts: { replyTo?: string; text?: string; attachments?: MailAttachment[] } = {}) {
   if (!mailConfigured()) { console.log(`mail übersprungen (RESEND_API_KEY fehlt): ${subject}`); return false; }
   const list = Array.isArray(to) ? to : [to];
-  let r = await post(from, list, subject, htmlBody, opts.replyTo, opts.text);
+  let r = await post(from, list, subject, htmlBody, opts.replyTo, opts.text, opts.attachments);
   if (!r.ok && (r.status === 403 || r.status === 422) && list.some(t => t.toLowerCase() === STAFF_EMAIL.toLowerCase())) {
     console.log(`mail: Absender ${from} abgelehnt (${r.status} ${r.body}), Team-Mail über Testabsender`);
     r = await post(TEST_FROM, STAFF_EMAIL, subject, htmlBody, opts.replyTo, opts.text);
@@ -35,7 +36,7 @@ export const F_DISPLAY = "'Bebas Neue',Impact,'Arial Narrow Bold',sans-serif";
 export const F_TEXT = "'Space Grotesk',Helvetica,Arial,sans-serif";
 export const F_MONO = "'IBM Plex Mono','Courier New',monospace";
 const FONTS = `<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">`;
-const wrap = (inner: string, preheader = "") => `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark">${FONTS}<style>h1{font-family:${F_DISPLAY};font-weight:400;text-transform:uppercase;letter-spacing:0.5px;line-height:1}a{color:#FBFF00}</style></head>
+export const wrap = (inner: string, preheader = "") => `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark">${FONTS}<style>h1{font-family:${F_DISPLAY};font-weight:400;text-transform:uppercase;letter-spacing:0.5px;line-height:1}a{color:#FBFF00}</style></head>
 <body style="margin:0;padding:0;background:#111516">${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${preheader}</div>` : ""}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#111516"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#000;border-top:6px solid #FBFF00">
@@ -59,7 +60,7 @@ export async function sendCancelMail(b: Booking) {
 
 /* Abbrecher-Mail nach Schritt 1 ohne Vertrag. Absender info@, Link stellt die Sitzung per Token in Schritt 2 wieder her. */
 import type { CheckoutLead } from "./store";
-const CHECKOUT_FROM = process.env.CHECKOUT_FROM_EMAIL || "SKILL CGN <info@skill-studios.com>";
+export const CHECKOUT_FROM = process.env.CHECKOUT_FROM_EMAIL || "SKILL CGN <info@skill-studios.com>";
 /* ---------- Abbrecher-Mail (10 Minuten nach Schritt 1 ohne Vertrag): Inhalt je Kampagne ---------- */
 const isGymOnly = (offer: string) => /BLACK WEEK|GYM ONLY/i.test(offer);
 interface ReminderContent { subject: string; preheader: string; kicker: string; product: string; price: string; per: string; points: string[]; deadline?: string }
@@ -80,13 +81,13 @@ export function reminderContent(campaign: string, firstName: string): ReminderCo
   };
 }
 export const reminderPriceLine = (campaign: string) => { const c = reminderContent(campaign, ""); return `${c.product} für ${c.price} ${c.per}`; };
-export function reminderHtml(l: Pick<CheckoutLead, "campaign" | "firstName" | "path" | "token">) {
+export function reminderHtml(l: Pick<CheckoutLead, "campaign" | "firstName" | "path" | "token"> & { abandonedStep?: number }) {
   const c = reminderContent(l.campaign, l.firstName);
   const link = `${SITE}${l.path}?resume=${encodeURIComponent(l.token)}`;
   const check = (t: string) => `<tr><td width="26" valign="top" style="padding:5px 0;font-family:${F_TEXT};font-weight:700;color:#FBFF00">✓</td><td style="padding:5px 0;font-family:${F_TEXT};font-size:15px;color:#fff">${t}</td></tr>`;
   const html = wrap(`<p style="margin:0 0 14px;font-family:${F_MONO};font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#FBFF00">${c.kicker}</p>
 <h1 style="margin:0 0 14px;font-family:${F_DISPLAY};font-weight:400;font-size:46px;line-height:0.95;letter-spacing:0.5px;text-transform:uppercase;color:#fff">Fast geschafft,<br><span style="color:#FBFF00">${l.firstName}.</span></h1>
-<p style="margin:0 0 24px;color:#d4d8d9">Du hast deinen Abschluss gestartet, aber noch nicht beendet. Deine Angaben sind gespeichert, du machst genau dort weiter, wo du aufgehört hast.</p>
+<p style="margin:0 0 24px;color:#d4d8d9">${(l.abandonedStep || 0) >= 3 ? "Du bist kurz vor der Unterschrift stehen geblieben." : "Du hast deinen Abschluss gestartet, aber noch nicht beendet."} Deine Angaben sind gespeichert, du machst genau dort weiter, wo du aufgehört hast.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#2A3133;border-left:6px solid #FBFF00"><tr><td style="padding:20px 22px">
 <p style="margin:0;font-family:${F_MONO};font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aa3a6">${c.product}</p>
 <p style="margin:4px 0 12px;font-family:${F_DISPLAY};font-size:56px;line-height:1;color:#FBFF00">${c.price} <span style="font-family:${F_MONO};font-size:13px;letter-spacing:1px;color:#fff">${c.per}</span></p>
@@ -136,7 +137,7 @@ export async function sendShopMails(o: ShopOrder) {
   return { staff, customer };
 }
 
-/* ---------- Mitgliedschaft: "Neuer Vertrag" ans Team, Willkommensmail an das Mitglied ---------- */
+/* ---------- Mitgliedschaft: "Neuer Vertrag" ans Team (Willkommensmail: lib/welcome.ts) ---------- */
 export interface ContractMail { firstName: string; lastName: string; email: string; phone: string; customerNumber?: string; contractId: string; offerName: string; price: number; startDate?: string; payment: "sepa" | "card" | "express"; months?: number; token?: string }
 export async function sendContractMails(c: ContractMail) {
   const pay = c.payment === "sepa" ? "SEPA-Lastschrift (Magicline)" : c.payment === "express" ? "Stripe-Abo (Apple Pay / Google Pay)" : "Stripe-Abo (Karte / Wallet)";
@@ -151,26 +152,8 @@ export async function sendContractMails(c: ContractMail) {
 <tr><td style="padding:4px 12px 4px 0;color:#888">Start</td><td>${start || "—"}</td></tr>
 <tr><td style="padding:4px 12px 4px 0;color:#888">Zahlung</td><td>${pay}</td></tr>
 </table><p style="margin-top:16px">Scan-Termin vereinbaren, am ersten Trainingstag Einweisung.</p>`));
-  /* Willkommensmail in der CI: Kunde sieht den Produktnamen, nicht den internen Magicline-Namen */
-  const product = isGymOnly(c.offerName) ? "Gym Only · Black Week" : c.offerName;
-  const row = (k: string, v: string) => `<tr><td style="padding:6px 16px 6px 0;font-family:${F_MONO};font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#9aa3a6;white-space:nowrap" valign="top">${k}</td><td style="padding:6px 0;font-family:${F_TEXT};font-size:15px;font-weight:700;color:#fff">${v}</td></tr>`;
-  const step = (n: string, t: string) => `<tr><td width="38" valign="top" style="padding:10px 0;font-family:${F_DISPLAY};font-size:28px;line-height:1;color:#FBFF00">${n}</td><td style="padding:10px 0;font-family:${F_TEXT};font-size:15px;line-height:1.5;color:#d4d8d9">${t}</td></tr>`;
-  const wa = `https://wa.me/4917610877603?text=${encodeURIComponent(`Hi Boris, ich habe gerade ${product} abgeschlossen, ${c.firstName}. Wann kann ich zum Scan kommen?`)}`;
-  const customer = c.email ? await send(c.email, `Willkommen bei SKILL CGN, ${c.firstName}`, wrap(`<p style="margin:0 0 14px;font-family:${F_MONO};font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#FBFF00">Vertrag angelegt</p>
-<h1 style="margin:0 0 20px;font-family:${F_DISPLAY};font-weight:400;font-size:46px;line-height:0.95;text-transform:uppercase;color:#fff">Du bist dabei,<br><span style="color:#FBFF00">${c.firstName}.</span></h1>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#2A3133;border-left:6px solid #FBFF00"><tr><td style="padding:16px 20px"><table role="presentation" cellpadding="0" cellspacing="0">
-${row("Tarif", product)}${row("Beitrag", `${c.price}&nbsp;€ alle 4 Wochen`)}${start ? row("Start", start) : ""}${row("Vertrag", c.contractId)}
-</table></td></tr></table>
-<p style="margin:26px 0 4px;font-family:${F_MONO};font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#9aa3a6">So geht es weiter</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-${step("01", `Schreib Boris kurz per <a href="${wa}" style="color:#FBFF00">WhatsApp</a> für deinen 3D-Scan-Termin.`)}
-${step("02", "Komm zu deinem ersten Training in die Herzogstraße 16–20, zwei Minuten vom Neumarkt. Wir richten vor Ort alles ein und zeigen dir das Studio.")}
-${isGymOnly(c.offerName)
-  ? step("03", "Trainier, wann es dir passt: Montag bis Donnerstag 7 bis 22 Uhr, Freitag 7 bis 20 Uhr, Samstag und Sonntag 9 bis 20 Uhr. Handtuch und Getränke gibt es bei uns.")
-  : step("03", `Kurse buchst du über die App oder auf <a href="${SITE}/classes" style="color:#FBFF00">skill-studios.com/classes</a>. Handtuch und Getränke gibt es bei uns.`)}
-</table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 18px"><tr><td align="center" bgcolor="#FBFF00" style="background:#FBFF00"><a href="${wa}" style="display:block;padding:18px 20px;font-family:${F_TEXT};font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#000;text-decoration:none;white-space:nowrap">Scan-Termin per WhatsApp&nbsp;→</a></td></tr></table>
-<p style="margin:0;font-size:12px;line-height:1.6;color:#9aa3a6">Die Vertragsunterlagen kommen separat aus unserem Mitgliedersystem (Magicline). Kündigung online unter <a href="${SITE}/kuendigung" style="color:#FBFF00">skill-studios.com/kuendigung</a>.</p>`, `${product}: ${c.price} € alle 4 Wochen${start ? `, Start ${start}` : ""}. So geht es weiter.`), STAFF_EMAIL) : false;
+  /* Kundenmail kommt jetzt als ein Paket aus lib/welcome.ts (mit Vertrag und SEPA-Mandat als PDF, Issue #2). Hier nur noch die Teammail. */
+  const customer = false;
   return { staff, customer };
 }
 

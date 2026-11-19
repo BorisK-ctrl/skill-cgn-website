@@ -4,6 +4,7 @@ import { type CheckoutLead, saveCheckoutLead } from "./store";
 import { createContractServer } from "./connect";
 import { sendPurchase, capiConfigured } from "./meta-capi";
 import { sendContractMails, sendContractFailedMails } from "./notify";
+import { deliverWelcome } from "./welcome";
 
 export interface StripeRef { sessionId?: string; subscriptionId?: string; customerId?: string; amount?: number }
 export async function completeMembership(l: CheckoutLead, ref: StripeRef, client: { ip?: string; userAgent?: string } = {}): Promise<{ ok: boolean; note?: string; contractId?: string; customerNumber?: string }> {
@@ -32,6 +33,11 @@ export async function completeMembership(l: CheckoutLead, ref: StripeRef, client
   }
   await saveCheckoutLead(l);
   const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: l.customerNumber, contractId: r.contractId, offerName: c.offerName, price: c.price || 39, startDate: c.startDate, payment: l.express ? "express" : "card", months: l.months, token: l.token }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
-  console.log(`membership ${l.token}: mail staff=${mails.staff} customer=${mails.customer}`);
+  /* Ein Paket (Issue #2): Willkommensmail mit Vertrag und SEPA-Mandat, Rest über checkout-reminder */
+  l.welcome = { pendingSince: new Date().toISOString(), ...(Number(r.customerId) > 0 ? { customerId: Number(r.customerId) } : {}), input: { offerName: c.offerName, price: c.price || 39, startDate: c.startDate } };
+  const welcome = await deliverWelcome(l, { firstName: l.firstName, email: l.email, contractId: r.contractId, offerName: c.offerName, price: c.price || 39, startDate: c.startDate, months: l.months }, { budgetMs: 4000 })
+    .catch(e => { console.log("welcome error", String(e)); return "pending" as const; });
+  await saveCheckoutLead(l);
+  console.log(`membership ${l.token}: mail staff=${mails.staff} willkommen=${welcome}`);
   return { ok: true, contractId: r.contractId, customerNumber: l.customerNumber };
 }

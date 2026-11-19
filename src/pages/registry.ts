@@ -8,7 +8,7 @@ const loaders = {
   Classes: () => import("@/pages/Classes"), Probetraining: () => import("@/pages/Probetraining"), Checkout: () => import("@/pages/Checkout"), Danke: () => import("@/pages/Danke"),
   Kuendigung: () => import("@/pages/Kuendigung"), KuendigungBestaetigt: () => import("@/pages/KuendigungBestaetigt"), Impressum: () => import("@/pages/Impressum"),
   Datenschutz: () => import("@/pages/Datenschutz"), Agb: () => import("@/pages/Agb"), Brand: () => import("@/pages/Brand"), NotFound: () => import("@/pages/NotFound"),
-  Scan: () => import("@/pages/Scan"), ScanDanke: () => import("@/pages/ScanDanke"), PersonalTraining: () => import("@/pages/PersonalTraining"), BlackMonth: () => import("@/pages/BlackMonth"), BlackMonthDanke: () => import("@/pages/BlackMonthDanke"), BlackWeek: () => import("@/pages/BlackWeek"), BlackWeekDanke: () => import("@/pages/BlackWeekDanke"),
+  Scan: () => import("@/pages/Scan"), ScanDanke: () => import("@/pages/ScanDanke"), PersonalTraining: () => import("@/pages/PersonalTraining"), BlackMonth: () => import("@/pages/BlackMonth"), BlackMonthDanke: () => import("@/pages/BlackMonthDanke"), BlackWeek: () => import("@/pages/BlackWeek"), BlackWeekDanke: () => import("@/pages/BlackWeekDanke"), Onboarding: () => import("@/pages/Onboarding"),
 };
 export type PageName = keyof typeof loaders;
 const loaded: Partial<Record<PageName, ComponentType>> = {};

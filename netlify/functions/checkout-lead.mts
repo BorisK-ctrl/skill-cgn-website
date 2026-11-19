@@ -7,6 +7,7 @@ import { json, normEmail, validEmail } from "./lib/util";
 import { getCheckoutLead, saveCheckoutLead, type CheckoutLead } from "./lib/store";
 import { sendPurchase, capiConfigured } from "./lib/meta-capi";
 import { sendContractMails } from "./lib/notify";
+import { deliverWelcome } from "./lib/welcome";
 
 const TOKEN = /^[a-z0-9]{16,48}$/;
 /* Abschlussseite → Kampagnenname (Lead, Vertragsmail, Meta CAPI) */
@@ -39,8 +40,15 @@ export default async (req: Request) => {
     /* SEPA-Weg (Vertrag im Browser angelegt): "Neuer Vertrag" ans Team und Willkommensmail, nur beim ersten Abschluss-Aufruf */
     if (firstDone && l.contractId) {
       const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.campaign, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
-      (l as any).mails = { at: new Date().toISOString(), ...mails };
-      console.log(`checkout-lead done ${l.token} Vertrag ${l.contractId}: mail staff=${mails.staff} customer=${mails.customer}`);
+      /* Ein Paket (Issue #2): eine Willkommensmail mit Vertrag und SEPA-Mandat als PDF. Kurzes Zeitbudget, sonst übernimmt checkout-reminder. */
+      const price = Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path);
+      const startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined;
+      const cid = Number(b.customerId);
+      l.welcome = { pendingSince: new Date().toISOString(), ...(cid > 0 ? { customerId: cid } : {}), input: { offerName: l.campaign, price, startDate } };
+      const welcome = await deliverWelcome(l, { firstName: l.firstName, email: l.email, contractId: l.contractId, offerName: l.campaign, price, startDate, months: l.months }, { budgetMs: 4000 })
+        .catch(e => { console.log("welcome error", String(e)); return "pending" as const; });
+      (l as any).mails = { at: new Date().toISOString(), ...mails, welcome };
+      console.log(`checkout-lead done ${l.token} Vertrag ${l.contractId}: mail staff=${mails.staff} willkommen=${welcome}`);
     }
     /* Meta Conversions API: nur mit bestätigter Vertragsnummer, nur einmal, nur mit Cookie-Zustimmung
        (META_CAPI_ALWAYS=true sendet auch ohne, nachdem die Datenschutzerklärung den Hinweis enthält). */

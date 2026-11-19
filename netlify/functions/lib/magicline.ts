@@ -44,3 +44,23 @@ export async function bookSlot(customerId: number, classSlotId: number): Promise
   return Number(r?.bookingId ?? r?.id);
 }
 export async function cancelBooking(bookingId: number) { await api("DELETE", `/classes/booking/${bookingId}`); }
+
+/* Kundendokumente (Issue #2): GET /v1/customers/{customerId}/documents, je Eintrag id, fileName, description, createdDateTime
+   und url (Download, 15 Minuten gültig). Einem Vertrag lassen sich Dokumente nicht direkt zuordnen, daher über die Erstellungszeit. */
+export interface CustomerDocument { id: number; fileName: string; description?: string; createdDateTime?: string; url?: string }
+export async function listCustomerDocuments(customerId: number): Promise<CustomerDocument[]> {
+  const out: CustomerDocument[] = []; let offset = "0";
+  for (let i = 0; i < 10; i++) {
+    const page = await api<{ result: CustomerDocument[]; hasNext: boolean; offset: string }>("GET", `/customers/${customerId}/documents?sliceSize=50&offset=${encodeURIComponent(offset)}`);
+    out.push(...(page.result || []));
+    if (!page.hasNext) break; offset = page.offset;
+  }
+  return out;
+}
+/** Dokument über die signierte URL laden (Base64 für Resend attachments). */
+export async function downloadDocument(url: string): Promise<{ base64: string; bytes: number; contentType: string }> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Dokument-Download ${r.status}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  return { base64: buf.toString("base64"), bytes: buf.length, contentType: r.headers.get("content-type") || "application/pdf" };
+}
