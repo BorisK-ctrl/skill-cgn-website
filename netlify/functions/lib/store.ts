@@ -98,19 +98,37 @@ export async function listBlackMonth(): Promise<BlackMonthRecord[]> {
 
 /* ---------- Termine mit Coach über die Website (Onboarding): ein Datensatz je Käufer (E-Mail), damit ein Link nicht mehrfach bucht ---------- */
 export interface OnboardingRecord { email: string; name: string; phone?: string; offer?: string; ref?: string; kind?: string; start: string; end: string; staff: string; eventId: string; calendarId?: string;
-  bookedAt: string; uncertain?: string[]; mails: { customer: boolean; staff: boolean }; cancelledAt?: string }
-const recKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "p/" : "e/") + email.trim().toLowerCase();
+  bookedAt: string; uncertain?: string[]; mails: { customer: boolean; staff: boolean }; cancelledAt?: string; resentAt?: string }
+/** Schlüssel je Person: Kleinbuchstaben, ohne +Zusatz, bei Gmail ohne Punkte. Sonst bucht jemand mit a+1@…, a+2@… beliebig oft. */
+export function personKey(email: string): string {
+  const e = email.trim().toLowerCase(); const at = e.lastIndexOf("@"); if (at < 1) return e;
+  let local = e.slice(0, at).split("+")[0], domain = e.slice(at + 1);
+  if (domain === "gmail.com" || domain === "googlemail.com") { local = local.replace(/\./g, ""); domain = "gmail.com"; }
+  return `${local}@${domain}`;
+}
+const recKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "p/" : "e/") + personKey(email);
 /** Buchung je Kunde und Terminart (Onboarding, Probetraining). */
 export async function getOnboarding(email: string, kind = "onboarding") { return getJSON<OnboardingRecord>("onboarding", recKey(kind, email)); }
 export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboarding", recKey(r.kind, r.email), r); }
 
-/** Einfache Bremse je Schlüssel (z. B. IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt. */
+/** Bremse je Schlüssel (z. B. gehashte IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt.
+ *  Atomar über etag (onlyIfMatch/onlyIfNew): gleichzeitige Anfragen können sich nicht gegenseitig überschreiben. Bei Dauerkonflikt: ablehnen. */
 export async function allowHit(key: string, limit: number, windowMs: number): Promise<boolean> {
   const now = Date.now();
-  const cur = ((await getJSON<number[]>("ratelimit", key)) || []).filter(t => now - t < windowMs);
-  if (cur.length >= limit) return false;
-  cur.push(now); await setJSON("ratelimit", key, cur);
-  return true;
+  const s = store("ratelimit");
+  if (!s) {
+    const m = (mem["ratelimit"] ||= new Map()); const cur = ((m.get(key) as number[]) || []).filter(t => now - t < windowMs);
+    if (cur.length >= limit) return false; cur.push(now); m.set(key, cur); return true;
+  }
+  for (let i = 0; i < 6; i++) {
+    const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
+    const cur = (Array.isArray(got?.data) ? (got!.data as number[]) : []).filter(t => now - t < windowMs);
+    if (cur.length >= limit) return false;
+    cur.push(now);
+    const r = got?.etag ? await s.setJSON(key, cur, { onlyIfMatch: got.etag }) : await s.setJSON(key, cur, { onlyIfNew: true });
+    if (r.modified) return true;
+  }
+  return false;
 }
 
 /* ---------- Kurze Sperren (Netlify Blobs, starke Konsistenz): immer nur eine Buchung je Kunde und je Rasterzelle gleichzeitig ----------

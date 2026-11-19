@@ -12,8 +12,10 @@ export default async (req: Request) => {
   const t = verifyToken(new URL(req.url).searchParams.get("t") || "");
   if (!t) return json({ error: "Der Link ist ungültig oder abgelaufen. Schreib uns kurz per WhatsApp, wir schicken dir einen neuen." }, 401);
   if (!gcalConfigured()) return json({ error: "Terminbuchung gerade nicht verfügbar." }, 503);
+  /* Probetraining-Zugänge stellt sich jeder selbst aus: keine Auskunft über bestehende Termine, Zeiten gibt es öffentlich (/api/probetraining/slots) */
+  if (t.k === "probetraining") return json({ error: "Für Probetrainings bitte die Seite /probetraining nutzen." }, 400);
   const firstName = t.n.split(/\s+/)[0] || "";
-  const kind: Kind = t.k === "probetraining" ? "probetraining" : "onboarding";
+  const kind: Kind = "onboarding";
   try {
     const cur = await currentBooking(t.e, kind);
     if (cur.state === "booked") return json({ firstName, booked: bookedView(cur.rec) });

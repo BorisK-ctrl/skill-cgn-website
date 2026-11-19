@@ -1,4 +1,5 @@
 /* Gemeinsame Helfer für die Buchungs-Functions. */
+import { createHash } from "node:crypto";
 export const STUDIO_TZ = "Europe/Berlin";
 export const STAFF_EMAIL = process.env.BOOKING_STAFF_EMAIL || "info@skill-studios.com";
 export const SITE = process.env.URL || "https://skill-studios.com";
@@ -27,3 +28,20 @@ export function berlinToDate(date: string, time: string): Date {
 export function addDays(date: string, n: number): string { const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 export function randomToken(len = 24) { const a = "abcdefghijkmnpqrstuvwxyz23456789"; let s = ""; const b = crypto.getRandomValues(new Uint8Array(len)); for (const x of b) s += a[x % a.length]; return s; }
 export const fmtDate = (d: Date) => d.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric", timeZone: STUDIO_TZ });
+
+/* ---------- Bremsen je Besucher: IP aus Netlify (x-nf-client-connection-ip), IPv6 auf /64 gekürzt (sonst wechselt man je Anfrage die Adresse),
+   IPv4 in IPv6 (::ffff:a.b.c.d) als IPv4. Ergebnis gehasht, keine IP im Speicher. ---------- */
+function expandV6(ip: string): string[] {
+  const [head, tail] = ip.split("::");
+  const h = head ? head.split(":") : [], t = tail !== undefined && tail !== "" ? tail.split(":") : [];
+  const fill = ip.includes("::") ? Array(Math.max(0, 8 - h.length - t.length)).fill("0") : [];
+  return [...h, ...fill, ...t].map(x => x.toLowerCase().replace(/^0+(?=.)/, ""));
+}
+export function clientIp(req: Request): string {
+  const raw = (req.headers.get("x-nf-client-connection-ip") || req.headers.get("x-forwarded-for")?.split(",")[0] || "").trim().replace(/^\[|\]$/g, "").replace(/%.*$/, "");
+  if (!raw) return "unbekannt";
+  const mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i); if (mapped) return mapped[1];
+  if (raw.includes(":")) return expandV6(raw).slice(0, 4).join(":") + "::/64";
+  return raw;
+}
+export const clientKey = (req: Request) => createHash("sha256").update(clientIp(req)).digest("hex").slice(0, 24);

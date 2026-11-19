@@ -18,13 +18,15 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { berlinToDate, berlinDate, addDays } from "./util";
 
-export interface Staff { key: string; name: string; full: string; emails: string[] }
+/** emailHashes: SHA-256 (erste 16 Hex-Zeichen) der Kalender-Adressen, an denen der Coach als Gast erkannt wird. Keine Klartext-Adressen im
+ *  öffentlichen Repo. Neue Adresse: node -e "console.log(require('crypto').createHash('sha256').update('mail@x.de'.toLowerCase()).digest('hex').slice(0,16))" */
+export interface Staff { key: string; name: string; full: string; emailHashes: string[] }
 /** Wer Onboardings und Probetrainings macht. Reihenfolge = Vorrang bei Gleichstand. */
 export const STAFF: Staff[] = [
-  { key: "peter", name: "Peter", full: "Peter Schaale", emails: ["p.schaale@outlook.com"] },
-  { key: "nic", name: "Nic", full: "Nic Müller", emails: ["nicmueller2001@gmail.com"] },
-  { key: "noah", name: "Noah", full: "Noah Wengenroth", emails: ["wengenrothnoah@gmail.com"] },
-  { key: "boris", name: "Boris", full: "Boris Kurowski", emails: ["boris.kurowski@gmail.com", "boris.k@skill-studios.com"] },
+  { key: "peter", name: "Peter", full: "Peter Schaale", emailHashes: ["495c63ec5c7e0756"] },
+  { key: "nic", name: "Nic", full: "Nic Müller", emailHashes: ["66e9984ae16f00d6"] },
+  { key: "noah", name: "Noah", full: "Noah Wengenroth", emailHashes: ["dc315579d057bd9f"] },
+  { key: "boris", name: "Boris", full: "Boris Kurowski", emailHashes: ["496e2b527f0e0ada", "5bbc9ca8e2e77f13"] },
 ];
 /** Andere Coaches und Service-Kräfte (machen keine Onboardings). Ihre Kurse, Schichten und Abwesenheiten belegen niemanden aus STAFF.
  *  Ein Kurs mit einem Namen, der hier fehlt, belegt vorsichtshalber einen freien Coach. Neue Kolleginnen und Kollegen hier ergänzen. */
@@ -84,11 +86,13 @@ const coachLine = (ev: GEvent) => (ev.description || "").match(/^[ \t]*Coach:[ \
 const declined = (a: GAttendee) => a.responseStatus === "declined";
 /** Der Kalender selbst hat abgesagt (z. B. info@ bei einem Jour Fix anderer): kein Termin dieses Kalenders. */
 const selfDeclined = (ev: GEvent) => (ev.attendees || []).some(a => (a.self || (!!ev.calendarId && (a.email || "").toLowerCase() === ev.calendarId.toLowerCase())) && declined(a));
+export const emailHash = (email: string) => createHash("sha256").update((email || "").trim().toLowerCase()).digest("hex").slice(0, 16);
 /** Sichere Zuordnung: Website-Markierung, eingeladene Coaches (nicht abgesagt), Zeile "Coach:". */
 function strongStaff(ev: GEvent): string[] {
   const out = new Set<string>();
   const own = ev.extendedProperties?.private?.staff; if (own && STAFF.some(s => s.key === own)) out.add(own);
-  for (const s of STAFF) if ((ev.attendees || []).some(a => !declined(a) && s.emails.includes((a.email || "").toLowerCase()))) out.add(s.key);
+  const guests = (ev.attendees || []).filter(a => !declined(a) && a.email).map(a => emailHash(a.email!));
+  for (const s of STAFF) if (s.emailHashes.some(h => guests.includes(h))) out.add(s.key);
   for (const k of namesIn(coachLine(ev))) out.add(k);
   return [...out];
 }

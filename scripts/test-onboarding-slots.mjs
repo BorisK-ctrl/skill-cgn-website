@@ -53,7 +53,7 @@ for (const kind of kinds) {
     for (const [cal, list] of Object.entries({ service: data.service, classes: data.classes, absences: data.absences, appointments: data.appointments })) for (const ev of list) {
       const x = span(ev); if (!(x.s < b && x.e > a) || ev.status === "cancelled") continue;
       if (cal === "service" && (own(ev) || (!!ev.start?.dateTime && !names.some(n => word(n, ev.summary))))) continue;
-      const named = word(st.name, ev.summary) || word(st.name, ev.description) || (ev.attendees || []).some(g => g.responseStatus !== "declined" && st.emails.includes((g.email || "").toLowerCase()));
+      const named = word(st.name, ev.summary) || word(st.name, ev.description) || (ev.attendees || []).some(g => g.responseStatus !== "declined" && !!g.email && st.emailHashes.includes(lib.emailHash(g.email)));
       const unnamedAbsence = cal === "absences" && !names.some(n => word(n, ev.summary));
       if (named || unnamedAbsence) errors.push(`${day(s.start)} ${time(s.start)} ${st.name}: Überschneidung mit ${cal} ${time(new Date(x.s).toISOString())}`);
     }

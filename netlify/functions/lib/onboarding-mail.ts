@@ -52,10 +52,16 @@ ${label("Termin passt doch nicht?")}
   return { subject: `Dein ${c.label}: ${day(o.start)}, ${time(o.start)} Uhr`, html, text };
 }
 
-export async function sendOnboardingMails(o: OnboardingMail) {
+/** Nur die Kundenmail (auch zum erneuten Zusenden, wenn jemand mit derselben E-Mail noch einmal buchen will). */
+export async function sendOnboardingCustomerMail(o: OnboardingMail): Promise<boolean> {
   const c = COPY[o.kind || "onboarding"];
   const m = onboardingCustomerMail(o);
-  const customer = await sendFrom(CHECKOUT_FROM, o.email, m.subject, m.html, { replyTo: STAFF_EMAIL, text: m.text }).then(Boolean).catch(e => { console.log(`${c.label} mail kunde`, String(e)); return false; });
+  return sendFrom(CHECKOUT_FROM, o.email, m.subject, m.html, { replyTo: STAFF_EMAIL, text: m.text }).then(Boolean).catch(e => { console.log(`${c.label} mail kunde`, String(e)); return false; });
+}
+
+export async function sendOnboardingMails(o: OnboardingMail) {
+  const c = COPY[o.kind || "onboarding"];
+  const customer = await sendOnboardingCustomerMail(o);
   const rows: [string, string][] = [["Wann", `${day(o.start)}, ${time(o.start)} bis ${time(o.end)} Uhr`], ["Coach", o.coachFull], ["Kunde", o.name], ["E-Mail", o.email], ["Telefon", o.phone || "keine Angabe"], [o.kind === "probetraining" ? "Info" : "Angebot", o.offer || "keine Angabe"]];
   /* Termin ohne sicheren Coach zur selben Zeit: der Coach ist frei gerechnet, aber wer den anderen Termin macht, steht nicht im Kalender */
   const check = o.uncertain?.length ? `Bitte prüfen: Zur selben Zeit steht ohne sicheren Coach im Kalender: ${o.uncertain.join(", ")}. Falls ${o.coach} den macht, übernimmt ein anderer Coach das ${c.label}. Tipp: Coach als Gast eintragen, dann ist es eindeutig.` : "";

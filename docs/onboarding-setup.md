@@ -2,7 +2,13 @@
 
 Stand 2026-11-18. Nach jedem Abschluss einer Mitgliedschaft (Black Week, START 39, BACK 39, Mitgliedschaften) bucht der Kunde seinen Onboarding-Termin direkt auf der Dankeseite. Das Onboarding dauert 90 Minuten: 3D-Scan, Bändchen, Trainingsplan, Einweisung. Die freien Zeiten kommen live aus unseren Google-Kalendern. Der Termin landet im Kalender **Onboarding**, Kunde und Team bekommen eine Mail. Wer die Dankeseite verlässt, bucht später über den persönlichen Link in der Willkommensmail (`/onboarding?t=…`).
 
-Probetraining (30 Minuten) nutzt dieselbe Logik und dieselben Kalender (`KINDS` in `netlify/functions/lib/onboarding.ts`): Auf /probetraining füllt der Kunde das Formular aus (Lead in Magicline wie bisher), danach wählt er direkt auf der Seite seine Zeit. Der Termin landet im Kalender **Probetraining**. Ohne Google-Anbindung leitet die Seite wie bisher zur Google-Terminseite weiter.
+Probetraining (30 Minuten) nutzt dieselbe Logik und dieselben Kalender (`KINDS` in `netlify/functions/lib/onboarding.ts`). Auf /probetraining stehen die freien Zeiten sofort oben (`/api/probetraining/slots`, öffentlich, höchstens 15 Sekunden alt). Der Kunde tippt eine Uhrzeit an, trägt dann Name, E-Mail, Telefon, PLZ und Urban Sports Club ein und bucht. Der Termin landet im Kalender **Probetraining**, der Lead in Magicline (mit der gebuchten Zeit). Ohne Google-Anbindung leitet die Seite wie bisher zur Google-Terminseite weiter.
+
+Schutz beim Probetraining (jeder kann sich selbst einen Buchungszugang ausstellen, die E-Mail ist nicht bestätigt):
+- Ist für eine E-Mail schon ein Probetraining eingetragen, nennt die Seite weder Zeit noch Coach. Die Bestätigung geht stattdessen noch einmal an die hinterlegte Adresse (höchstens einmal am Tag).
+- Je Person ein Probetraining: `anna+2@…` und Gmail-Varianten mit Punkten zählen als dieselbe Adresse.
+- Namen nur mit Buchstaben, Leerzeichen, Bindestrich, Apostroph (keine Links in der Bestätigungsmail).
+- Bremsen je Anschluss (IPv6 je /64): 6 Zugänge pro Stunde, 5 Buchungsversuche pro Tag, 600 Abrufe der freien Zeiten pro Stunde. Zugänge gelten 2 Stunden.
 
 **Wichtig nach dem Einschalten:** Die alte Google-Terminseite für Probetrainings (Terminplan in info@) kennt die Onboardings und Probetrainings der Website nicht. Sie kann einen Coach doppelt belegen. Deshalb nach dem ersten erfolgreichen Test die Terminseite in Google Kalender deaktivieren. Bis dahin liest die Website ihre Buchungen aus info@ mit und plant drumherum.
 
