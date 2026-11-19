@@ -113,7 +113,9 @@ export const PIXEL_ID = (import.meta.env.VITE_META_PIXEL_ID || "577923356905873"
 export const WHATSAPP = "https://wa.me/4917610877603";
 /** Technogym App (Mywellness), Link verbindet direkt mit SKILL CGN (Boris, 19.11.2026) */
 export const TECHNOGYM_APP = "https://tgapp-link.mywellness.com/39a898ba9";
-/** Google-Terminbuchung Onboarding & 3D Scan (Netlify: VITE_ONBOARDING_BOOKING_URL, Issue #2). Leer = Knopf ausgeblendet, WhatsApp wie bisher. */
-export const ONBOARDING_BOOKING_URL = String(import.meta.env.VITE_ONBOARDING_BOOKING_URL ?? "").trim();
+/** Google-Terminbuchung Onboarding & 3D Scan (Netlify: VITE_ONBOARDING_BOOKING_URL, Issue #2). Leer = WhatsApp wie bisher.
+ *  Nie die Probetraining-Terminseite: Am 19.11.2026 stand in Netlify genau die als Onboarding-Link, Käufer hätten ein Probetraining gebucht. */
+const ONB_RAW = String(import.meta.env.VITE_ONBOARDING_BOOKING_URL ?? "").trim();
+export const ONBOARDING_BOOKING_URL = ONB_RAW && ONB_RAW.split("?")[0] !== GOOGLE_BOOKING ? ONB_RAW : "";
 export const PHONE = "+49 221 70093636";
 export const PHONE_HREF = "tel:+4922170093636";

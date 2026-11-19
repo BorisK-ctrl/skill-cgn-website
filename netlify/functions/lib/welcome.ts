@@ -73,7 +73,8 @@ export function offerCopy(offerName: string, months?: number): OfferCopy {
 /** Termin-Button: persönlicher Link zur Terminwahl (/onboarding, Google-Kalender-Anbindung), sonst Google-Terminplan (ONBOARDING_BOOKING_URL), sonst WhatsApp an Boris. */
 function scanButton(copy: OfferCopy, personal?: string): { label: string; href: string } {
   if (personal) return { label: "Onboarding-Termin buchen", href: personal };
-  const booking = process.env.ONBOARDING_BOOKING_URL?.trim();
+  /* Nie die Probetraining-Terminseite als Onboarding-Link (stand am 19.11.2026 versehentlich in Netlify) */
+  const raw = process.env.ONBOARDING_BOOKING_URL?.trim(), booking = raw && !raw.includes("AcZssZ10Q9b0R58FnSdP") ? raw : "";
   if (booking) return { label: "Onboarding-Termin buchen", href: booking };
   return { label: "Onboarding-Termin per WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(copy.waText)}` };
 }
