@@ -206,7 +206,7 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
 
   if (phase === "requested" && booked) return (
     <div ref={rootRef} className="mt-6 max-w-2xl border-2 border-primary bg-card p-5 md:p-7" role="status" aria-live="polite">
-      <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="text-3xl font-black uppercase leading-none">Anfrage ist da{first ? `, ${first}` : ""}.</p></div>
+      <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="font-display text-4xl uppercase leading-[0.9]">Anfrage ist da{first ? `, ${first}` : ""}.</p></div>
       <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/50">Dein Wunschtermin</p>
       <p className="mt-1 font-mono text-lg text-primary">{longDay(booked.start)}<br />{timeOf(booked.start)} bis {timeOf(booked.end)} Uhr</p>
       <p className="mt-2 text-sm leading-relaxed text-foreground/70">Wir schauen, welcher Coach Zeit hat, und bestätigen dir den Termin innerhalb von 24 Stunden per Mail. Passt die Zeit nicht, schlagen wir dir die nächste freie vor.</p>
@@ -215,7 +215,7 @@ export default function ProbetrainingBooking({ fallback, kind = "probetraining",
 
   if (phase === "booked" && booked) return (
     <div ref={rootRef} className="mt-6 max-w-2xl border-2 border-primary bg-card p-5 md:p-7" role="status" aria-live="polite">
-      <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="text-3xl font-black uppercase leading-none">Termin steht{first ? `, ${first}` : ""}.</p></div>
+      <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="font-display text-4xl uppercase leading-[0.9]">Termin steht{first ? `, ${first}` : ""}.</p></div>
       <p className="mt-4 font-mono text-lg text-primary">{longDay(booked.start)}<br />{timeOf(booked.start)} bis {timeOf(booked.end)} Uhr</p>
       <p className="mt-2 text-sm leading-relaxed text-foreground/70">{booked.coach ? `Mit ${booked.coach}, ` : ""}Herzogstraße 16–20, zwei Minuten vom Neumarkt. Die Bestätigung kommt per Mail. Bring Sportkleidung und saubere Sportschuhe mit.</p>
       {(booked.google || booked.ics) && (

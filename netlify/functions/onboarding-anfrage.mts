@@ -9,7 +9,7 @@
    (sonst könnte jemand fremde Adressen mit Mails von info@ fluten). */
 import type { Config } from "@netlify/functions";
 import { json, strictEmail, clientKey } from "./lib/util";
-import { getCheckoutLead, allowHit, getAnfrage, saveAnfrage } from "./lib/store";
+import { getCheckoutLead, allowHit, getAnfrage, saveAnfrage, hashKey } from "./lib/store";
 import { anfrageStart, anfrageMinutes, sendAnfrageTeam, sendAnfrageKunde, type Anfrage, type AnfrageKind } from "./lib/anfrage";
 
 const TOKEN = /^[a-z0-9]{16,48}$/; // wie checkout-lead
@@ -66,8 +66,12 @@ export default async (req: Request) => {
   /* Doppeltipp: nichts doppelt mailen, nur fehlende Mails nachholen. Kundenmail erst, wenn das Team die Anfrage hat.
      Frühere Anfrage derselben Person: steht in der Teammail (Hinweis auf Dubletten). */
   const prev = await getAnfrage(a.email, kind).catch(() => null);
-  const same = !!prev && prev.start === a.start && Date.now() - Date.parse(prev.at) < SAME_MS;
-  if (prev && !same) a.earlier = `${when(prev.start)} Uhr, angefragt am ${when(prev.at)} Uhr`;
+  /* Doppeltipp nur bei gleichen Angaben (Fingerabdruck als Hash, keine Daten im Klartext). Korrigiert jemand Telefon oder Anmerkung für
+     dieselbe Zeit, bekommt das Team die neuen Angaben als eigene Mail. */
+  const fp = hashKey([a.name, a.phone, a.contract, a.plz, a.usc, a.note].map(v => v || "").join("|"));
+  const same = !!prev && prev.start === a.start && prev.fp === fp && Date.now() - Date.parse(prev.at) < SAME_MS;
+  if (prev && !same) a.earlier = prev.start !== a.start ? `${when(prev.start)} Uhr, angefragt am ${when(prev.at)} Uhr`
+    : prev.fp === fp ? `Gleiche Zeit schon angefragt am ${when(prev.at)} Uhr` : `Korrektur: gleiche Zeit, neue Angaben (zuerst angefragt am ${when(prev.at)} Uhr)`;
   else if (same && prev?.earlier) a.earlier = prev.earlier;
   const mails = same ? { ...prev!.mails } : { staff: false, customer: false };
   /* Eingangsmail an dieselbe Adresse höchstens einmal in 24 Stunden. Eine neue Zeit bekommt das Team trotzdem, bestätigt wird von dort. */
@@ -75,7 +79,7 @@ export default async (req: Request) => {
   if (!same && customerAt && Date.now() - Date.parse(customerAt) < RECEIPT_MS) mails.customer = true;
   if (!mails.staff) mails.staff = await sendAnfrageTeam(a).catch(e => { console.log("anfrage team", String(e)); return false; });
   if (mails.staff && !mails.customer) { mails.customer = await sendAnfrageKunde(a).catch(e => { console.log("anfrage kunde", String(e)); return false; }); if (mails.customer) customerAt = new Date().toISOString(); }
-  await saveAnfrage(a.email, { kind, start: a.start, at: same ? prev!.at : new Date().toISOString(), ...(a.earlier ? { earlier: a.earlier } : {}), ...(customerAt ? { customerAt } : {}), mails }).catch(e => console.log("anfrage speichern", String(e)));
+  await saveAnfrage(a.email, { kind, start: a.start, at: same ? prev!.at : new Date().toISOString(), fp, ...(a.earlier ? { earlier: a.earlier } : {}), ...(customerAt ? { customerAt } : {}), mails }).catch(e => console.log("anfrage speichern", String(e)));
   if (!mails.staff) return json({ error: "Deine Anfrage ging gerade nicht raus. Bitte noch einmal tippen." }, 502);
   console.log(`anfrage ${kind}: ${a.start} (${a.verified ? "Kauf" : "Formular"}), Mail Kunde ${mails.customer ? "ok" : "fehlt"}`);
   return json({ ok: true, start: a.start, end: a.end, firstName: a.name.split(" ")[0] });

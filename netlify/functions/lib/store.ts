@@ -173,7 +173,7 @@ export async function releaseLock(key: string, owner: string) {
 /* ---------- Wunschtermine Onboarding und Probetraining (lib/anfrage.ts): letzte Anfrage je Person und Art. Ein Doppeltipp löst keine zweite Mail aus,
    eine fehlgeschlagene Mail wird beim nächsten Tipp nachgeholt. ---------- */
 /* Nur was der Doppeltipp-Schutz braucht, keine Namen, Telefonnummern oder Anmerkungen. Schlüssel gehasht. */
-export interface AnfrageRecord { kind?: string; start: string; at: string; earlier?: string; customerAt?: string; mails: { staff: boolean; customer: boolean } }
+export interface AnfrageRecord { kind?: string; start: string; at: string; fp?: string; earlier?: string; customerAt?: string; mails: { staff: boolean; customer: boolean } }
 const anfrageKey = (kind: string | undefined, email: string) => (kind === "probetraining" ? "ap/" : "a/") + hashKey(personKey(email));
 export async function getAnfrage(email: string, kind = "onboarding") { return getJSON<AnfrageRecord>("onboarding", anfrageKey(kind, email)); }
 export async function saveAnfrage(email: string, r: AnfrageRecord) { await setJSON("onboarding", anfrageKey(r.kind, email), r); }

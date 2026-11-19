@@ -66,7 +66,9 @@ export default function OnboardingBooking({ token: givenToken, checkoutToken, co
     try {
       const r = await fetch(`/api/termin/slots?t=${encodeURIComponent(t)}`, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
-      if (r.status === 503 || r.status === 401) { if (!silent) setPhase("unavailable"); return; }
+      /* 503/401: keine Anbindung oder Link ungültig. 5xx: Google antwortet gerade nicht. Dann den Rückfall zeigen (Wunschtermin-Kalender, Boris
+         19.11.2026: nicht WhatsApp). Im Hintergrund bleibt die bisherige Liste stehen. */
+      if (r.status === 503 || r.status === 401 || r.status >= 500) { if (!silent) setPhase("unavailable"); return; }
       if (!r.ok || j.error) { if (!silent) { setNote(j.error || "Kalender gerade nicht erreichbar."); setPhase("error"); } return; }
       if (j.booked) { setBooked(j.booked); setPhase("booked"); return; }
       if (j.past) { setBooked(j.past); setPhase("past"); return; }
@@ -77,7 +79,7 @@ export default function OnboardingBooking({ token: givenToken, checkoutToken, co
       const p = pickRef.current;
       if (p && !Object.values(next).some(list => list.some(f => f.start === p.start))) { setPick(null); setNote("Deine gewählte Zeit ist inzwischen vergeben. Bitte wähle eine andere."); }
       setPhase("ready");
-    } catch { if (!silent) { setNote("Kalender gerade nicht erreichbar."); setPhase("error"); } }
+    } catch { if (!silent) setPhase("unavailable"); }
   }, [t]);
   useEffect(() => { if (phase === "loading") load(); }, [phase, load]);
 
