@@ -13,6 +13,11 @@ const TOKEN = /^[a-z0-9]{16,48}$/;
 /* Abschlussseite → Kampagnenname (Lead, Vertragsmail, Meta CAPI) */
 const CAMPAIGNS = { "/start39": "START 39", "/back39": "BACK 39", "/blackweek": "BLACK WEEK 29" } as const;
 const fallbackPrice = (path: string) => (path === "/blackweek" ? 29 : 39);
+/* Echte Seite und echtes Angebot: /checkout läuft im Datensatz unter START 39 (Erinnerungslink, Meta). Für Teammail, Willkommensmail und Tagesbericht.
+   Beim Abschluss gilt, was der Browser dann schickt: über die Erinnerung (Link auf /start39) oder nach Angebotswechsel ist es ein anderes als in Schritt 1. */
+const PAGES = ["/start39", "/back39", "/blackweek", "/checkout"];
+const pageOf = (p: unknown) => (PAGES.includes(String(p)) ? String(p) : undefined);
+const offerOf = (o: unknown) => String(o ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || undefined;
 
 export default async (req: Request) => {
   if (req.method === "GET") {
@@ -39,16 +44,21 @@ export default async (req: Request) => {
     const firstDone = !l.done && !!b.contractId;
     if (!l.done) l.doneAt = new Date().toISOString(); // Abschlusszeit für den Tagesbericht (sales-report)
     l.done = true; if (b.contractId) l.contractId = String(b.contractId).slice(0, 40);
+    /* Angebot beim Abschluss (ältere Browser schicken es nicht: dann bleibt der Stand aus Schritt 1) */
+    const donePage = pageOf(b.path), doneOffer = offerOf(b.offer);
+    if (donePage) { l.page = donePage; l.months = b.months === 12 ? 12 : b.months === 1 ? 1 : undefined; }
+    if (doneOffer) l.offer = doneOffer;
+    const offerName = l.offer || l.campaign;
     /* SEPA-Weg (Vertrag im Browser angelegt): "Neuer Vertrag" ans Team und Willkommensmail, nur beim ersten Abschluss-Aufruf */
     if (firstDone && l.contractId) {
-      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.offer || l.campaign, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token,
+      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token,
         source: l.utm, consent: typeof b.consent === "string" ? b.consent : "", reminded: !!l.mailedAt }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
       /* Ein Paket (Issue #2): eine Willkommensmail mit Vertrag und SEPA-Mandat als PDF. Kurzes Zeitbudget, sonst übernimmt checkout-reminder. */
       const price = Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path);
       const startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined;
       const cid = Number(b.customerId);
-      l.welcome = { pendingSince: new Date().toISOString(), ...(cid > 0 ? { customerId: cid } : {}), input: { offerName: l.campaign, price, startDate } };
-      const welcome = await deliverWelcome(l, { firstName: l.firstName, email: l.email, contractId: l.contractId, offerName: l.campaign, price, startDate, months: l.months }, { budgetMs: 4000 })
+      l.welcome = { pendingSince: new Date().toISOString(), ...(cid > 0 ? { customerId: cid } : {}), input: { offerName, price, startDate } };
+      const welcome = await deliverWelcome(l, { firstName: l.firstName, email: l.email, contractId: l.contractId, offerName, price, startDate, months: l.months }, { budgetMs: 4000 })
         .catch(e => { console.log("welcome error", String(e)); return "pending" as const; });
       (l as any).mails = { at: new Date().toISOString(), ...mails, welcome };
       console.log(`checkout-lead done ${l.token} Vertrag ${l.contractId}: mail staff=${mails.staff} willkommen=${welcome}`);
@@ -95,9 +105,7 @@ export default async (req: Request) => {
   const campaign = CAMPAIGNS[path];
   if (!firstName || !validEmail(email)) return json({ error: "Bitte Vorname und E-Mail angeben" }, 400);
   const existing = await getCheckoutLead(token);
-  /* page/offer: echte Seite und echtes Angebot (/checkout läuft unter START 39 für Erinnerungslink und Meta). Für Tagesbericht und Teammail. */
-  const page = ["/start39", "/back39", "/blackweek", "/checkout"].includes(b.path) ? String(b.path) : existing?.page;
-  const offer = String(b.offer || "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || existing?.offer;
+  const page = pageOf(b.path) || existing?.page, offer = offerOf(b.offer) || existing?.offer;
   const lead: CheckoutLead = { token, campaign, path, ...(page ? { page } : {}), ...(offer ? { offer } : {}), ...(existing?.maxStep ? { maxStep: existing.maxStep } : {}), firstName, lastName, email, phone, months: b.months === 12 ? 12 : b.months === 1 ? 1 : undefined, createdAt: existing?.createdAt || new Date().toISOString(), done: false, mailedAt: existing?.mailedAt,
     leadUuid: /^[0-9a-f-]{36}$/i.test(String(b.leadUuid || "")) ? String(b.leadUuid) : existing?.leadUuid, customerNumber: String(b.customerNumber || existing?.customerNumber || "").slice(0, 20), utm: String(b.utm || existing?.utm || "").slice(0, 200) };
   await saveCheckoutLead(lead);
