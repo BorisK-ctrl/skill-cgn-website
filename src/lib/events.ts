@@ -16,6 +16,48 @@ export function utmParams(): Record<string, string> {
   } catch { return {}; }
 }
 
+/* Quelle des Besuchs fürs Team (Magicline-Notiz, Mail "Neuer Vertrag", Tagesbericht). Wird einmal auf der Einstiegsseite bestimmt
+   (App-Start), denn die Links der Startseite zu /blackweek nehmen die UTM-Parameter nicht mit. Format:
+   "utm_source / utm_medium / utm_campaign[ / utm_content] · Google-Anzeige · Einstieg /". Ohne UTM: Kanal aus der Klick-ID
+   (gclid, wbraid, gbraid = Google-Anzeige; fbclid = Instagram/Facebook, bezahlt oder nicht) oder aus dem Referrer, sonst "direkt". */
+const SRC_KEYS = ["skill-src", "skill-src-content"] as const;
+const srcMemo: Record<string, string> = {};
+const srcClean = (v: string) => v.replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
+function refChannel(ref: string): string {
+  let host = "";
+  try { host = new URL(ref).hostname.replace(/^www\./, "").toLowerCase(); } catch { return "direkt"; }
+  if (!host) return "direkt";
+  if (host === "skill-studios.com" || host.endsWith(".skill-studios.com") || host === location.hostname.replace(/^www\./, "")) return "intern";
+  if (/(^|\.)instagram\.com$/.test(host)) return "Instagram";
+  if (/(^|\.)(facebook\.com|fb\.com|fb\.me|messenger\.com)$/.test(host)) return "Facebook";
+  if (/(^|\.)google\.[a-z.]+$/.test(host)) return "Google Suche/Maps";
+  if (/(^|\.)tiktok\.com$/.test(host)) return "TikTok";
+  return "Referrer " + host;
+}
+/** Quelle der Sitzung (auf der Einstiegsseite bestimmt). withContent: mit utm_content (welche Anzeige). */
+export function landingSource(withContent = false): string {
+  const key = SRC_KEYS[withContent ? 1 : 0];
+  if (srcMemo[key]) return srcMemo[key];
+  try { const s = sessionStorage.getItem(key); if (s) return (srcMemo[key] = s); } catch {}
+  let v = "unbekannt";
+  try {
+    const p = new URLSearchParams(window.location.search);
+    const utm = ["utm_source", "utm_medium", "utm_campaign", ...(withContent ? ["utm_content"] : [])].map(k => srcClean(p.get(k) || "")).filter(Boolean);
+    const ref = refChannel(document.referrer);
+    const ad = p.get("gclid") || p.get("wbraid") || p.get("gbraid") ? "Google-Anzeige" : p.get("msclkid") ? "Microsoft-Anzeige" : p.get("ttclid") ? "TikTok-Anzeige"
+      : p.get("fbclid") ? (ref === "Instagram" || ref === "Facebook" ? ref : "Instagram/Facebook") : "";
+    const head = utm.length ? utm.join(" / ") + (ad ? " · " + ad : "") : ad || ref;
+    v = `${head} · Einstieg ${srcClean(window.location.pathname) || "/"}`.slice(0, 160); // Magicline-Notiz bleibt unter 300 Zeichen
+  } catch {}
+  srcMemo[key] = v;
+  try { sessionStorage.setItem(key, v); } catch {}
+  return v;
+}
+/** Quelle der Sitzung ersetzen: Rückkehr über die Erinnerungsmail behält die Quelle aus Schritt 1. */
+export function setSessionSource(v: string) {
+  for (const k of SRC_KEYS) { srcMemo[k] = v; try { sessionStorage.setItem(k, v); } catch {} }
+}
+
 function onceKey(name: string) { try { const k = "skill-ev-" + name; if (sessionStorage.getItem(k)) return false; sessionStorage.setItem(k, "1"); } catch {} return true; }
 
 /** Ereignis an Meta (benutzerdefiniert) und Google (gtag event). */

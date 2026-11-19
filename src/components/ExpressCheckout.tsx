@@ -133,7 +133,7 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
         try {
           const { error: submitError } = await elements.submit(); if (submitError) throw new Error(submitError.message || "Eingabe unvollständig");
           const r = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", token: tok, path, offerName, months, rateBundleTermId: t.id, startDate: nextMonday(), dob: c.birthDate, signatureSvgBase64: sig.svgBase64(),
-            ...person, houseNumber: person.streetNumber, wallet: event?.expressPaymentType || "", price: t.price, utm: utmSource(), sourceUrl: location.href, consent: consent(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }) });
+            ...person, houseNumber: person.streetNumber, wallet: event?.expressPaymentType || "", price: t.price, utm: utmSource(true), sourceUrl: location.href, consent: consent(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }) });
           const j = await r.json().catch(() => ({}));
           if (r.status === 400 && Array.isArray(j.missing) && j.missing.length) { try { event.paymentFailed({ reason: "fail" }); } catch {} setFill(f => ({ ...f, ...person })); setMissing(j.missing); setStatus("ready"); return; }
           if (!r.ok || !j.clientSecret) throw new Error(j.error || "Der Abschluss konnte nicht vorbereitet werden");

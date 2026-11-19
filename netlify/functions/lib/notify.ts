@@ -141,11 +141,23 @@ export async function sendShopMails(o: ShopOrder) {
   return { staff, customer };
 }
 
+/* ---------- Tagesbericht Verkauf (sales-report.mts) an das Team, zusätzlich an REPORT_EMAIL (Netlify, kommagetrennt), falls gesetzt ---------- */
+export async function sendSalesReport(subject: string, html: string, text: string) {
+  const extra = (process.env.REPORT_EMAIL || "").split(",").map(s => s.trim().toLowerCase()).filter(s => /^[^@\s,]+@[^@\s,]+\.[a-z]{2,}$/.test(s));
+  return sendFrom(FROM, [...new Set([STAFF_EMAIL, ...extra])], subject, wrap(html, subject), { text, logLabel: "tagesbericht" });
+}
+
 /* ---------- Mitgliedschaft: "Neuer Vertrag" ans Team (Willkommensmail: lib/welcome.ts) ---------- */
-export interface ContractMail { firstName: string; lastName: string; email: string; phone: string; customerNumber?: string; contractId: string; offerName: string; price: number; startDate?: string; payment: "sepa" | "card" | "express"; months?: number; token?: string }
+/* source: Quelle aus dem Browser (lib/events.ts landingSource), consent: Cookie-Wahl beim Abschluss, reminded: Erinnerungsmail war vorher raus */
+export interface ContractMail { firstName: string; lastName: string; email: string; phone: string; customerNumber?: string; contractId: string; offerName: string; price: number; startDate?: string; payment: "sepa" | "card" | "express"; months?: number; token?: string; source?: string; consent?: string; reminded?: boolean }
 export async function sendContractMails(c: ContractMail) {
   const pay = c.payment === "sepa" ? "SEPA-Lastschrift (Magicline)" : c.payment === "express" ? "Stripe-Abo (Apple Pay / Google Pay)" : "Stripe-Abo (Karte / Wallet)";
   const start = c.startDate ? new Date(c.startDate + "T12:00:00").toLocaleDateString("de-DE") : "";
+  const src = (c.source || "").trim() || "unbekannt";
+  const source = esc(src) + (c.reminded && !/Erinnerungsmail/.test(src) ? " · nach Erinnerungsmail" : "");
+  /* Ohne Zustimmung meldet checkout-lead den Kauf nicht an Meta (außer META_CAPI_ALWAYS=true) */
+  const blind = process.env.META_CAPI_ALWAYS === "true" ? "" : " (Meta sieht den Kauf nicht)";
+  const cookies = c.consent === undefined ? "" : c.consent === "accepted" ? "zugestimmt" : (c.consent === "denied" ? "abgelehnt" : "nicht gewählt") + blind;
   const staff = await send(STAFF_EMAIL, `Neuer Vertrag: ${c.firstName} ${c.lastName} — ${c.offerName}`, wrap(`<h1 style="font-size:24px;margin:0 0 12px">Neuer Vertrag</h1>
 <table style="border-collapse:collapse;color:#fff;font-size:14px">
 <tr><td style="padding:4px 12px 4px 0;color:#888">Angebot</td><td><strong>${c.offerName}</strong>${c.months ? `, ${c.months === 12 ? "12 Monate" : "monatlich"}` : ""}, ${c.price} € alle vier Wochen</td></tr>
@@ -155,6 +167,8 @@ export async function sendContractMails(c: ContractMail) {
 <tr><td style="padding:4px 12px 4px 0;color:#888">Magicline</td><td>Vertrag ${c.contractId}${c.customerNumber ? `, Kunde ${c.customerNumber}` : ""}</td></tr>
 <tr><td style="padding:4px 12px 4px 0;color:#888">Start</td><td>${start || "—"}</td></tr>
 <tr><td style="padding:4px 12px 4px 0;color:#888">Zahlung</td><td>${pay}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#888">Quelle</td><td>${source}</td></tr>
+${cookies ? `<tr><td style="padding:4px 12px 4px 0;color:#888">Cookies</td><td>${cookies}</td></tr>` : ""}
 </table><p style="margin-top:16px">Scan-Termin vereinbaren, am ersten Trainingstag Einweisung.</p>`));
   /* Kundenmail kommt jetzt als ein Paket aus lib/welcome.ts (mit Vertrag und SEPA-Mandat als PDF, Issue #2). Hier nur noch die Teammail. */
   const customer = false;

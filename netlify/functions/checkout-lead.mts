@@ -25,7 +25,8 @@ export default async (req: Request) => {
       return json({ done: !!l.done, contractId: l.contractId || "", customerNumber: l.customerNumber || "", paid: !!l.stripe, error: l.contractError || "" });
     }
     if (!l || l.done) return json({ error: "Link abgelaufen" }, 404);
-    return json({ campaign: l.campaign, firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, months: l.months ?? null, leadUuid: l.leadUuid || "", customerNumber: l.customerNumber || "" });
+    /* utm: Quelle aus Schritt 1, damit die Rückkehr über die Erinnerungsmail sie behält (StartCheckout) */
+    return json({ campaign: l.campaign, firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, months: l.months ?? null, leadUuid: l.leadUuid || "", customerNumber: l.customerNumber || "", utm: l.utm || "" });
   }
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   let b: any; try { b = await req.json(); } catch { return json({ error: "Ungültige Anfrage" }, 400); }
@@ -36,10 +37,12 @@ export default async (req: Request) => {
     if (!l) return json({ ok: true });
     const already = l.done && l.capi?.sent;
     const firstDone = !l.done && !!b.contractId;
+    if (!l.done) l.doneAt = new Date().toISOString(); // Abschlusszeit für den Tagesbericht (sales-report)
     l.done = true; if (b.contractId) l.contractId = String(b.contractId).slice(0, 40);
     /* SEPA-Weg (Vertrag im Browser angelegt): "Neuer Vertrag" ans Team und Willkommensmail, nur beim ersten Abschluss-Aufruf */
     if (firstDone && l.contractId) {
-      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.campaign, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
+      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.campaign, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token,
+        source: l.utm, consent: typeof b.consent === "string" ? b.consent : "", reminded: !!l.mailedAt }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
       /* Ein Paket (Issue #2): eine Willkommensmail mit Vertrag und SEPA-Mandat als PDF. Kurzes Zeitbudget, sonst übernimmt checkout-reminder. */
       const price = Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path);
       const startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined;

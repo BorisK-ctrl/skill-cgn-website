@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && node scripts/check-offers.mjs && vite build && vite build --ssr src/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "vite preview",
-    "deploy": "npm run build && netlify deploy --prod --dir=dist && node scripts/indexnow.mjs",
+    "deploy": "node scripts/check-deploy-env.mjs && npm run build && netlify deploy --prod --dir=dist && node scripts/indexnow.mjs",
     "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
