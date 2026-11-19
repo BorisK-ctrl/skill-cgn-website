@@ -27,6 +27,20 @@ export async function freeByDay(kind: Kind, now = new Date()) {
   return byDay;
 }
 
+/** Freie Zeiten für offene Seiten: höchstens 15 s alt (je Instanz), damit Dauerabfragen Google nicht belasten. Buchung rechnet immer frisch. */
+const pubCache = new Map<Kind, { at: number; byDay: Record<string, { start: string; end: string }[]> }>();
+const pubInflight = new Map<Kind, Promise<Record<string, { start: string; end: string }[]>>>();
+export async function cachedFreeByDay(kind: Kind) {
+  const c = pubCache.get(kind);
+  if (c && Date.now() - c.at <= 15000) return c.byDay;
+  let p = pubInflight.get(kind);
+  if (!p) { p = freeByDay(kind).finally(() => pubInflight.delete(kind)); pubInflight.set(kind, p); }
+  const byDay = await p;
+  pubCache.set(kind, { at: Date.now(), byDay });
+  if (!Object.keys(byDay).length) console.log(`${kind} frei: keine freien Zeiten in drei Wochen (Schichten in SERVICE? Freigaben?)`);
+  return byDay;
+}
+
 /** Start prüfen: im 30-Minuten-Raster, nicht vor Vorlauf, nicht nach Horizont. */
 export function checkStart(kind: Kind, startIso: unknown, now = Date.now()): { ok: true; startMs: number } | { ok: false; status: number; error: string } {
   const startMs = typeof startIso === "string" ? Date.parse(startIso) : NaN;

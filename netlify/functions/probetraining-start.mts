@@ -24,7 +24,7 @@ export default async (req: Request) => {
   if (!/^\d{5}$/.test(plz)) return json({ error: "Bitte eine fünfstellige Postleitzahl eintragen.", field: "plz" }, 400);
   const ok = await allowHit("probe/" + clientKey(req), 6, 3600000).catch(() => true);
   if (!ok) return json({ error: "Zu viele Anfragen. Schreib uns bitte kurz per WhatsApp." }, 429);
-  const t = signToken({ n: `${first} ${last}`, e: email, p: phone, o: `PLZ ${plz} · Urban Sports Club: ${usc}`, r: "probetraining", k: "probetraining" }, 2 / 24);
+  const t = signToken({ n: `${first} ${last}`, e: email, p: phone, o: `PLZ ${plz} · Urban Sports Club: ${usc}`, r: "probetraining", k: "probetraining", s: 1 }, 2 / 24);
   return json({ available: true, t });
 };
 export const config: Config = { path: "/api/probetraining/start" };

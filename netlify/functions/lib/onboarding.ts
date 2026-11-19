@@ -190,7 +190,8 @@ export function unclearAt(d: CalData, start: string, end: string): string[] {
 }
 
 /* ---------- Link-Token: verschlüsselt (AES-256-GCM, Schlüssel aus ONBOARDING_SECRET). In der URL stehen keine Kundendaten. ---------- */
-export interface OnbToken { n: string; e: string; p?: string; o?: string; r?: string; k?: Kind; x: number }
+/** s=1: selbst ausgestellt auf einer offenen Seite (/probetraining, /onboarding ohne Link), E-Mail nicht bestätigt: keine Auskunft über Termine */
+export interface OnbToken { n: string; e: string; p?: string; o?: string; r?: string; k?: Kind; s?: 1; x: number }
 const SECRET = () => (process.env.ONBOARDING_SECRET || "").trim();
 const key = () => createHash("sha256").update("skill-onboarding-token:" + SECRET()).digest();
 export function signToken(t: Omit<OnbToken, "x">, days = 60): string {

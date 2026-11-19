@@ -3,7 +3,7 @@
  * Termin direkt auf der Seite (OnboardingBooking, live aus unseren Google-Kalendern, 90 Minuten). Ist die Anbindung nicht eingerichtet:
  * Google-Terminplan (VITE_ONBOARDING_BOOKING_URL, eingebettet) oder WhatsApp an Boris.
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { CalendarCheck, MessageCircle, ScanLine, Watch, ClipboardList, Dumbbell, Shirt, Footprints, ExternalLink, Smartphone, ArrowRight } from "lucide-react";
 import { ONBOARDING_BOOKING_URL, WHATSAPP, TECHNOGYM_APP } from "@/lib/magicline";
 import { trackCta } from "@/lib/events";
@@ -17,7 +17,8 @@ const EXPECT = [
   { icon: Dumbbell, t: "Einweisung, dann geht's los", d: "Wir zeigen dir Geräte und Ablauf. Danach startest du durch." },
 ] as const;
 
-export default function OnboardingNext({ waText, checkoutToken, contractId, token }: { waText: string; checkoutToken?: string; contractId?: string; token?: string }) {
+/** booking: anderes Buchungs-Widget statt OnboardingBooking (offene Seite /onboarding ohne persönlichen Link), bekommt den WhatsApp-Rückfall und onBooked */
+export default function OnboardingNext({ waText, checkoutToken, contractId, token, booking }: { waText: string; checkoutToken?: string; contractId?: string; token?: string; booking?: (fallback: ReactNode, onBooked: (b: boolean) => void) => ReactNode }) {
   const wa = `${WHATSAPP}?text=${encodeURIComponent(waText)}`;
   const [booked, setBooked] = useState(false);
   const embed = ONBOARDING_BOOKING_URL ? ONBOARDING_BOOKING_URL + (ONBOARDING_BOOKING_URL.includes("?") ? "&" : "?") + "gv=true" : "";
@@ -44,7 +45,7 @@ export default function OnboardingNext({ waText, checkoutToken, contractId, toke
       <h2 id="onboarding-h" className="campaign-display mt-3 text-5xl uppercase leading-[0.88] md:text-6xl">{booked ? "Dein" : "Buch deinen"}<br /><span className="text-[#FBFF00]">Onboarding-Termin.</span></h2>
       <p className="mt-4 text-base leading-relaxed text-white/75">90 Minuten mit Coach, bei uns in der Herzogstraße. Danach trainierst du, wann es dir passt.</p>
 
-      <OnboardingBooking token={token} checkoutToken={checkoutToken} contractId={contractId} waText={waText} fallback={fallback} onBooked={setBooked} />
+      {booking ? booking(fallback, setBooked) : <OnboardingBooking token={token} checkoutToken={checkoutToken} contractId={contractId} waText={waText} fallback={fallback} onBooked={setBooked} />}
 
       <p className={`${kicker} mt-12`}>Das erwartet dich beim Onboarding</p>
       <ol className="mt-4 grid gap-px bg-white/15">

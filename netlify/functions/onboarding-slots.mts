@@ -12,8 +12,8 @@ export default async (req: Request) => {
   const t = verifyToken(new URL(req.url).searchParams.get("t") || "");
   if (!t) return json({ error: "Der Link ist ungültig oder abgelaufen. Schreib uns kurz per WhatsApp, wir schicken dir einen neuen." }, 401);
   if (!gcalConfigured()) return json({ error: "Terminbuchung gerade nicht verfügbar." }, 503);
-  /* Probetraining-Zugänge stellt sich jeder selbst aus: keine Auskunft über bestehende Termine, Zeiten gibt es öffentlich (/api/probetraining/slots) */
-  if (t.k === "probetraining") return json({ error: "Für Probetrainings bitte die Seite /probetraining nutzen." }, 400);
+  /* Selbst ausgestellte Zugänge (offene Seiten): keine Auskunft über bestehende Termine. Zeiten gibt es öffentlich (/api/probetraining/slots, /api/onboarding/frei) */
+  if (t.k === "probetraining" || t.s === 1) return json({ error: "Bitte die Seite /probetraining bzw. /onboarding nutzen." }, 400);
   const firstName = t.n.split(/\s+/)[0] || "";
   const kind: Kind = "onboarding";
   try {

@@ -5,6 +5,8 @@
  * Fehler stehen direkt am Knopf. Nur wenn die Zeit wirklich weg ist (409), wird die Auswahl gelöscht; Eingaben bleiben immer stehen.
  * Live: lädt jede Minute neu (höchstens 30 Minuten) und beim Zurückkehren in den Tab. Ohne Google-Anbindung (oder bei zu vielen Abrufen)
  * zeigt die Seite fallback: Formular mit Weiterleitung zur Google-Terminseite.
+ * kind="onboarding": dieselbe Buchung für die offene Seite /onboarding (Mitglieder ohne persönlichen Link, z. B. aus der Magicline-Mail):
+ * 90 Minuten, /api/onboarding/frei und /api/onboarding/start, Vertragsnummer optional, kein Lead (ist schon Mitglied).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -25,7 +27,18 @@ const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { hour
 const dayOf = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: TZ });
 const when = (iso: string) => `${dayChip(dayOf(iso))}, ${timeOf(iso)} Uhr`;
 
-export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode }) {
+const CFG = {
+  probetraining: { label: "Probetraining", slots: "/api/probetraining/slots", start: "/api/probetraining/start", lead: true, google: true,
+    intro: "30 Minuten mit Coach: Erstgespräch und 3D Scan. Tipp auf Tag und Uhrzeit, dann trägst du dich ein. Die Bestätigung kommt sofort per E-Mail.",
+    wa: "Hallo, ich möchte ein Probetraining buchen." },
+  onboarding: { label: "Onboarding", slots: "/api/onboarding/frei", start: "/api/onboarding/start", lead: false, google: false,
+    intro: "Tipp auf Tag und Uhrzeit, dann trägst du dich ein. Die Bestätigung kommt sofort per E-Mail.",
+    wa: "Hi Boris, ich möchte meinen Onboarding-Termin ausmachen." },
+} as const;
+
+export default function ProbetrainingBooking({ fallback, kind = "probetraining", onBooked }: { fallback: ReactNode; kind?: "probetraining" | "onboarding"; onBooked?: (booked: boolean) => void }) {
+  const cfg = CFG[kind];
+  const rootRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [byDay, setByDay] = useState<Record<string, Free[]>>({});
   const [day, setDay] = useState("");
@@ -43,13 +56,13 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
   const phaseRef = useRef<Phase>("loading"); phaseRef.current = phase;
   const lastLoad = useRef(0), autoCount = useRef(0);
   const formRef = useRef<HTMLFormElement>(null);
-  const toCalendar = () => window.setTimeout(() => document.getElementById("buchen")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  const toCalendar = () => window.setTimeout(() => (rootRef.current?.closest("section") || rootRef.current)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
 
   /* Freie Zeiten laden. silent = im Hintergrund: Fehler lassen die Liste stehen */
   const load = useCallback(async (silent = false) => {
     lastLoad.current = Date.now();
     try {
-      const r = await fetch("/api/probetraining/slots", { cache: "no-store" });
+      const r = await fetch(cfg.slots, { cache: "no-store" });
       const j = await r.json().catch(() => ({}));
       if (phaseRef.current === "booked") return;
       if ((r.ok && j.available === false) || (r.status === 429 && !silent)) { if (!silent) setPhase("fallback"); return; }
@@ -62,7 +75,7 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
       if (p && !Object.values(next).some(list => list.some(f => f.start === p.start))) { setPick(null); setNote(`${when(p.start)} ist inzwischen vergeben. Bitte wähle eine andere Zeit.`); toCalendar(); }
       setPhase("pick");
     } catch { if (!silent) { setNote("Kalender gerade nicht erreichbar."); setPhase("error"); } }
-  }, []);
+  }, [cfg.slots]);
   useEffect(() => { load(); }, [load]);
 
   /* Live halten: jede Minute (höchstens 30-mal) und beim Zurückkehren in den Tab */
@@ -77,6 +90,7 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
     return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back); };
   }, [phase, load]);
 
+  useEffect(() => { onBooked?.(phase === "booked"); }, [phase, onBooked]);
   const days = useMemo(() => Object.keys(byDay).sort(), [byDay]);
   const free = byDay[day] || [];
   const choose = (f: Free) => {
@@ -93,11 +107,11 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
     setBusy(true); setFormNote(null); setNote(null);
     const d = Object.fromEntries(new FormData(f).entries()) as Record<string, string>;
     const start = pick.start;
-    const key = JSON.stringify([d.firstname, d.lastname, d.email, d.phone, d.plz, d.usc].map(v => (v || "").trim().toLowerCase()));
+    const key = JSON.stringify([d.firstname, d.lastname, d.email, d.phone, d.plz, d.usc, d.vertrag].map(v => (v || "").trim().toLowerCase()));
     try {
       /* 1. Zugang für diese Person (bei Wiederholung mit gleichen Daten wiederverwenden) */
       if (tokenRef.current?.key !== key) {
-        const r = await fetch("/api/probetraining/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) });
+        const r = await fetch(cfg.start, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) });
         const j = await r.json().catch(() => null);
         if (r.ok && j?.available === false) { setPhase("fallback"); return; }
         if (!r.ok || !j?.t) { setFormNote(j?.error || "Verbindung gestört. Bitte noch einmal tippen."); return; }
@@ -108,14 +122,14 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
       const j = await r.json().catch(() => null);
       if (j?.ok) {
         /* 3. Lead in Magicline mit der wirklich gebuchten Zeit (einmal je Person und Seitenaufruf, Fehler blockieren nichts) */
-        if (leadRef.current !== key) {
+        if (cfg.lead && leadRef.current !== key) {
           leadRef.current = key;
           createLead({ firstname: d.firstname.trim(), lastname: d.lastname.trim(), email: d.email.trim(), phone: d.phone.trim(),
             notes: `Probetraining über Website. PLZ ${d.plz.trim()}. Urban Sports Club: ${d.usc}. Termin über den Website-Kalender: ${longDay(j.start)}, ${timeOf(j.start)} Uhr.` }).catch(err => console.warn("lead", err));
           track("Lead", { content_name: "Probetraining" });
         }
         setFirst(d.firstname.trim()); setBooked({ start: j.start, end: j.end, coach: j.coach, google: j.google, ics: j.ics }); setPhase("booked");
-        track("Schedule", { content_name: "Probetraining" }); trackEvent("probetraining_booked", { content_name: "Probetraining" });
+        track("Schedule", { content_name: cfg.label }); trackEvent(`${kind}_booked`, { content_name: cfg.label });
         toCalendar();
       } else if (j?.alreadyBooked) {
         setFormNote(j.error);
@@ -132,7 +146,7 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
     finally { setBusy(false); }
   }
 
-  const wa = `${WHATSAPP}?text=${encodeURIComponent("Hallo, ich möchte ein Probetraining buchen.")}`;
+  const wa = `${WHATSAPP}?text=${encodeURIComponent(cfg.wa)}`;
 
   if (phase === "fallback") return <>{fallback}</>;
 
@@ -145,13 +159,14 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
       <p>{note}</p>
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" onClick={() => { setNote(null); setPhase("loading"); load(); }} className="btn">Noch einmal laden</button>
-        <a href={GOOGLE_BOOKING} className="btn-ghost" onClick={() => track("Schedule", { content_name: "Probetraining" })}>Termin über Google wählen</a>
+        {cfg.google ? <a href={GOOGLE_BOOKING} className="btn-ghost" onClick={() => track("Schedule", { content_name: "Probetraining" })}>Termin über Google wählen</a>
+          : <a href={wa} target="_blank" rel="noopener noreferrer" className="btn-ghost"><MessageCircle className="h-4 w-4" /> Termin per WhatsApp</a>}
       </div>
     </div>
   );
 
   if (phase === "booked" && booked) return (
-    <div className="mt-6 max-w-2xl border-2 border-primary bg-card p-5 md:p-7" role="status" aria-live="polite">
+    <div ref={rootRef} className="mt-6 max-w-2xl border-2 border-primary bg-card p-5 md:p-7" role="status" aria-live="polite">
       <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center bg-primary"><Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} /></span><p className="text-3xl font-black uppercase leading-none">Termin steht{first ? `, ${first}` : ""}.</p></div>
       <p className="mt-4 font-mono text-lg text-primary">{longDay(booked.start)}<br />{timeOf(booked.start)} bis {timeOf(booked.end)} Uhr</p>
       <p className="mt-2 text-sm leading-relaxed text-foreground/70">{booked.coach ? `Mit ${booked.coach}, ` : ""}Herzogstraße 16–20, zwei Minuten vom Neumarkt. Die Bestätigung kommt per Mail. Bring Sportkleidung und saubere Hallenschuhe mit.</p>
@@ -167,16 +182,16 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
 
   const otherDay = pick && dayOf(pick.start) !== day;
   return (
-    <div className="max-w-2xl">
-      <p className="lead mute">30 Minuten mit Coach: Erstgespräch und 3D Scan. Tipp auf Tag und Uhrzeit, dann trägst du dich ein. Die Bestätigung kommt sofort per E-Mail.</p>
+    <div ref={rootRef} className="max-w-2xl">
+      <p className="lead mute">{cfg.intro}</p>
       <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/50">Uhrzeiten in Köln · live aus unserem Kalender</p>
       {note && <p role="alert" className="mt-3 border-l-4 border-primary bg-primary/10 px-3 py-2 text-sm font-bold text-primary">{note}</p>}
       {days.length === 0 ? (
         <div className="mt-3 border-2 border-foreground/15 p-5 text-sm leading-relaxed text-foreground/75">
-          In den nächsten drei Wochen ist online gerade nichts frei. Schreib uns kurz oder wähl einen Termin über Google.
+          In den nächsten drei Wochen ist online gerade nichts frei. Schreib uns kurz{cfg.google ? " oder wähl einen Termin über Google" : ", wir finden einen Termin"}.
           <div className="mt-4 flex flex-wrap gap-3">
             <a href={wa} target="_blank" rel="noopener noreferrer" className="btn"><MessageCircle className="h-4 w-4" /> Termin per WhatsApp</a>
-            <a href={GOOGLE_BOOKING} className="btn-ghost" onClick={() => track("Schedule", { content_name: "Probetraining" })}>Termin über Google wählen</a>
+            {cfg.google && <a href={GOOGLE_BOOKING} className="btn-ghost" onClick={() => track("Schedule", { content_name: "Probetraining" })}>Termin über Google wählen</a>}
           </div>
         </div>
       ) : (
@@ -205,15 +220,19 @@ export default function ProbetrainingBooking({ fallback }: { fallback: ReactNode
           <label className="label" htmlFor="pt-nn">Nachname</label><input className="input" id="pt-nn" name="lastname" required maxLength={40} autoComplete="family-name" />
           <label className="label" htmlFor="pt-em">E-Mail</label><input className="input" id="pt-em" name="email" type="email" required maxLength={120} autoComplete="email" pattern="[^\s@]+@[^\s@]+\.[^\s@]{2,}" title="Bitte eine gültige E-Mail-Adresse, z. B. max@beispiel.de" />
           <label className="label" htmlFor="pt-tel">Handynummer</label><input className="input" id="pt-tel" name="phone" type="tel" required maxLength={40} autoComplete="tel" placeholder="+49 …" pattern="(?:\D*\d){6,}\D*" title="Bitte eine Handynummer mit mindestens 6 Ziffern" />
-          <label className="label" htmlFor="pt-plz">Postleitzahl</label><input className="input" id="pt-plz" name="plz" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} required autoComplete="postal-code" placeholder="50667" title="Bitte eine fünfstellige Postleitzahl" />
-          <p className="label">Trainierst du über Urban Sports Club?</p>
-          <div className="radio-row">
-            <label><input type="radio" name="usc" value="nein" required />Nein</label>
-            <label><input type="radio" name="usc" value="ja" />Ja</label>
-          </div>
-          <p className="text-sm mute mt-4">Mit dem Absenden stimmst du zu, dass wir dich zu deinem Probetraining per E-Mail und Telefon kontaktieren. <Link to="/datenschutz" className="underline">Datenschutz</Link></p>
+          {kind === "probetraining" ? <>
+            <label className="label" htmlFor="pt-plz">Postleitzahl</label><input className="input" id="pt-plz" name="plz" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} required autoComplete="postal-code" placeholder="50667" title="Bitte eine fünfstellige Postleitzahl" />
+            <p className="label">Trainierst du über Urban Sports Club?</p>
+            <div className="radio-row">
+              <label><input type="radio" name="usc" value="nein" required />Nein</label>
+              <label><input type="radio" name="usc" value="ja" />Ja</label>
+            </div>
+          </> : <>
+            <label className="label" htmlFor="pt-vertrag">Vertragsnummer <span className="font-normal text-foreground/50">(optional, steht in deiner Mail von Magicline)</span></label><input className="input" id="pt-vertrag" name="vertrag" inputMode="numeric" maxLength={20} placeholder="z. B. 1215769690" />
+          </>}
+          <p className="text-sm mute mt-4">Mit dem Absenden stimmst du zu, dass wir dich zu deinem {cfg.label} per E-Mail und Telefon kontaktieren. <Link to="/datenschutz" className="underline">Datenschutz</Link></p>
           {formNote && <p role="alert" className="mt-4 border-l-4 border-primary bg-primary/10 px-3 py-2 text-sm font-bold text-primary">{formNote}</p>}
-          <div className="btns"><button className="btn w-full justify-center sm:w-auto" type="submit" disabled={busy || !pick}>{busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird eingetragen …</> : pick ? <>Probetraining {when(pick.start)} buchen <ArrowRight className="h-4 w-4" /></> : "Erst Uhrzeit wählen"}</button></div>
+          <div className="btns"><button className="btn w-full justify-center sm:w-auto" type="submit" disabled={busy || !pick}>{busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Wird eingetragen …</> : pick ? <>{cfg.label} {when(pick.start)} buchen <ArrowRight className="h-4 w-4" /></> : "Erst Uhrzeit wählen"}</button></div>
         </form>
       )}
     </div>

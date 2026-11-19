@@ -1,35 +1,20 @@
 /* GET /api/probetraining/slots → freie Probetraining-Zeiten (30 Min) der nächsten drei Wochen, ohne Anmeldung: /probetraining zeigt den Kalender
    zuerst, die Daten kommen nach der Zeitwahl. {available:false} ohne Google-Zugang (die Seite zeigt dann das Formular mit Google-Terminseite).
-   Live aus Google, höchstens 15 s alt (Zwischenspeicher je Instanz gegen Dauerabfragen). Die Buchung rechnet immer frisch (lib/booking.ts).
-   Bremse: 600 Abrufe je Anschluss und Stunde (IPv6 je /64; mehrere Besucher hinter einem WLAN laden je einmal pro Minute nach).
-   Mitarbeiter werden nicht verraten. Leere Liste wird geloggt (meist fehlende Schichten oder Freigaben). */
+   Live aus Google, höchstens 15 s alt (lib/booking.ts cachedFreeByDay). Die Buchung rechnet immer frisch.
+   Bremse: 600 Abrufe je Anschluss und Stunde (IPv6 je /64). Mitarbeiter werden nicht verraten. */
 import type { Config } from "@netlify/functions";
 import { json, clientKey } from "./lib/util";
 import { gcalConfigured } from "./lib/gcal";
 import { KINDS } from "./lib/onboarding";
-import { freeByDay } from "./lib/booking";
+import { cachedFreeByDay } from "./lib/booking";
 import { allowHit } from "./lib/store";
-
-type ByDay = Record<string, { start: string; end: string }[]>;
-const FRESH_MS = 15000;
-let cache: { at: number; byDay: ByDay } | null = null;
-let inflight: Promise<ByDay> | null = null;
 
 export default async (req: Request) => {
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
   if (!gcalConfigured() || !(process.env.ONBOARDING_SECRET || "").trim()) return json({ available: false });
   const ok = await allowHit("probeslots/" + clientKey(req), 600, 3600000).catch(() => true);
   if (!ok) return json({ error: "Zu viele Abrufe. Bitte in ein paar Minuten noch einmal." }, 429);
-  try {
-    if (!cache || Date.now() - cache.at > FRESH_MS) {
-      inflight ||= freeByDay("probetraining").finally(() => { inflight = null; });
-      cache = { at: Date.now(), byDay: await inflight };
-      if (!Object.keys(cache.byDay).length) console.log("probetraining-slots: keine freien Zeiten in drei Wochen (Schichten in SERVICE? Freigaben?)");
-    }
-    return json({ available: true, durationMin: KINDS.probetraining.durationMin, byDay: cache.byDay });
-  } catch (e) {
-    console.log("probetraining-slots", String(e));
-    return json({ error: "Kalender gerade nicht erreichbar." }, 502);
-  }
+  try { return json({ available: true, durationMin: KINDS.probetraining.durationMin, byDay: await cachedFreeByDay("probetraining") }); }
+  catch (e) { console.log("probetraining-slots", String(e)); return json({ error: "Kalender gerade nicht erreichbar." }, 502); }
 };
 export const config: Config = { path: "/api/probetraining/slots" };

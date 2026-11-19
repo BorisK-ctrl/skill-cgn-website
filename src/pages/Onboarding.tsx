@@ -1,11 +1,14 @@
 /*
- * /onboarding: Onboarding-Termin wählen über den persönlichen Link aus der Mail (/onboarding?t=…). main.tsx verschiebt den Token sofort
- * aus der Adresse nach sessionStorage (skill-onboarding-t), damit er nicht bei Google Ads oder Meta landet. Buchung: OnboardingNext/OnboardingBooking.
+ * /onboarding: Onboarding-Termin wählen (90 Minuten).
+ * - Mit persönlichem Link (/onboarding?t=…, Mail nach dem Kauf): main.tsx verschiebt den Token sofort nach sessionStorage (skill-onboarding-t),
+ *   damit er nicht bei Google Ads oder Meta landet. Buchung: OnboardingNext/OnboardingBooking.
+ * - Ohne Link: offene Seite für den festen Link in der Magicline-Mail "Neues Mitglied". Kalender zuerst, dann Daten (ProbetrainingBooking kind=onboarding),
+ *   Teammail "Mitgliedschaft prüfen".
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MessageCircle } from "lucide-react";
 import OnboardingNext from "@/components/OnboardingNext";
+import ProbetrainingBooking from "@/components/ProbetrainingBooking";
 import { usePageMeta } from "@/lib/meta";
 import { WHATSAPP } from "@/lib/magicline";
 
@@ -29,14 +32,12 @@ export default function Onboarding() {
         </div>
       </header>
       <div className="mx-auto w-full max-w-2xl min-w-0 px-5 pb-20 pt-2 md:pt-6">
+        {/* Mit persönlichem Link (Dankeseite, Mail): Buchung über den Link. Ohne Link (z. B. aus der Magicline-Mail "Neues Mitglied"):
+            offene Buchung, erst die Zeit, dann Name, E-Mail, Telefon, optional Vertragsnummer. */}
         {token === undefined ? null : token ? (
           <OnboardingNext token={token} waText={waText} />
         ) : (
-          <section className="mt-12">
-            <h1 className="campaign-display text-5xl uppercase leading-[0.88]">Link <span className="text-[#FBFF00]">unvollständig.</span></h1>
-            <p className="mt-4 text-base leading-relaxed text-white/75">Öffne den Link bitte direkt aus deiner E-Mail. Oder schreib Boris kurz, dann macht ihr den Termin per WhatsApp aus.</p>
-            <a href={`${WHATSAPP}?text=${encodeURIComponent(waText)}`} target="_blank" rel="noopener noreferrer" className="campaign-button mt-6 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-4 text-sm font-bold uppercase tracking-[0.1em] text-black hover:bg-white"><MessageCircle className="h-4 w-4" /> Termin per WhatsApp</a>
-          </section>
+          <OnboardingNext waText={waText} booking={(fallback, onBooked) => <ProbetrainingBooking kind="onboarding" fallback={fallback} onBooked={onBooked} />} />
         )}
         <div className="mt-12 space-y-2 border-t border-white/10 pt-6 text-sm text-white/60">
           <p><strong className="text-white">Adresse:</strong> SKILL CGN, Herzogstraße 16–20, 50667 Köln, zwei Minuten vom Neumarkt.</p>

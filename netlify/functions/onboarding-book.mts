@@ -3,9 +3,9 @@
    Je Kunde läuft immer nur eine Buchung (Sperre auf die E-Mail, Doppelklick und zwei Tabs). Schon gebucht: {booked}. Termin vorbei: kein neuer
    über den Link. Ist nach einer abgebrochenen Antwort schon ein Termin im Kalender, wird er übernommen statt ein zweiter angelegt.
    Verfügbarkeit, Zellensperren und Eintrag in lib/booking.ts.
-   Probetraining: Den Zugang stellt sich jeder selbst aus (/api/probetraining/start), die E-Mail ist nicht bestätigt. Deshalb nie Termindaten
-   einer bestehenden Buchung zurückgeben, sondern {alreadyBooked} und die Bestätigung (höchstens einmal am Tag) an die hinterlegte Adresse.
-   Bremse: 5 Probetraining-Buchungsversuche je Anschluss und Tag. */
+   Selbst ausgestellte Zugänge (Probetraining und offene Onboarding-Seite, s=1): E-Mail nicht bestätigt. Deshalb nie Termindaten einer bestehenden
+   Buchung zurückgeben, sondern {alreadyBooked} und die Bestätigung (höchstens einmal am Tag) an die hinterlegte Adresse.
+   Bremse: 5 Buchungsversuche je Anschluss und Tag. */
 import type { Config } from "@netlify/functions";
 import { createHash } from "node:crypto";
 import { json, clientKey } from "./lib/util";
@@ -26,9 +26,9 @@ export default async (req: Request) => {
   if (!gcalConfigured()) return json({ error: "Terminbuchung gerade nicht verfügbar." }, 503);
   const kind: Kind = t.k === "probetraining" ? "probetraining" : "onboarding";
   const label = KINDS[kind].label;
-  const probe = kind === "probetraining";
+  const open = kind === "probetraining" || t.s === 1; // selbst ausgestellt
   /* Jeder Versuch zählt (auch mit ungültiger Zeit), sonst ließe sich die Bremse mit Fehlversuchen austesten */
-  if (probe && !(await allowHit("probebook/" + clientKey(req), 5, 86400000).catch(() => true))) return json({ error: "Zu viele Buchungsversuche. Schreib uns bitte kurz per WhatsApp." }, 429);
+  if (open && !(await allowHit(`${kind}book/` + clientKey(req), 5, 86400000).catch(() => true))) return json({ error: "Zu viele Buchungsversuche. Schreib uns bitte kurz per WhatsApp." }, 429);
   const chk = checkStart(kind, b.start); if (!chk.ok) return json({ error: chk.error }, chk.status);
 
   /* Eine Buchung je Kunde gleichzeitig */
@@ -38,8 +38,8 @@ export default async (req: Request) => {
   if (!owner) return json({ error: "Deine Buchung läuft gerade schon. Bitte lade die Seite in ein paar Sekunden neu." }, 409);
   try {
     const cur = await currentBooking(t.e, kind);
-    /* Probetraining: keine Termindaten an jemanden, der nur eine E-Mail eintippt. Die Bestätigung geht an die hinterlegte Adresse. */
-    if (probe && cur.state !== "none") return json(await alreadyBooked(cur.rec, cur.state === "past"), 409);
+    /* Offene Seiten: keine Termindaten an jemanden, der nur eine E-Mail eintippt. Die Bestätigung geht an die hinterlegte Adresse. */
+    if (open && cur.state !== "none") return json(await alreadyBooked(cur.rec, cur.state === "past", kind), 409);
     if (cur.state === "booked") return json({ error: `Du hast schon einen ${label}-Termin.`, booked: bookedView(cur.rec) }, 409);
     if (cur.state === "past") return json({ error: `Dein ${label} war schon. Für einen neuen Termin schreib uns kurz per WhatsApp.`, past: { start: cur.rec.start, end: cur.rec.end } }, 409);
 
@@ -49,7 +49,7 @@ export default async (req: Request) => {
     if (orphan) {
       const rec: OnboardingRecord = { ...base, start: orphan.start, end: orphan.end, staff: orphan.staff || "", eventId: orphan.id };
       await saveOnboarding(rec);
-      if (probe) return json(await alreadyBooked(rec, false), 409);
+      if (open) return json(await alreadyBooked(rec, false, kind), 409);
       return json({ error: `Du hast schon einen ${label}-Termin.`, booked: bookedView(rec) }, 409);
     }
 
@@ -65,16 +65,17 @@ export default async (req: Request) => {
     return json({ ok: true, start: r.start, end: r.end, coach: r.staff.name, google, ics });
   } finally { await releaseLock(lockKey, owner); }
 };
-/** Probetraining schon vorhanden: neutrale Antwort, Bestätigung erneut an die gespeicherte Adresse (höchstens einmal je 24 Stunden). */
-async function alreadyBooked(rec: OnboardingRecord, past: boolean) {
-  if (past) return { alreadyBooked: true, error: "Für diese E-Mail gab es schon ein Probetraining. Für einen weiteren Termin schreib uns kurz per WhatsApp." };
+/** Termin schon vorhanden (offene Seiten): neutrale Antwort, Bestätigung erneut an die gespeicherte Adresse (höchstens einmal je 24 Stunden). */
+async function alreadyBooked(rec: OnboardingRecord, past: boolean, kind: Kind) {
+  const label = KINDS[kind].label, art = kind === "probetraining" ? "ein Probetraining" : "ein Onboarding";
+  if (past) return { alreadyBooked: true, error: `Für diese E-Mail gab es schon ${art}. Für einen weiteren Termin schreib uns kurz per WhatsApp.` };
   let resent = false;
   if (!rec.resentAt || Date.now() - Date.parse(rec.resentAt) > 86400000) {
     const coach = STAFF.find(s => s.key === rec.staff);
-    resent = await sendOnboardingCustomerMail({ kind: "probetraining", name: rec.name, email: rec.email, start: rec.start, end: rec.end, coach: coach?.name || "deinem Coach", coachFull: coach?.full || "",
-      google: googleCalLink("probetraining", rec.start, rec.end), ics: icsLink("probetraining", rec.start, rec.end), minutes: KINDS.probetraining.durationMin });
+    resent = await sendOnboardingCustomerMail({ kind, name: rec.name, email: rec.email, start: rec.start, end: rec.end, coach: coach?.name || "deinem Coach", coachFull: coach?.full || "",
+      google: googleCalLink(kind, rec.start, rec.end), ics: icsLink(kind, rec.start, rec.end), minutes: KINDS[kind].durationMin });
     if (resent) { rec.resentAt = new Date().toISOString(); await saveOnboarding(rec).catch(() => {}); }
   }
-  return { alreadyBooked: true, error: `Für diese E-Mail ist schon ein Probetraining eingetragen. ${resent ? "Wir haben dir die Bestätigung gerade noch einmal geschickt." : "Die Details stehen in deiner Bestätigungsmail."} Verschieben geht per WhatsApp.` };
+  return { alreadyBooked: true, error: `Für diese E-Mail ist schon ${art} eingetragen. ${resent ? "Wir haben dir die Bestätigung gerade noch einmal geschickt." : "Die Details stehen in deiner Bestätigungsmail."} Verschieben geht per WhatsApp.`, label };
 }
 export const config: Config = { path: ["/api/onboarding/book", "/api/termin/book"] };
