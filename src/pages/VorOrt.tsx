@@ -69,25 +69,34 @@ export default function VorOrt() {
   /* Black Week startet immer am Tag des Abschlusses: kein Datumsfeld, Start heute (bei jedem Rendern neu, nicht aus dem Stand von gestern) */
   const bw = isBW(bundle);
   const start = bw ? today() : startDate;
-  /* Das iPad bleibt tagelang offen: an einem neuen Tag (Köln) im Team-Modus neu laden, damit Angebote, Black-Week-Ende und Starttag stimmen.
-     Nie mitten im Kundenmodus; die Übergabe prüft vorher selbst. */
-  const loadedDay = useRef(berlinToday());
-  const modeRef = useRef(mode); modeRef.current = mode;
-  const newDay = () => berlinToday() !== loadedDay.current;
-  useEffect(() => {
-    clearPosSession(); // Reste eines abgebrochenen Kunden, etwa vor einem Neuladen
-    const check = () => { if (newDay() && modeRef.current === "team") window.location.reload(); };
-    const t = window.setInterval(check, 60000);
-    document.addEventListener("visibilitychange", check);
-    return () => { window.clearInterval(t); document.removeEventListener("visibilitychange", check); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const fee = term ? termFees(term) : "";
   const priceLine = term ? `${fmtPrice(term.price)} € alle ${term.paymentFrequencyValue} ${term.paymentFrequencyUnit === "WEEK" ? "Wochen" : "Monate"}, ${termLabel(term)}, ${termFees(term) === "keine" ? "0 € Aufnahmegebühr" : "Gebühr: " + termFees(term)}` : "";
 
+  /* Das iPad bleibt tagelang offen. Neuer Tag (Köln): im Team-Modus neu laden, damit Angebote, Black-Week-Ende und Starttag stimmen.
+     Kundenansicht ohne Eingabe: nach 10 Minuten zurück ins Team (Daten weg), an einem neuen Tag oder nach Ende der Black Week schon nach 1 Minute.
+     Die Übergabe prüft vorher selbst. */
+  const loadedDay = useRef(berlinToday());
+  const newDay = () => berlinToday() !== loadedDay.current;
+  const lastInput = useRef(Date.now());
   const onSuccess = (r: ContractResult, info: { firstName: string }) => { setDone({ r, firstName: info.firstName }); setCount(c => c + 1); setMode("fertig"); window.scrollTo({ top: 0 }); };
   const backToTeam = () => { window.clearTimeout(backTimer.current); clearPosSession(); if (newDay()) { window.location.reload(); return; } setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
   /* Übergabe: neuer Tag oder Black Week vorbei → erst neu laden; jeder Kunde beginnt leer */
-  const handover = () => { if (newDay() || (bw && !blackWeekActive())) { window.location.reload(); return; } clearPosSession(); setMode("kunde"); window.scrollTo({ top: 0 }); };
+  const handover = () => { if (newDay() || (bw && !blackWeekActive())) { window.location.reload(); return; } clearPosSession(); lastInput.current = Date.now(); setMode("kunde"); window.scrollTo({ top: 0 }); };
+  const live = useRef({ mode, bw, backToTeam }); live.current = { mode, bw, backToTeam };
+  useEffect(() => {
+    clearPosSession(); // Reste eines abgebrochenen Kunden, etwa vor einem Neuladen
+    const mark = () => { lastInput.current = Date.now(); };
+    const inputs = ["pointerdown", "keydown", "input"] as const;
+    inputs.forEach(e => document.addEventListener(e, mark, true));
+    const check = () => {
+      const { mode: m, bw: isDeal, backToTeam: back } = live.current, idle = Date.now() - lastInput.current;
+      if (m === "team") { if (newDay()) window.location.reload(); return; }
+      if (m === "kunde" && (idle >= 10 * 60000 || ((newDay() || (isDeal && !blackWeekActive())) && idle >= 60000))) back();
+    };
+    const t = window.setInterval(check, 60000);
+    document.addEventListener("visibilitychange", check);
+    return () => { window.clearInterval(t); document.removeEventListener("visibilitychange", check); inputs.forEach(e => document.removeEventListener(e, mark, true)); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   /* Willkommensbild läuft nach 30 Sekunden von selbst zurück ins Team */
   useEffect(() => { if (mode !== "fertig") return; backTimer.current = window.setTimeout(backToTeam, 30000); return () => window.clearTimeout(backTimer.current); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Dreifach-Tipp auf das Logo holt das Team zurück, ohne dass der Kunde einen "Abbrechen"-Knopf sieht */

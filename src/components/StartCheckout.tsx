@@ -189,7 +189,9 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       if (!form.streetNumber.trim()) e.streetNumber = "Nr. fehlt";
       if (!/^\d{5}$/.test(form.zipCode.trim())) e.zipCode = "5-stellige PLZ";
       if (!form.city.trim()) e.city = "Bitte Ort eingeben";
-      if (!form.startDate || form.startDate < today()) e.startDate = "Startdatum ab heute wählen";
+      /* Start am Abschlusstag: immer heute, auch wenn die Seite über Mitternacht offen war (sonst hängt Schritt 2 ohne sichtbaren Fehler) */
+      const sd = startToday ? today() : form.startDate;
+      if (!sd || sd < today()) e.startDate = "Startdatum ab heute wählen";
     }
     if (s === 3 && payMethod === "sepa") {
       if (!ibanValid(form.iban)) e.iban = "Die IBAN ist nicht gültig";
@@ -262,24 +264,26 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     if (!isPos) trackOnce("payment-" + path, "AddPaymentInfo", { content_name: offerName, value: price, currency: "EUR", payment: payMethod, ...utmParams() });
     setPending(true); setApiError(null); setApiErrorCustomer("");
     const sig = sigSvg();
+    /* Start am Abschlusstag (startToday): heute zum Zeitpunkt des Absendens, nicht der Stand beim Laden der Seite */
+    const startDate = startToday ? today() : form.startDate;
     if (payMethod === "card") {
       /* Karte, Apple Pay, Google Pay: Vertragsdaten sichern, dann zu Stripe. Der Webhook legt den Magicline-Vertrag nach der Zahlung an, /danke wartet darauf. */
       const tok = token || newToken(); if (!token) setToken(tok);
       try {
         const r = await fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, path, firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), months, utm: utmSource(), leadUuid: lead.uuid || undefined, customerNumber: lead.customerNumber || undefined }) });
         if (!r.ok) throw new Error("Sitzung konnte nicht gespeichert werden");
-        const r2 = await fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, card: { rateBundleTermId: term.id, startDate: form.startDate, dob: form.birthDate, street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), signatureSvgBase64: sig, price: term.price, offerName, sourceUrl: location.href, fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") } }) });
+        const r2 = await fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, card: { rateBundleTermId: term.id, startDate, dob: form.birthDate, street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), signatureSvgBase64: sig, price: term.price, offerName, sourceUrl: location.href, fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") } }) });
         if (!r2.ok) throw new Error("Vertragsdaten konnten nicht gespeichert werden");
-        try { sessionStorage.setItem("skill-contract-pending", JSON.stringify({ token: tok, offer: offerName, name: form.firstName.trim(), start: form.startDate, price: term.price })); } catch {}
-        log("card-redirect", { request: { rateBundleTermId: term.id, startDate: form.startDate, price: term.price, payment: "card", identityToken: lead.uuid || null, consent: consent() } });
+        try { sessionStorage.setItem("skill-contract-pending", JSON.stringify({ token: tok, offer: offerName, name: form.firstName.trim(), start: startDate, price: term.price })); } catch {}
+        log("card-redirect", { request: { rateBundleTermId: term.id, startDate, price: term.price, payment: "card", identityToken: lead.uuid || null, consent: consent() } });
         window.location.href = membershipPaymentLink(offerName, tok, form.email.trim())!;
       } catch (ex: any) { setApiError(String(ex?.message || ex)); setPending(false); }
       return;
     }
-    const request = { rateBundleTermId: term.id, startDate: form.startDate, price: term.price, identityToken: lead.uuid || null, leadCustomerNumber: lead.customerNumber || null, signatureChars: sig.length, strokes: strokes.current.length, firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate, zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), ibanValid: ibanValid(form.iban) };
+    const request = { rateBundleTermId: term.id, startDate, price: term.price, identityToken: lead.uuid || null, leadCustomerNumber: lead.customerNumber || null, signatureChars: sig.length, strokes: strokes.current.length, firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate, zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), ibanValid: ibanValid(form.iban) };
     try {
       const r: ContractResult = await createContract({
-        rateBundleTermId: term.id, startDate: form.startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}` : `${notes?.contract || `Onlineabschluss ${offerName} Landingpage`}, Quelle: ${utmSource(utmContent)}`,
+        rateBundleTermId: term.id, startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}` : `${notes?.contract || `Onlineabschluss ${offerName} Landingpage`}, Quelle: ${utmSource(utmContent)}`,
         firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate,
         street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), iban: form.iban,
       });
@@ -287,8 +291,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       log("contract-ok", { request: { ...request, consent: consent(), fbp: !!cookie("_fbp"), fbc: !!cookie("_fbc") }, response: { status: r.status, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, paymentUrl: r.paymentUrl, followUpActionToken: r.followUpActionToken, raw: r.raw } });
       if (isPos) { const info = { firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim() }; try { sessionStorage.removeItem(KEY); } catch {} setForm(emptyForm()); setStepRaw(1); setToken(""); clearSig(); onSuccess?.(r, info); return; }
       /* Vertrag bestätigt: Abbrecher-Token schließen und Purchase serverseitig (Conversions API) mit derselben event_id anstoßen */
-      if (token) fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, done: true, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, startDate: form.startDate, value: term.price, consent: consent(), sourceUrl: location.href, zip: form.zipCode.trim(), city: form.city.trim(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }), keepalive: true }).catch(() => {});
-      try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: r.contractId, customer: r.customerNumber, name: form.firstName.trim(), start: form.startDate, price: term.price, t: token || undefined })); sessionStorage.removeItem(KEY); } catch {}
+      if (token) fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, done: true, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, startDate, value: term.price, consent: consent(), sourceUrl: location.href, zip: form.zipCode.trim(), city: form.city.trim(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }), keepalive: true }).catch(() => {});
+      try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: r.contractId, customer: r.customerNumber, name: form.firstName.trim(), start: startDate, price: term.price, t: token || undefined })); sessionStorage.removeItem(KEY); } catch {}
       /* Verlangt Magicline noch einen Zahlungsschritt, dorthin statt auf /danke. */
       if (r.paymentUrl) { window.location.href = r.paymentUrl; return; }
       /* Purchase (Meta) und Conversion (Google) feuern auf /danke, erst jetzt. */
@@ -319,7 +323,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
 
       <div className="space-y-3">
         {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email}`} onEdit={() => setStep(1)} />}
-        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(form.startDate)}`} onEdit={() => setStep(2)} />}
+        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(startToday ? today() : form.startDate)}`} onEdit={() => setStep(2)} />}
 
         {step === 1 && (
           <div ref={stepRef} className="scroll-mt-4 space-y-4">
