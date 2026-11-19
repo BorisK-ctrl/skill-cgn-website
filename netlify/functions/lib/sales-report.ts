@@ -13,30 +13,49 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { hour: 
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : "—");
 
+/* Kanal aus Hostname oder Android-Paket: dieselben Regeln wie channelOf in src/lib/events.ts (für alte Einträge "Referrer <host>") */
+function channelOf(host: string, app: boolean): string {
+  const h = host.replace(/^www\./, "").toLowerCase();
+  if (/^com\.google\.android\.(googlequicksearchbox|apps\.maps)$/.test(h)) return "Google Suche/Maps";
+  if (h === "com.google.android.gm" || h === "mail.google.com") return "E-Mail (Gmail)";
+  if (h === "com.google.android.apps.messaging") return "SMS";
+  if (h === "com.google.android.youtube" || /(^|\.)youtube\.com$/.test(h)) return "YouTube";
+  if (/^com\.instagram\./.test(h) || /(^|\.)instagram\.com$/.test(h)) return "Instagram";
+  if (/^com\.facebook\./.test(h) || /(^|\.)(facebook\.com|fb\.com|fb\.me|messenger\.com)$/.test(h)) return "Facebook";
+  if (/^com\.whatsapp/.test(h) || /(^|\.)whatsapp\.com$/.test(h)) return "WhatsApp";
+  if (/^(com\.zhiliaoapp\.musically|com\.ss\.android\.)/.test(h) || /(^|\.)tiktok\.com$/.test(h)) return "TikTok";
+  if (/^(maps\.)?google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(h)) return "Google Suche/Maps";
+  if (h === "skill-studios.com" || h.endsWith(".skill-studios.com")) return "intern";
+  return (app ? "App " : "Referrer ") + h;
+}
 /* Quelle gruppieren: ohne "Einstieg …" und Erinnerungsmail; alte Einträge "Referrer l.instagram.com" auf den Kanal abbilden */
 export function sourceGroup(utm?: string): string {
   let s = String(utm || "").split(" · ").filter(p => !/^Einstieg |Erinnerungsmail/.test(p)).join(" · ").trim();
-  const ref = /^Referrer (\S+)$/.exec(s)?.[1]?.replace(/^www\./, "");
-  if (ref) {
-    if (/(^|\.)instagram\.com$/.test(ref)) s = "Instagram";
-    else if (/(^|\.)(facebook\.com|fb\.com|fb\.me|messenger\.com)$/.test(ref)) s = "Facebook";
-    else if (/(^|\.)google\.[a-z.]+$/.test(ref)) s = "Google Suche/Maps";
-    else if (ref === "skill-studios.com" || ref.endsWith(".skill-studios.com")) s = "intern";
-  }
+  const ref = /^Referrer (\S+)$/.exec(s)?.[1];
+  /* Altes Format: Android-Apps kamen als Paketname (com.google.android.gm), Webseiten als Hostname */
+  if (ref) s = channelOf(ref, /^com\.[a-z0-9_]+\.[a-z0-9_.]+$/.test(ref.toLowerCase()) && !/\.(com|de|net|org)$/.test(ref.toLowerCase()));
   return s || "unbekannt";
+}
+/* Aktion für den Bericht: /checkout (Mitgliedschaften) läuft im Datensatz unter START 39 (Erinnerungslink, Meta), zählt hier aber als eigenes Angebot.
+   Alte Datensätze ohne page: START 39 mit Laufzeit (months) kam von /checkout, START 39 selbst hat keine Laufzeitwahl. */
+export function campaignOf(l: Pick<CheckoutLead, "campaign" | "page" | "offer" | "months">): string {
+  if (l.page === "/checkout") return l.offer || "Mitgliedschaft (/checkout)";
+  if (!l.page && l.campaign === "START 39" && l.months) return "Mitgliedschaft (/checkout)";
+  return l.campaign || "unbekannt";
 }
 
 /* Wie weit kam jemand? Schritt 1 = Datensatz existiert. Zahlungsschritt: Vertrag, Abbruch in Schritt 3, Kartendaten oder Stripe. */
-const reachedPayment = (l: CheckoutLead) => !!l.done || l.abandonedStep === 3 || !!l.card || !!l.stripe || !!l.express;
+const reachedPayment = (l: CheckoutLead) => !!l.done || Math.max(l.maxStep || 0, l.abandonedStep || 0) >= 3 || !!l.card || !!l.stripe || !!l.express;
 /* Abschlusszeit: doneAt (neu), sonst die Zeit der Vertragsmail, Stripe-Zahlung oder Meta-Meldung, zuletzt Schritt 1 */
 const doneTime = (l: CheckoutLead): string | undefined => !l.done || !l.contractId ? undefined
   : l.doneAt || (l as any).mails?.at || l.stripe?.paidAt || l.capi?.at || l.createdAt;
 const metaStatus = (l: CheckoutLead): { key: "sent" | "consent" | "token" | "other" | "unknown"; text: string } => {
-  if (l.capi?.sent) return { key: "sent", text: "an Meta gemeldet" };
+  /* Nur was der Server getan hat. Der Browser meldet den Kauf zusätzlich, wenn auf der Dankeseite zugestimmt wird. */
+  if (l.capi?.sent) return { key: "sent", text: "per Server an Meta gemeldet" };
   const n = l.capi?.note || "";
-  if (/Cookie-Zustimmung/.test(n)) return { key: "consent", text: "nicht an Meta (keine Cookie-Zustimmung)" };
-  if (/META_CAPI_TOKEN/.test(n)) return { key: "token", text: "nicht an Meta (META_CAPI_TOKEN fehlt)" };
-  if (l.capi) return { key: "other", text: `nicht an Meta (${n.slice(0, 60) || "Fehler"})` };
+  if (/Cookie-Zustimmung/.test(n)) return { key: "consent", text: "nicht per Server an Meta (keine Cookie-Zustimmung)" };
+  if (/META_CAPI_TOKEN/.test(n)) return { key: "token", text: "nicht per Server an Meta (META_CAPI_TOKEN fehlt)" };
+  if (l.capi) return { key: "other", text: `nicht per Server an Meta (${n.slice(0, 60) || "Fehler"})` };
   return { key: "unknown", text: "Meta-Meldung unbekannt" };
 };
 
@@ -57,7 +76,7 @@ export function buildSalesReport(leads: CheckoutLead[], now = new Date(), opts: 
   const tests = leads.length - real.length;
 
   const byCampaign = new Map<string, CheckoutLead[]>();
-  for (const l of real) { const k = l.campaign || "unbekannt"; byCampaign.set(k, [...(byCampaign.get(k) || []), l]); }
+  for (const l of real) { const k = campaignOf(l); byCampaign.set(k, [...(byCampaign.get(k) || []), l]); }
   const contractsYesterday: SalesReport["contractsYesterday"] = [];
   const campaigns: CampaignReport[] = [];
   for (const [campaign, list] of byCampaign) {

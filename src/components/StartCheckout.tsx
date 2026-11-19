@@ -26,8 +26,9 @@ export function MinorNotice({ offerName }: { offerName: string }) {
   );
 }
 export interface ResumeData { token: string; firstName: string; lastName: string; email: string; phone: string; months?: number | null; leadUuid?: string; customerNumber?: string; utm?: string }
-/** Quelle der Sitzung, auf der Einstiegsseite bestimmt (lib/events.ts landingSource), auch wenn der Weg über die Startseite führt */
-export const utmSource = (withContent = false): string => landingSource(withContent);
+/** Quelle der Sitzung, auf der Einstiegsseite bestimmt (lib/events.ts), auch wenn der Weg über die Startseite führt.
+    Nur beim Absenden aufrufen: sichert die Quelle dann im Tab (übersteht Neuladen bis Schritt 3). */
+export const utmSource = (withContent = false): string => landingSource(withContent, true);
 
 interface Form { firstName: string; lastName: string; email: string; phone: string; birthDate: string; street: string; streetNumber: string; zipCode: string; city: string; startDate: string; iban: string; accountHolder: string }
 type Errors = Partial<Record<keyof Form, string>>;
@@ -195,7 +196,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   };
 
   /* Abbrecher-Token an die Netlify Function; scheitert still, wenn die Function nicht erreichbar ist (lokaler Dev). */
-  const saveLead = (tok: string, extra: Record<string, unknown> = {}) => fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, path, firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), months, utm: utmSource(true), ...extra }) }).catch(() => {});
+  const saveLead = (tok: string, extra: Record<string, unknown> = {}) => fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tok, path, firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), months, utm: utmSource(true), offer: offerName, ...extra }) }).catch(() => {});
 
   const submitStep1 = () => {
     const e = validate(1); setErrors(e); if (Object.keys(e).length) return;
