@@ -123,7 +123,7 @@ ${label("Gut zu wissen")}
     "Danach:", ...copy.steps.map(t => `- ${t.replace(/<[^>]+>/g, "")}`), "",
     "Gut zu wissen:", "Öffnungszeiten: Mo bis Do 7 bis 22 Uhr, Fr 7 bis 20 Uhr, Sa und So 9 bis 20 Uhr.", "Adresse: Herzogstraße 16–20, 50667 Köln, zwei Minuten vom Neumarkt.",
     `Widerruf: 14 Tage. Kündigung: ${SITE}/kuendigung`, `Fragen: WhatsApp ${WA_DISPLAY} oder auf diese Mail antworten.`, "", "SKILL CGN · Herzogstraße 16–20 · 50667 Köln"].join("\n");
-  return { subject: `Willkommen bei SKILL CGN, ${c.firstName}: dein ${copy.product}`, html, text };
+  return { subject: `Willkommen bei SKILL CGN, ${c.firstName}: ${/mitgliedschaft$/i.test(copy.product) ? "deine" : "dein"} ${copy.product}`, html, text };
 }
 
 /** Vertrag und SEPA-Mandat: PDFs des Kunden, die im Zeitfenster um den Abschluss entstanden sind. */
