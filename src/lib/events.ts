@@ -16,30 +16,42 @@ export function utmParams(): Record<string, string> {
   } catch { return {}; }
 }
 
-/* Quelle des Besuchs fürs Team (Magicline-Notiz, Mail "Neuer Vertrag", Tagesbericht). Wird einmal auf der Einstiegsseite bestimmt
-   (App-Start), denn die Links der Startseite zu /blackweek nehmen die UTM-Parameter nicht mit. Format:
-   "utm_source / utm_medium / utm_campaign[ / utm_content] · Google-Anzeige · Einstieg /". Ohne UTM: Kanal aus der Klick-ID
-   (gclid, wbraid, gbraid = Google-Anzeige; fbclid = Instagram/Facebook, bezahlt oder nicht) oder aus dem Referrer, sonst "direkt". */
+/* Quelle des Besuchs fürs Team (Magicline-Notiz, Mail "Neuer Vertrag", Tagesbericht). Bestimmt bei jedem Laden der Seite (App-Start), denn die
+   Links der Startseite zu /blackweek nehmen die UTM-Parameter nicht mit. Format: "utm_source / utm_medium / utm_campaign[ / utm_content]
+   · Google-Anzeige · Einstieg /". Ohne UTM: Kanal aus der Klick-ID (gclid, wbraid, gbraid = Google-Anzeige; fbclid = Instagram/Facebook,
+   bezahlt oder nicht) oder aus dem Referrer, sonst "direkt".
+   Datenschutz: beim Laden nur im Arbeitsspeicher (übersteht den Wechsel Startseite → /blackweek). In den sessionStorage erst beim Absenden
+   eines Formulars (persist), wie vorher utmSource. Eine neue Anzeige oder Kampagne im selben Tab ersetzt die alte Quelle, ein späterer
+   direkter Aufruf nicht. */
 const SRC_KEYS = ["skill-src", "skill-src-content"] as const;
+const CAMPAIGN_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "wbraid", "gbraid", "fbclid", "msclkid", "ttclid"];
 const srcMemo: Record<string, string> = {};
 const srcClean = (v: string) => v.replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
-function refChannel(ref: string): string {
-  let host = "";
-  try { host = new URL(ref).hostname.replace(/^www\./, "").toLowerCase(); } catch { return "direkt"; }
-  if (!host) return "direkt";
-  if (host === "skill-studios.com" || host.endsWith(".skill-studios.com") || host === location.hostname.replace(/^www\./, "")) return "intern";
-  if (/(^|\.)instagram\.com$/.test(host)) return "Instagram";
-  if (/(^|\.)(facebook\.com|fb\.com|fb\.me|messenger\.com)$/.test(host)) return "Facebook";
-  if (/(^|\.)google\.[a-z.]+$/.test(host)) return "Google Suche/Maps";
-  if (/(^|\.)tiktok\.com$/.test(host)) return "TikTok";
-  return "Referrer " + host;
+/** Kanal aus Hostname oder Android-Paket (android-app://com.google.android.gm). Gleiche Regeln im Tagesbericht (lib/sales-report.ts). */
+export function channelOf(host: string, app = false): string {
+  const h = host.replace(/^www\./, "").toLowerCase();
+  if (/^com\.google\.android\.(googlequicksearchbox|apps\.maps)$/.test(h)) return "Google Suche/Maps";
+  if (h === "com.google.android.gm" || h === "mail.google.com") return "E-Mail (Gmail)";
+  if (h === "com.google.android.apps.messaging") return "SMS";
+  if (h === "com.google.android.youtube" || /(^|\.)youtube\.com$/.test(h)) return "YouTube";
+  if (/^com\.instagram\./.test(h) || /(^|\.)instagram\.com$/.test(h)) return "Instagram";
+  if (/^com\.facebook\./.test(h) || /(^|\.)(facebook\.com|fb\.com|fb\.me|messenger\.com)$/.test(h)) return "Facebook";
+  if (/^com\.whatsapp/.test(h) || /(^|\.)whatsapp\.com$/.test(h)) return "WhatsApp";
+  if (/^(com\.zhiliaoapp\.musically|com\.ss\.android\.)/.test(h) || /(^|\.)tiktok\.com$/.test(h)) return "TikTok";
+  if (/^(maps\.)?google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(h)) return "Google Suche/Maps";
+  if (h === "skill-studios.com" || h.endsWith(".skill-studios.com")) return "intern";
+  return (app ? "App " : "Referrer ") + h;
 }
-/** Quelle der Sitzung (auf der Einstiegsseite bestimmt). withContent: mit utm_content (welche Anzeige). */
-export function landingSource(withContent = false): string {
-  const key = SRC_KEYS[withContent ? 1 : 0];
-  if (srcMemo[key]) return srcMemo[key];
-  try { const s = sessionStorage.getItem(key); if (s) return (srcMemo[key] = s); } catch {}
-  let v = "unbekannt";
+function refChannel(ref: string): string {
+  let u: URL; try { u = new URL(ref); } catch { return "direkt"; }
+  if (u.protocol === "android-app:") { const pkg = (u.hostname || u.pathname.replace(/^\/+/, "").split("/")[0]).toLowerCase(); return pkg ? channelOf(srcClean(pkg), true) : "direkt"; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "direkt";
+  const host = u.hostname.toLowerCase();
+  if (!host) return "direkt";
+  if (host.replace(/^www\./, "") === location.hostname.replace(/^www\./, "")) return "intern";
+  return channelOf(host);
+}
+function computeSource(withContent: boolean): string {
   try {
     const p = new URLSearchParams(window.location.search);
     const utm = ["utm_source", "utm_medium", "utm_campaign", ...(withContent ? ["utm_content"] : [])].map(k => srcClean(p.get(k) || "")).filter(Boolean);
@@ -47,16 +59,32 @@ export function landingSource(withContent = false): string {
     const ad = p.get("gclid") || p.get("wbraid") || p.get("gbraid") ? "Google-Anzeige" : p.get("msclkid") ? "Microsoft-Anzeige" : p.get("ttclid") ? "TikTok-Anzeige"
       : p.get("fbclid") ? (ref === "Instagram" || ref === "Facebook" ? ref : "Instagram/Facebook") : "";
     const head = utm.length ? utm.join(" / ") + (ad ? " · " + ad : "") : ad || ref;
-    v = `${head} · Einstieg ${srcClean(window.location.pathname) || "/"}`.slice(0, 160); // Magicline-Notiz bleibt unter 300 Zeichen
-  } catch {}
+    return `${head} · Einstieg ${srcClean(window.location.pathname) || "/"}`.slice(0, 160); // Magicline-Notiz bleibt unter 300 Zeichen
+  } catch { return "unbekannt"; }
+}
+const storedSource = (key: string) => { try { return sessionStorage.getItem(key) || ""; } catch { return ""; } };
+const weakSource = (v: string) => /^(direkt|intern|unbekannt)( · |$)/.test(v);
+/** App-Start, bei jedem Laden: Quelle im Arbeitsspeicher festhalten, bevor ein Link der Startseite die URL ändert. Schreibt nichts in den Browser.
+    Gespeichert ist eine Quelle nur, wenn in diesem Tab schon ein Formular abgeschickt wurde; eine neue Kampagne ersetzt sie. */
+export function captureLandingSource() {
+  let campaign = false;
+  try { const p = new URLSearchParams(window.location.search); campaign = CAMPAIGN_KEYS.some(k => p.get(k)); } catch {}
+  for (const key of SRC_KEYS) {
+    const fresh = computeSource(key === SRC_KEYS[1]);
+    const prev = srcMemo[key] || storedSource(key);
+    srcMemo[key] = !prev || campaign || (weakSource(prev) && !weakSource(fresh)) ? fresh : prev;
+  }
+}
+/** Quelle der Sitzung. withContent: mit utm_content (welche Anzeige). persist: beim Absenden eines Formulars im Tab sichern (übersteht Neuladen). */
+export function landingSource(withContent = false, persist = false): string {
+  const key = SRC_KEYS[withContent ? 1 : 0];
+  const v = srcMemo[key] || storedSource(key) || computeSource(withContent);
   srcMemo[key] = v;
-  try { sessionStorage.setItem(key, v); } catch {}
+  if (persist) try { sessionStorage.setItem(key, v); } catch {}
   return v;
 }
-/** Quelle der Sitzung ersetzen: Rückkehr über die Erinnerungsmail behält die Quelle aus Schritt 1. */
-export function setSessionSource(v: string) {
-  for (const k of SRC_KEYS) { srcMemo[k] = v; try { sessionStorage.setItem(k, v); } catch {} }
-}
+/** Rückkehr über die Erinnerungsmail: Quelle aus Schritt 1 behalten. Nur Arbeitsspeicher, gesichert wird beim nächsten Absenden. */
+export function setSessionSource(v: string) { for (const k of SRC_KEYS) srcMemo[k] = v; }
 
 function onceKey(name: string) { try { const k = "skill-ev-" + name; if (sessionStorage.getItem(k)) return false; sessionStorage.setItem(k, "1"); } catch {} return true; }
 

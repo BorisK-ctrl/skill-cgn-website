@@ -41,7 +41,7 @@ export default async (req: Request) => {
     l.done = true; if (b.contractId) l.contractId = String(b.contractId).slice(0, 40);
     /* SEPA-Weg (Vertrag im Browser angelegt): "Neuer Vertrag" ans Team und Willkommensmail, nur beim ersten Abschluss-Aufruf */
     if (firstDone && l.contractId) {
-      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.campaign, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token,
+      const mails = await sendContractMails({ firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, customerNumber: String(b.customerNumber || l.customerNumber || "").slice(0, 20) || undefined, contractId: l.contractId, offerName: l.offer || l.campaign, price: Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path), startDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.startDate || "")) ? String(b.startDate) : undefined, payment: "sepa", months: l.months, token: l.token,
         source: l.utm, consent: typeof b.consent === "string" ? b.consent : "", reminded: !!l.mailedAt }).catch(e => { console.log("contract mail error", String(e)); return { staff: false, customer: false }; });
       /* Ein Paket (Issue #2): eine Willkommensmail mit Vertrag und SEPA-Mandat als PDF. Kurzes Zeitbudget, sonst übernimmt checkout-reminder. */
       const price = Number(b.value) > 0 ? Number(b.value) : fallbackPrice(l.path);
@@ -85,7 +85,8 @@ export default async (req: Request) => {
   /* Abbruch in Schritt 2 oder 3 (pagehide): nur Merker, kein neuer Lead */
   if (b.abandonedStep) {
     const l = await getCheckoutLead(token);
-    if (l && !l.done) { l.abandonedStep = Number(b.abandonedStep) || undefined; await saveCheckoutLead(l); }
+    /* abandonedStep = letzter Stand (Text der Erinnerungsmail), maxStep = weitester Schritt (Tagesbericht "Bis zur Zahlung") */
+    if (l && !l.done) { l.abandonedStep = Number(b.abandonedStep) || undefined; if (l.abandonedStep) l.maxStep = Math.max(l.maxStep || 0, l.abandonedStep); await saveCheckoutLead(l); }
     return json({ ok: true });
   }
   const email = normEmail(String(b.email || ""));
@@ -94,7 +95,10 @@ export default async (req: Request) => {
   const campaign = CAMPAIGNS[path];
   if (!firstName || !validEmail(email)) return json({ error: "Bitte Vorname und E-Mail angeben" }, 400);
   const existing = await getCheckoutLead(token);
-  const lead: CheckoutLead = { token, campaign, path, firstName, lastName, email, phone, months: b.months === 12 ? 12 : b.months === 1 ? 1 : undefined, createdAt: existing?.createdAt || new Date().toISOString(), done: false, mailedAt: existing?.mailedAt,
+  /* page/offer: echte Seite und echtes Angebot (/checkout läuft unter START 39 für Erinnerungslink und Meta). Für Tagesbericht und Teammail. */
+  const page = ["/start39", "/back39", "/blackweek", "/checkout"].includes(b.path) ? String(b.path) : existing?.page;
+  const offer = String(b.offer || "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || existing?.offer;
+  const lead: CheckoutLead = { token, campaign, path, ...(page ? { page } : {}), ...(offer ? { offer } : {}), ...(existing?.maxStep ? { maxStep: existing.maxStep } : {}), firstName, lastName, email, phone, months: b.months === 12 ? 12 : b.months === 1 ? 1 : undefined, createdAt: existing?.createdAt || new Date().toISOString(), done: false, mailedAt: existing?.mailedAt,
     leadUuid: /^[0-9a-f-]{36}$/i.test(String(b.leadUuid || "")) ? String(b.leadUuid) : existing?.leadUuid, customerNumber: String(b.customerNumber || existing?.customerNumber || "").slice(0, 20), utm: String(b.utm || existing?.utm || "").slice(0, 200) };
   await saveCheckoutLead(lead);
   return json({ ok: true });

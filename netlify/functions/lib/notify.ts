@@ -156,7 +156,7 @@ export async function sendContractMails(c: ContractMail) {
   const src = (c.source || "").trim() || "unbekannt";
   const source = esc(src) + (c.reminded && !/Erinnerungsmail/.test(src) ? " · nach Erinnerungsmail" : "");
   /* Ohne Zustimmung meldet checkout-lead den Kauf nicht an Meta (außer META_CAPI_ALWAYS=true) */
-  const blind = process.env.META_CAPI_ALWAYS === "true" ? "" : " (Meta sieht den Kauf nicht)";
+  const blind = process.env.META_CAPI_ALWAYS === "true" ? "" : " (Server meldet den Kauf nicht an Meta)";
   const cookies = c.consent === undefined ? "" : c.consent === "accepted" ? "zugestimmt" : (c.consent === "denied" ? "abgelehnt" : "nicht gewählt") + blind;
   const staff = await send(STAFF_EMAIL, `Neuer Vertrag: ${c.firstName} ${c.lastName} — ${c.offerName}`, wrap(`<h1 style="font-size:24px;margin:0 0 12px">Neuer Vertrag</h1>
 <table style="border-collapse:collapse;color:#fff;font-size:14px">
