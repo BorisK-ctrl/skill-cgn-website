@@ -4,6 +4,8 @@
  * Kunden-Modus: nur ein Angebot, drei kurze Schritte, Unterschrift, fertig. Keine Links nach außen, kein Hinweis auf "zu Hause",
  * kein Tarifvergleich, kein Tracking. Nach dem Abschluss Willkommensbild, nach 30 Sekunden oder per Tipp zurück ins Team.
  * Vertrag entsteht sofort in Magicline (Connect API), Zahlart SEPA. Noindex, nur per Link.
+ * Black Week (bis 30.11.2026, Boris 19.11.): Deal steht vorn und ist vorausgewählt, Kundenansicht wie /blackweek (Gym Only ohne Kurse,
+ * 0 € Aufnahmegebühr aus dem rate-bundle), Start immer heute (contractStartType CONTRACT_CONCLUSION). Ab 1.12. verschwindet er von selbst.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, Lock, RotateCcw, ShieldCheck, Tablet } from "lucide-react";
@@ -13,17 +15,24 @@ import { euro, termLabel, termFees, termCancel, type RateBundle, type RateBundle
 import { START39_TERM_ID } from "@/lib/magicline";
 import { useRateBundles, fmtPrice } from "@/lib/useRateBundles";
 import { TARIFE } from "@/lib/tarife";
+import { BLACK_WEEK, blackWeekActive } from "@/lib/blackweek";
 
 const LOGO_WHITE = "/img/manus/skill-cgn-original-white_18b77f12.svg";
 const ORDER = ["START 39", "BACK 39", "SKILL Mitgliedschaft", "SKILL Unlimited"];
 const HIDDEN = /starter|kraftwerk/i;
 const today = () => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
 const kicker = "campaign-mono text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]";
-/** Drei Leistungen je Angebot für die Kundenansicht, aus den Tarifdaten; BACK 39 hat eigene. */
-function benefits(name: string): string[] {
-  if (/back 39/i.test(name)) return ["Volles Gym", "4 Classes im Monat", "Kostenloser 3D Scan zum Start"];
-  const t = TARIFE.find(x => x.name.toLowerCase() === name.toLowerCase());
-  return (t?.features || ["Volles Gym", "Gecoachte Classes", "3D Scan zum Start"]).slice(0, 4);
+const isBW = (b: { id: number } | null | undefined) => b?.id === BLACK_WEEK.rateBundleId;
+const GYM_ONLY = /only gym|gym only/i;
+const BW_END = new Date(BLACK_WEEK.end + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+/** Leistungen je Angebot für die Kundenansicht, aus den Tarifdaten. Gym Only ohne Kurse; Black Week laut Magicline mit Dusche, Getränken, Handtuch.
+    Unbekannte Angebote nur mit dem, was sicher drin ist (keine Kurse versprechen). */
+function benefits(b: RateBundle): string[] {
+  if (isBW(b)) return ["Gym komplett, alle Geräte", "Dusche, Getränke, Trainingshandtuch", "3D Scan und Assessment zum Start"];
+  if (GYM_ONLY.test(b.name)) return ["Gym komplett, alle Geräte"];
+  if (/back 39/i.test(b.name)) return ["Volles Gym", "4 Classes im Monat", "Kostenloser 3D Scan zum Start"];
+  const t = TARIFE.find(x => x.name.toLowerCase() === b.name.toLowerCase());
+  return (t?.features || ["Volles Gym"]).slice(0, 4);
 }
 const fmtDe = (iso: string) => new Date(iso + "T12:00:00").toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
 
@@ -32,9 +41,11 @@ export default function VorOrt() {
   const { bundles, error } = useRateBundles();
   const list = useMemo(() => {
     if (!bundles) return [] as RateBundle[];
-    const known = ORDER.map(n => bundles.find(b => b.name.toLowerCase() === n.toLowerCase())).filter(Boolean) as RateBundle[];
-    const rest = bundles.filter(b => !known.includes(b) && !HIDDEN.test(b.name));
-    return [...known, ...rest].filter(b => b.terms?.length);
+    /* Black Week nur bis 30.11. (Berliner Datum), dann vorn und damit vorausgewählt */
+    const visible = bundles.filter(b => b.terms?.length && !HIDDEN.test(b.name) && (!isBW(b) || blackWeekActive()));
+    const known = ORDER.map(n => visible.find(b => b.name.toLowerCase() === n.toLowerCase())).filter(Boolean) as RateBundle[];
+    const rest = visible.filter(b => !known.includes(b) && !isBW(b));
+    return [...visible.filter(isBW), ...known, ...rest];
   }, [bundles]);
   const [bundleId, setBundleId] = useState<number | null>(null);
   const [termId, setTermId] = useState<number | null>(null);
@@ -50,7 +61,11 @@ export default function VorOrt() {
   const terms = useMemo(() => (bundle ? [...bundle.terms].sort((a, b) => a.termValue - b.termValue) : []), [bundle]);
   useEffect(() => { if (terms.length && !terms.some(t => t.id === termId)) setTermId(terms.find(t => t.id === START39_TERM_ID)?.id ?? terms[0].id); }, [terms, termId]);
   const term: RateBundleTerm | null = terms.find(t => t.id === termId) || null;
-  const priceLine = term ? `${fmtPrice(term.price)} € alle ${term.paymentFrequencyValue} ${term.paymentFrequencyUnit === "WEEK" ? "Wochen" : "Monate"}, ${termLabel(term)}, Gebühr: ${termFees(term)}` : "";
+  /* Black Week startet immer am Tag des Abschlusses: kein Datumsfeld, Start heute */
+  const bw = isBW(bundle);
+  useEffect(() => { if (bw) setStartDate(today()); }, [bw]);
+  const fee = term ? termFees(term) : "";
+  const priceLine = term ? `${fmtPrice(term.price)} € alle ${term.paymentFrequencyValue} ${term.paymentFrequencyUnit === "WEEK" ? "Wochen" : "Monate"}, ${termLabel(term)}, ${termFees(term) === "keine" ? "0 € Aufnahmegebühr" : "Gebühr: " + termFees(term)}` : "";
 
   const onSuccess = (r: ContractResult, info: { firstName: string }) => { setDone({ r, firstName: info.firstName }); setCount(c => c + 1); setMode("fertig"); window.scrollTo({ top: 0 }); };
   const backToTeam = () => { window.clearTimeout(backTimer.current); setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
@@ -67,22 +82,26 @@ export default function VorOrt() {
         <header className="border-b border-white/10 bg-black"><div className="mx-auto flex max-w-[1180px] items-center justify-between px-6 py-5"><img src={LOGO_WHITE} alt="SKILL CGN" className="h-7 w-auto select-none" width={160} height={28} onClick={logoTap} draggable={false} /><span className={kicker}>Herzogstraße 16–20 · Köln</span></div></header>
         <div className="mx-auto max-w-[1180px] px-6 py-8 lg:grid lg:grid-cols-[0.8fr_1.2fr] lg:gap-10">
           <aside className="lg:sticky lg:top-8 lg:self-start">
-            <p className={kicker}>Dein Angebot</p>
-            <h1 className="campaign-display mt-3 text-6xl uppercase leading-[0.85] md:text-7xl">{bundle.name}</h1>
+            <p className={kicker}>{bw ? `Black Week Deal · nur bis ${BW_END.slice(0, 6)}` : "Dein Angebot"}</p>
+            <h1 className="campaign-display mt-3 text-6xl uppercase leading-[0.85] md:text-7xl">{bw ? "Gym Only" : bundle.name}</h1>
             <p className="mt-5 flex items-baseline gap-2"><span className="campaign-display text-7xl leading-none text-[#FBFF00] md:text-8xl">{fmtPrice(term.price)} €</span><span className="campaign-mono text-xs uppercase tracking-[0.18em] text-white/60">alle {term.paymentFrequencyValue} {term.paymentFrequencyUnit === "WEEK" ? "Wochen" : "Monate"}</span></p>
             <ul className="mt-6 space-y-3">
-              {benefits(bundle.name).map(b => <li key={b} className="flex items-center gap-3 text-lg font-bold"><span className="flex h-6 w-6 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-4 w-4 text-black" /></span>{b}</li>)}
+              {benefits(bundle).map(b => <li key={b} className="flex items-center gap-3 text-lg font-bold"><span className="flex h-6 w-6 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-4 w-4 text-black" /></span>{b}</li>)}
             </ul>
+            {GYM_ONLY.test(bundle.name) && <p className="mt-4 text-sm text-white/70"><span className="font-bold text-white">Nicht drin: Kurse und Coaching.</span></p>}
             <dl className="mt-6 grid gap-px bg-white/15 text-sm">
               <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Laufzeit</dt><dd className="font-bold">{termLabel(term)}</dd></div>
               <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Kündigung</dt><dd className="font-bold">{termCancel(term)}</dd></div>
-              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Gebühr</dt><dd className="font-bold">{termFees(term)}</dd></div>
-              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{fmtDe(startDate)}</dd></div>
+              {fee === "keine"
+                ? <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Aufnahmegebühr</dt><dd className={`font-bold ${bw ? "text-[#FBFF00]" : ""}`}>0&nbsp;€</dd></div>
+                : <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Gebühr</dt><dd className="font-bold">{fee}</dd></div>}
+              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{bw ? "Heute, " : ""}{fmtDe(startDate)}</dd></div>
             </dl>
+            {bw && <p className="mt-4 text-xs text-white/55">Nur bis {BW_END}. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt.</p>}
             <p className="mt-5 flex items-center gap-2 text-xs text-white/45"><Lock className="h-3.5 w-3.5" /> Deine Daten gehen direkt in unser Mitgliedersystem, nichts wird auf diesem iPad gespeichert.</p>
           </aside>
           <section className="mt-8 lg:mt-0">
-            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate }} onSuccess={onSuccess} />
+            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate }} startToday={bw} onSuccess={onSuccess} />
           </section>
         </div>
       </main>
@@ -127,6 +146,7 @@ export default function VorOrt() {
           <div className="mt-3 grid grid-cols-2 gap-px bg-white/15 md:grid-cols-4">
             {list.map(b => { const active = b.id === bundleId; const min = Math.min(...b.terms.map(t => t.price)); return (
               <button key={b.id} type="button" onClick={() => setBundleId(b.id)} className={`campaign-button flex min-h-[96px] flex-col items-start justify-between p-4 text-left ${active ? "bg-[#FBFF00] text-black" : "bg-[#2A3133] text-white hover:bg-[#33403f]"}`}>
+                {isBW(b) && <span className={`campaign-mono mb-2 border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.16em] ${active ? "border-black text-black" : "border-[#FBFF00] text-[#FBFF00]"}`}>Black Week · bis {BW_END.slice(0, 6)}</span>}
                 <span className="campaign-display text-2xl uppercase leading-none">{b.name}</span>
                 <span className={`campaign-mono mt-2 text-[10px] uppercase tracking-[0.14em] ${active ? "text-black/70" : "text-[#FBFF00]"}`}>ab {fmtPrice(min)} € alle 4 Wochen</span>
               </button>
@@ -149,14 +169,19 @@ export default function VorOrt() {
             </div>
             <div>
               <p className={kicker}>3. Start</p>
-              <input type="date" value={startDate} min={today()} onChange={e => setStartDate(e.target.value)} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
-              <p className="mt-2 text-xs text-white/45">Heute vorbelegt. Erste Abbuchung zum Startdatum.</p>
+              {bw ? <>
+                <p className="campaign-field mt-3 flex min-h-[52px] items-center text-base font-bold">Heute, {fmtDe(startDate)}</p>
+                <p className="mt-2 text-xs text-white/45">Der Black Week Deal startet immer am Tag des Abschlusses.</p>
+              </> : <>
+                <input type="date" value={startDate} min={today()} onChange={e => setStartDate(e.target.value)} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
+                <p className="mt-2 text-xs text-white/45">Heute vorbelegt. Erste Abbuchung zum Startdatum.</p>
+              </>}
             </div>
           </div>
         )}
         {term && (
           <div className="mt-10 border-2 border-[#FBFF00] bg-[#1a2224] p-6 md:flex md:items-center md:justify-between md:gap-6">
-            <div><p className={kicker}>Bereit zur Übergabe</p><p className="mt-2 text-lg font-bold">{bundle?.name} · {fmtPrice(term.price)} € alle 4 Wochen · {termLabel(term)} · Start {fmtDe(startDate)}</p><p className="mt-1 text-sm text-white/55">Der Kunde sieht nur dieses Angebot und die drei Schritte. Dreifach-Tipp auf das Logo holt dich zurück.</p></div>
+            <div><p className={kicker}>Bereit zur Übergabe</p><p className="mt-2 text-lg font-bold">{bundle?.name} · {fmtPrice(term.price)} € alle 4 Wochen · {termLabel(term)} · Start {bw ? "heute" : fmtDe(startDate)}</p><p className="mt-1 text-sm text-white/55">Der Kunde sieht nur dieses Angebot und die drei Schritte. Dreifach-Tipp auf das Logo holt dich zurück.</p></div>
             <button type="button" onClick={() => setMode("kunde")} className="campaign-button mt-5 inline-flex min-h-16 w-full items-center justify-center gap-3 bg-[#FBFF00] px-8 py-4 text-base font-bold uppercase tracking-[0.14em] text-black hover:bg-white md:mt-0 md:w-auto"><Tablet className="h-5 w-5" /> iPad an Kunden übergeben <ArrowRight className="h-5 w-5" /></button>
           </div>
         )}
