@@ -111,6 +111,8 @@ export function termCancel(t: RateBundleTerm) {
 export const GOOGLE_BOOKING = "https://calendar.google.com/calendar/appointments/schedules/AcZssZ10Q9b0R58FnSdP-dGHz83yuMPl6-TThwqGT7vfjM5tQvev-5VY4cVyRr1p1uO0ZihxqkxMAWt0";
 export const PIXEL_ID = (import.meta.env.VITE_META_PIXEL_ID || "577923356905873").trim();
 export const WHATSAPP = "https://wa.me/4917610877603";
+/** Technogym App (Mywellness), Link verbindet direkt mit SKILL CGN (Boris, 19.11.2026) */
+export const TECHNOGYM_APP = "https://tgapp-link.mywellness.com/39a898ba9";
 /** Google-Terminbuchung Onboarding & 3D Scan (Netlify: VITE_ONBOARDING_BOOKING_URL, Issue #2). Leer = Knopf ausgeblendet, WhatsApp wie bisher. */
 export const ONBOARDING_BOOKING_URL = String(import.meta.env.VITE_ONBOARDING_BOOKING_URL ?? "").trim();
 export const PHONE = "+49 221 70093636";

@@ -161,7 +161,7 @@ export default function Brand() {
         <h3>WhatsApp, Erstantwort auf Probetraining Anfrage</h3>
         <div className="tpl">{`Hi {Vorname}, danke für deine Nachricht.
 
-Probetraining ist kostenlos, 60 Minuten mit einem Coach. Buch dir hier direkt einen Termin: skill-studios.com/probetraining
+Probetraining ist kostenlos, 30 Minuten mit einem Coach. Buch dir hier direkt einen Termin: skill-studios.com/probetraining
 
 Trainierst du schon regelmäßig oder fängst du neu an?
 

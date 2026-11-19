@@ -2,12 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Hero from "@/components/Hero";
 import { usePageMeta } from "@/lib/meta";
-import { WHATSAPP, OFFERS, ONBOARDING_BOOKING_URL } from "@/lib/magicline";
+import { WHATSAPP, OFFERS } from "@/lib/magicline";
 import { consent, CONSENT_EVENT, track } from "@/lib/pixel";
 import { gadsConversion } from "@/lib/gads";
 import { utmParams } from "@/lib/events";
-import WhatsAppButton from "@/components/WhatsAppButton";
-import { MessageCircle } from "lucide-react";
+import OnboardingNext from "@/components/OnboardingNext";
 
 const DEFAULT = "Dein Vertrag ist angelegt. Die Bestätigung mit allen Unterlagen kommt in den nächsten Minuten per E-Mail.";
 
@@ -15,7 +14,7 @@ export default function Danke() {
   usePageMeta("Willkommen im Team — SKILL CGN", "Dein Vertrag ist angelegt.", "noindex,nofollow");
   const [text, setText] = useState(DEFAULT);
   /* WhatsApp-Knopf: Vorname und Angebot aus dem Vertrag (sessionStorage), Text je nach START 39 / BACK 39 */
-  const [wa, setWa] = useState<{ name: string; offer: string }>({ name: "", offer: "" });
+  const [wa, setWa] = useState<{ name: string; offer: string; t?: string; cid?: string }>({ name: "", offer: "" });
   const [params] = useSearchParams();
   const stripeSession = params.get("stripe") || "";
   /* Express-Abschluss: nach einer Weiterleitung (3-D Secure) kommt ?express=TOKEN zurück; der Vertrag entsteht über "complete" der Express-Function. */
@@ -37,7 +36,7 @@ export default function Danke() {
           : await fetch(`/api/checkout-lead?token=${encodeURIComponent(p.token)}&status=1`);
         const j = r.ok ? await r.json() : null;
         if (j?.done && j.contractId) {
-          try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: p.offer || "START 39", cid: j.contractId, customer: j.customerNumber, name: p.name || "", start: p.start, price: p.price, payment: expressToken ? "express" : "card" })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
+          try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: p.offer || "START 39", cid: j.contractId, customer: j.customerNumber, name: p.name || "", start: p.start, price: p.price, payment: expressToken ? "express" : "card", t: p.token })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
           if (!stopped) { setWaiting(false); setReady(true); }
           return;
         }
@@ -52,7 +51,7 @@ export default function Danke() {
     if (!ready) return;
     try {
       const c = JSON.parse(sessionStorage.getItem("skill-contract") || "null");
-      if (c) setWa({ name: c.name || "", offer: c.offer || "" });
+      if (c) setWa({ name: c.name || "", offer: c.offer || "", t: typeof c.t === "string" ? c.t : undefined, cid: c.cid ? String(c.cid) : undefined });
       if (c?.cid) setText(`${c.name ? `Hey ${c.name}, dein` : "Dein"} ${c.offer} Vertrag ist angelegt (Vertragsnummer ${c.cid}).${c.start ? ` Start am ${new Date(c.start).toLocaleDateString("de-DE")}.` : ""} Die Bestätigung mit allen Unterlagen kommt in den nächsten Minuten per E-Mail.`);
     } catch {}
   }, [ready]);
@@ -90,9 +89,8 @@ export default function Danke() {
   }, [ready]);
   return (
     <Hero kick={waiting ? "Zahlung eingegangen" : "Willkommen im Team"} title={<>Du bist<br />dabei.</>} titleClass="!text-[clamp(2.6rem,9vw,5.5rem)]" lead={waiting ? "Einen Moment, dein Vertrag wird gerade in unserem Mitgliedersystem angelegt …" : text}>
-      <div className="notice"><strong>So geht es weiter.</strong> Komm einfach zu deinem ersten Training vorbei, wir richten vor Ort alles ein und zeigen dir das Studio. Kurse buchst du über die App oder auf der <Link to="/classes" className="underline">Kursseite</Link>.</div>
-      {!waiting && ONBOARDING_BOOKING_URL && <a href={ONBOARDING_BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn mt-6 w-full justify-center">Scan-Termin wählen</a>}
-      {!waiting && <WhatsAppButton name={wa.offer === "BACK 39" ? "whatsapp_back39_danke" : "whatsapp_start39_danke"} text={`Hi Boris, ich habe gerade ${wa.offer === "BACK 39" ? "BACK 39" : "START 39"} abgeschlossen${wa.name ? `, ${wa.name}` : ""}, wann kann ich zum Scan kommen?`} className="mt-6"><MessageCircle className="h-5 w-5" /> {ONBOARDING_BOOKING_URL ? "Oder schreib Boris" : "Schick mir jetzt kurz Hallo auf WhatsApp"}</WhatsAppButton>}
+      {/* Nächster Schritt: Onboarding-Termin live aus unserem Kalender buchen (sonst Google-Terminplan oder WhatsApp) */}
+      {!waiting && <div className="max-w-2xl"><OnboardingNext checkoutToken={wa.t} contractId={wa.cid} waText={`Hi Boris, ich habe gerade ${wa.offer || "meine Mitgliedschaft"} abgeschlossen${wa.name ? `, ${wa.name}` : ""}. Wann passt mein Onboarding?`} /></div>}
       <div className="btns"><Link className="btn" to="/classes">Kursplan ansehen</Link><a className="btn-ghost" href={WHATSAPP} rel="noopener">Fragen per WhatsApp</a></div>
     </Hero>
   );

@@ -40,7 +40,7 @@ const reviews = [
 const trialSteps = [
   { icon: CalendarDays, n: "01", title: "Termin wählen.", text: "Online in einer Minute. Bestätigung sofort per E-Mail." },
   { icon: ScanLine, n: "02", title: "3D Scan.", text: "Scaneca Körperscan mit Auswertung. Dein Startpunkt in Zahlen." },
-  { icon: Users, n: "03", title: "Coach Session.", text: "60 Minuten mit deinem Coach im Gym. Geräte, Technik, dein Plan." },
+  { icon: Users, n: "03", title: "Coach Session.", text: "30 Minuten mit deinem Coach im Gym. Geräte, Technik, dein Plan." },
 ];
 
 /* Zweiter Coach: Name, Foto und Satz liefert Boris. Bis dahin wird nur Boris gezeigt. */
@@ -73,7 +73,7 @@ const included = [
 const formatsLine = [["SKILL I", "format-skill-i"], ["SKILL II", "format-skill-ii"], ["HYROX", "hyrox"], ["RAW", "format-raw"], ["ATHX", "format-athx"]] as const;
 
 const faqItems = [
-  { q: "Was passiert beim Probetraining?", a: "Du wählst online einen Termin, kommst ins Gym und trainierst 60 Minuten mit einem Coach. Der 3D Körperscan ist inklusive, du siehst deinen Startpunkt in Zahlen. Kostenlos und unverbindlich." },
+  { q: "Was passiert beim Probetraining?", a: "Du wählst online einen Termin, kommst ins Gym und trainierst 30 Minuten mit einem Coach. Der 3D Körperscan ist inklusive, du siehst deinen Startpunkt in Zahlen. Kostenlos und unverbindlich." },
   { q: "Ist SKILL CGN für Anfänger geeignet?", a: "Ja. Du musst nicht fit sein, um anzufangen. Der Coach passt jede Class an dein Level an. Wichtig ist nur, dass du anfängst." },
   { q: "Welcher Tarif passt zu mir?", a: "START 39 ist der Einstieg für Neukunden, nur online: 39 € je 4 Wochen, 4 Classes im Monat, monatlich kündbar. Die SKILL Mitgliedschaft ist unser Standard mit Gym ohne Limit, 6 Classes je vier Wochen und Parken. SKILL Unlimited für alle Classes, Scan alle 8 Wochen und ein Coach Gespräch im Monat." },
   { q: "Kann ich monatlich kündigen?", a: "Ja. SKILL Mitgliedschaft und SKILL Unlimited gibt es monatlich kündbar oder mit 12 Monaten Laufzeit, dann günstiger. START 39 ist monatlich kündbar, 1 Monat Mindestlaufzeit. Keine Gebühr, keine versteckten Klauseln." },
@@ -353,7 +353,7 @@ export default function Home() {
           <p className="mt-5 text-sm text-primary-foreground/70">Lieber erst ansehen? <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_footer")} className="font-bold text-primary-foreground underline underline-offset-4">Kostenloses Probetraining mit 3D Scan</Link></p>
           </> : <>
           <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-primary-foreground leading-none">Dein Coach.<br />Dein Plan.</h2>
-          <p className="mt-5 text-primary-foreground/70 text-lg max-w-xl mx-auto leading-relaxed">60 Minuten mit Coach, 3D Scan inklusive. Kostenlos, ohne Bindung.</p>
+          <p className="mt-5 text-primary-foreground/70 text-lg max-w-xl mx-auto leading-relaxed">30 Minuten mit Coach, 3D Scan inklusive. Kostenlos, ohne Bindung.</p>
           <Link to="/probetraining" onClick={() => trackCta("cta_probetraining_footer")} className="campaign-button mt-8 inline-flex items-center justify-center gap-3 bg-black text-primary font-black uppercase tracking-widest text-sm px-10 py-5 min-h-[60px] hover:bg-white hover:text-black">Kostenloses Probetraining mit 3D Scan <ArrowRight className="w-4 h-4" /></Link>
           </>}
         </div>

@@ -147,7 +147,7 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
           const cr = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", token: tok }) });
           const cj = await cr.json().catch(() => ({}));
           if (cj.done && cj.contractId) {
-            try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: cj.contractId, customer: cj.customerNumber, name: person.firstName, start: nextMonday(), price: t.price, payment: "express" })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
+            try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: cj.contractId, customer: cj.customerNumber, name: person.firstName, start: nextMonday(), price: t.price, payment: "express", t: tok })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
             navigate(`/danke?offer=${encodeURIComponent(offerName)}&vertrag=${encodeURIComponent(cj.contractId)}`);
           } else navigate(`/danke?express=${tok}`);
         } catch (ex: any) {

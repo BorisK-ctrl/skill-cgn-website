@@ -12,7 +12,8 @@
 import { wrap, sendFrom, CHECKOUT_FROM, F_DISPLAY, F_MONO, F_TEXT, send, type MailAttachment } from "./notify";
 import { magiclineConfigured, listCustomerDocuments, downloadDocument, findCustomerByEmail } from "./magicline";
 import { SITE, STAFF_EMAIL } from "./util";
-import type { CheckoutLead } from "./store";
+import { getOnboarding, type CheckoutLead } from "./store";
+import { onboardingLink } from "./onboarding-live";
 
 const WA_NUMBER = "4917610877603";
 const WA_DISPLAY = "0176 10877603";
@@ -69,16 +70,22 @@ export function offerCopy(offerName: string, months?: number): OfferCopy {
   };
 }
 
-/** Termin-Button: Google-Terminplan Onboarding (ONBOARDING_BOOKING_URL), sonst WhatsApp an Boris. */
-function scanButton(copy: OfferCopy): { label: string; href: string } {
+/** Termin-Button: persönlicher Link zur Terminwahl (/onboarding, Google-Kalender-Anbindung), sonst Google-Terminplan (ONBOARDING_BOOKING_URL), sonst WhatsApp an Boris. */
+function scanButton(copy: OfferCopy, personal?: string): { label: string; href: string } {
+  if (personal) return { label: "Onboarding-Termin buchen", href: personal };
   const booking = process.env.ONBOARDING_BOOKING_URL?.trim();
   if (booking) return { label: "Onboarding-Termin buchen", href: booking };
   return { label: "Onboarding-Termin per WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(copy.waText)}` };
 }
 
-export function welcomeMail(c: WelcomeInput, opts: { attachedDocs: number }) {
+export interface WelcomeOnboarding { url?: string; booked?: { start: string; end: string } }
+const bDay = (iso: string) => new Date(iso).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "Europe/Berlin" });
+const bTime = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
+
+export function welcomeMail(c: WelcomeInput, opts: { attachedDocs: number; onboarding?: WelcomeOnboarding }) {
   const copy = offerCopy(c.offerName, c.months);
-  const btn = scanButton(copy);
+  const btn = scanButton(copy, opts.onboarding?.url);
+  const booked = opts.onboarding?.booked;
   const anhang = opts.attachedDocs >= 2 ? "Im Anhang: dein Vertrag und das SEPA-Mandat."
     : opts.attachedDocs === 1 ? "Im Anhang: ein Teil deiner Vertragsunterlagen. Den Rest schicken wir dir separat."
     : "Deinen Vertrag und das SEPA-Mandat schicken wir dir separat per Mail.";
@@ -89,12 +96,15 @@ export function welcomeMail(c: WelcomeInput, opts: { attachedDocs: number }) {
 <h1 style="margin:0 0 18px;font-family:${F_DISPLAY};font-weight:400;font-size:46px;line-height:0.95;text-transform:uppercase;color:#fff">Du bist drin,<br><span style="color:#FBFF00">${c.firstName}.</span></h1>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#2A3133;border-left:6px solid #FBFF00"><tr><td style="padding:16px 20px;font-family:${F_TEXT};font-size:15px;line-height:1.55;color:#fff">${copy.summary(c)}</td></tr></table>
 <p style="margin:12px 0 0;font-size:14px;color:#d4d8d9">${anhang}</p>
-${label("Dein nächster Schritt")}
+${booked ? `${label("Dein Onboarding")}
+<p style="margin:0 0 6px;font-family:${F_DISPLAY};font-size:30px;line-height:1;text-transform:uppercase;color:#fff">Termin steht.</p>
+<p style="margin:0;font-family:${F_MONO};font-size:17px;color:#FBFF00">${bDay(booked.start)}, ${bTime(booked.start)} bis ${bTime(booked.end)} Uhr</p>
+<p style="margin:6px 0 0;font-size:14px;color:#d4d8d9">Die Bestätigung mit Kalendereintrag hast du separat bekommen.</p>` : `${label("Dein nächster Schritt")}
 <p style="margin:0 0 10px;font-family:${F_DISPLAY};font-size:30px;line-height:1;text-transform:uppercase;color:#fff">Buch deinen Onboarding-Termin.</p>
 ${button(btn)}
-${btn.label === "Onboarding-Termin buchen" ? `<p style="margin:8px 0 0;text-align:center;font-family:${F_MONO};font-size:11px;letter-spacing:1px;color:#9aa3a6">Oder schreib Boris per <a href="https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(copy.waText)}" style="color:#FBFF00">WhatsApp</a></p>` : ""}
+${btn.label === "Onboarding-Termin buchen" ? `<p style="margin:8px 0 0;text-align:center;font-family:${F_MONO};font-size:11px;letter-spacing:1px;color:#9aa3a6">Oder schreib Boris per <a href="https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(copy.waText)}" style="color:#FBFF00">WhatsApp</a></p>` : ""}`}
 ${label("Das erwartet dich beim Onboarding")}
-<p style="margin:0 0 6px;font-size:14px;color:#d4d8d9">30 Minuten mit Coach, bei uns in der Herzogstraße.</p>
+<p style="margin:0 0 6px;font-size:14px;color:#d4d8d9">90 Minuten mit Coach, bei uns in der Herzogstraße.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${ONBOARDING_EXPECT.map(([t, d], i) => step(i + 1, `<strong style="color:#fff">${t}</strong><br>${d}`)).join("")}</table>
 <p style="margin:10px 0 0;padding:12px 14px;border:1px solid #3a4245;font-size:14px;color:#d4d8d9">${MITBRINGEN}</p>
 ${label("Danach")}
@@ -104,10 +114,10 @@ ${label("Gut zu wissen")}
 <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#d4d8d9"><strong style="color:#fff">Adresse:</strong> Herzogstraße 16–20, 50667 Köln, zwei Minuten vom Neumarkt.</p>
 <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#d4d8d9"><strong style="color:#fff">Widerruf:</strong> 14 Tage. Kündigung unter <a href="${SITE}/kuendigung" style="color:#FBFF00">skill-studios.com/kuendigung</a>.</p>
 <p style="margin:0;font-size:14px;line-height:1.6;color:#d4d8d9"><strong style="color:#fff">Fragen:</strong> WhatsApp <a href="https://wa.me/${WA_NUMBER}" style="color:#FBFF00">${WA_DISPLAY}</a> oder einfach auf diese Mail antworten.</p>`,
-    `${copy.product}: dein Vertrag ist angelegt. Nächster Schritt: Onboarding-Termin buchen.`);
+    booked ? `${copy.product}: dein Vertrag ist angelegt. Onboarding am ${bDay(booked.start)}, ${bTime(booked.start)} Uhr.` : `${copy.product}: dein Vertrag ist angelegt. Nächster Schritt: Onboarding-Termin buchen.`);
   const textSummary = copy.summary(c).replace(/&nbsp;/g, " ");
-  const text = [`Du bist drin, ${c.firstName}.`, "", textSummary, anhang, "", `Dein nächster Schritt: ${btn.label}: ${btn.href}`, "",
-    "Das erwartet dich beim Onboarding (30 Minuten mit Coach):", ...ONBOARDING_EXPECT.map(([t, d], i) => `${i + 1}. ${t}: ${d}`), MITBRINGEN, "",
+  const text = [`Du bist drin, ${c.firstName}.`, "", textSummary, anhang, "", booked ? `Dein Onboarding: ${bDay(booked.start)}, ${bTime(booked.start)} bis ${bTime(booked.end)} Uhr.` : `Dein nächster Schritt: ${btn.label}: ${btn.href}`, "",
+    "Das erwartet dich beim Onboarding (90 Minuten mit Coach):", ...ONBOARDING_EXPECT.map(([t, d], i) => `${i + 1}. ${t}: ${d}`), MITBRINGEN, "",
     "Danach:", ...copy.steps.map(t => `- ${t.replace(/<[^>]+>/g, "")}`), "",
     "Gut zu wissen:", "Öffnungszeiten: Mo bis Do 7 bis 22 Uhr, Fr 7 bis 20 Uhr, Sa und So 9 bis 20 Uhr.", "Adresse: Herzogstraße 16–20, 50667 Köln, zwei Minuten vom Neumarkt.",
     `Widerruf: 14 Tage. Kündigung: ${SITE}/kuendigung`, `Fragen: WhatsApp ${WA_DISPLAY} oder auf diese Mail antworten.`, "", "SKILL CGN · Herzogstraße 16–20 · 50667 Köln"].join("\n");
@@ -160,7 +170,11 @@ export async function deliverWelcome(l: CheckoutLead, input: WelcomeInput, opts:
     }
   }
   if (att.length < 2 && !opts.force) { l.welcome.tries = (l.welcome.tries || 0) + 1; return "pending"; }
-  const mail = welcomeMail(input, { attachedDocs: att.length });
+  /* Onboarding: schon auf der Dankeseite gebucht -> Termin nennen, sonst persönlicher Link zur Terminwahl (leer ohne Google-Zugang) */
+  const rec = await getOnboarding(l.email).catch(() => null);
+  const onboarding: WelcomeOnboarding = rec && Date.parse(rec.end) > Date.now() ? { booked: { start: rec.start, end: rec.end } }
+    : { url: onboardingLink({ name: `${l.firstName} ${l.lastName}`, email: l.email, phone: l.phone, offer: l.campaign, ref: l.contractId ? "ml:" + l.contractId : undefined }) || undefined };
+  const mail = welcomeMail(input, { attachedDocs: att.length, onboarding });
   const ok = await sendFrom(CHECKOUT_FROM, l.email, mail.subject, mail.html, { replyTo: "info@skill-studios.com", text: mail.text, attachments: att });
   if (!ok) { l.welcome.tries = (l.welcome.tries || 0) + 1; l.welcome.note = "Versand fehlgeschlagen"; return "pending"; }
   l.welcome.sentAt = new Date().toISOString(); l.welcome.docs = att.length;
