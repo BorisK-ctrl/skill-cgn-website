@@ -80,6 +80,7 @@ export default function BlackWeek() {
       accent={`${p}\u00a0€`}
       afterAccent={<PriceStamp />}
       subline={"Alle 4 Wochen. Monatlich kündbar.\n0\u00a0€\u00a0Aufnahmegebühr."}
+      sublineAccent={"0\u00a0€"}
       video={{ src: "/video/blackweek-boris.mp4", poster: "/video/blackweek-boris-poster.webp", label: "Boris, Founder von SKILL CGN, erklärt den Black Week Deal: Gym Only für 29 € alle 4 Wochen" }}
       priceLine="Nur online · nur Neukunden · Abschluss bis 30.11.2026"
       /* Darstellung nach Boris (19.11.2026). Kein Vergleichspreis: ONLY GYM 34 € ist ein anderer Tarif (3 Monate, Getränke und Handtuch extra),
