@@ -22,7 +22,7 @@ import Countdown from "@/components/Countdown";
 import PromoVideo from "@/components/PromoVideo";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
-import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, afterText, BLACK_FRIDAY_DATE } from "@/lib/blackweek";
+import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, BLACK_FRIDAY_DATE } from "@/lib/blackweek";
 import { berlinToday } from "@/lib/blackmonth";
 import { GYM_ONLY_FEATURES } from "@/components/BlackWeekCard";
 
@@ -210,7 +210,7 @@ export default function Home() {
                 <span className="absolute right-4 top-4 bg-primary px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-primary-foreground">Black Week · bis 30.11.</span>
                 <h3 className="text-2xl font-black uppercase tracking-tight pr-24">Gym Only</h3>
                 <p className="mt-1 text-primary text-xs font-black uppercase tracking-widest">Ohne Classes</p>
-                <div className="mt-5"><span className="text-5xl font-black font-mono">{fmtPrice(bw.now)}</span><span className="ml-2 text-sm text-foreground/60">€ alle vier Wochen</span><p className="mt-1 text-xs text-foreground/50">Monatlich kündbar, 1 Monat Laufzeit. Nur online, nur Neukunden. {afterText(fmtPrice(bw.was))}</p></div>
+                <div className="mt-5"><span className="text-5xl font-black font-mono">{fmtPrice(bw.now)}</span><span className="ml-2 text-sm text-foreground/60">€ alle vier Wochen</span><p className="mt-1 text-xs text-foreground/50">Dauerhaft, monatlich kündbar, 0&nbsp;€ Aufnahmegebühr. Nur online, nur Neukunden.</p></div>
                 <ul className="mt-5 space-y-2 flex-1">{GYM_ONLY_FEATURES.map(f => <li key={f} className="flex items-start gap-2 text-sm text-foreground/75"><Check className="mt-0.5 w-4 h-4 text-primary shrink-0" />{f}</li>)}</ul>
                 <Link data-promo-cta to="/blackweek#formular" onClick={() => trackCta("cta_blackweek_preise")} className="campaign-button mt-6 inline-flex items-center justify-center gap-2 border-2 border-primary px-5 py-4 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">Gym Only {fmtPrice(bw.now)}&nbsp;€ sichern <ArrowRight className="w-4 h-4" /></Link>
               </div>

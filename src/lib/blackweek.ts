@@ -29,7 +29,7 @@ export function usePromo(): Promo { return useBlackWeekActive() ? BLACKWEEK_PROM
 
 /** Reguläres Gym Only (Magicline 1215471120, Term 1215471130): 34 € alle 4 Wochen, 3 Monate Mindestlaufzeit, keine Aufnahmegebühr.
  *  Kein Streichpreis (Review Issue #1): Gym Only 34 € wurde nie öffentlich angeboten, ein Vergleich wäre nach § 5 UWG angreifbar.
- *  Der Preis erscheint nur im Hinweis afterText(): "Nach der Black Week kostet Gym Only 34 € …". */
+ *  Seit 19.11.2026 (Boris) auch kein Hinweis "Nach der Black Week 34 €" mehr: anderer Tarif (3 Monate, Getränke und Handtuch als Comfort Paket extra). */
 export const ONLY_GYM_REGULAR = { rateBundleId: 1215471120, price: 34 } as const;
 /** Live-Preise aus dem rate-bundle, Fallback die Listenpreise. */
 export function blackWeekPrices(bundles: { id: number; terms?: { price: number }[] }[] | null) {
