@@ -192,18 +192,27 @@ function DayBars({ days }: { days: Day[] }) {
 /* Nächste Entscheidung und Offene Punkte, über den Stift bearbeitbar (POST /api/skilltool2/notes) */
 function Notes({ campaign, next, open, onSaved }: { campaign: string; next: string; open: string[]; onSaved: () => void }) {
   const [edit, setEdit] = useState(false), [n, setN] = useState(next), [o, setO] = useState(open.join("\n")), [busy, setBusy] = useState(false), [err, setErr] = useState("");
+  const [base, setBase] = useState({ next, open });
   useEffect(() => { if (!edit) { setN(next); setO(open.join("\n")); } }, [next, open, edit]);
+  const start = () => { setBase({ next, open }); setN(next); setO(open.join("\n")); setErr(""); setEdit(true); };
+  /* Nur die geänderten Felder senden: ein gleichzeitig per API geändertes anderes Feld bleibt erhalten (Prüfung 21.11.2026) */
   const save = async () => {
-    setBusy(true); setErr("");
-    const r = await fetch("/api/skilltool2/notes", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
-      body: JSON.stringify({ campaign, next: n, open: o.split("\n").map(x => x.trim()).filter(Boolean) }) }).catch(() => null);
+    setErr("");
+    const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+    const lines = o.split("\n").map(norm).filter(Boolean);
+    const body: Record<string, unknown> = { campaign };
+    if (norm(n) !== norm(base.next)) body.next = n;
+    if (JSON.stringify(lines) !== JSON.stringify(base.open.map(norm))) body.open = lines;
+    if (!("next" in body) && !("open" in body)) { setEdit(false); return; }
+    setBusy(true);
+    const r = await fetch("/api/skilltool2/notes", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) }).catch(() => null);
     setBusy(false);
     if (r?.ok) { setEdit(false); onSaved(); } else setErr("Speichern ging nicht. Noch einmal.");
   };
   return (
     <section className={`${card} mt-2`}>
       <div className="flex items-center justify-between"><p className={kicker}>Nächste Entscheidung</p>
-        {!edit && <button type="button" onClick={() => setEdit(true)} aria-label="Bearbeiten" className="p-1 text-[#B8C0C3] hover:text-white"><Pencil className="h-4 w-4" /></button>}</div>
+        {!edit && <button type="button" onClick={start} aria-label="Bearbeiten" className="p-1 text-[#B8C0C3] hover:text-white"><Pencil className="h-4 w-4" /></button>}</div>
       {edit ? (
         <div className="mt-2 space-y-3">
           <textarea aria-label="Nächste Entscheidung" value={n} onChange={e => setN(e.target.value)} rows={3} className={field + " py-2 font-sans"} />

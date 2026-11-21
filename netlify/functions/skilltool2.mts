@@ -4,10 +4,10 @@
    POST /api/skilltool2/ads   → Werbezahlen, Plan, Google-Block (Sitzung oder Authorization: Bearer SKILLTOOL2_API_TOKEN)
    POST /api/skilltool2/notes {next, open[]} → Nächste Entscheidung, Offene Punkte (Sitzung oder Token)
    Bremse: höchstens 10 Anmeldeversuche je Anschluss und Stunde, jeder Versuch zählt vor der Prüfung (atomar, auch bei vielen gleichzeitigen
-   Anfragen); Speicher gestört: keine Anmeldung. Falsche API-Tokens zählen in dieselbe Bremse. Alle Antworten no-store (lib/util json). */
+   Anfragen, nur mit nachgelesenem Eintrag); Speicher gestört: keine Anmeldung. Falsche API-Tokens zählen in dieselbe Bremse. Alle Antworten no-store (lib/util json). */
 import type { Config } from "@netlify/functions";
 import { json, clientKey } from "./lib/util";
-import { hitCount, allowHit, getSt2Doc, getSt2DocVersioned, saveSt2DocIf, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales, getSt2ArchiveKey } from "./lib/store";
+import { hitCount, allowHit, reserveHit, getSt2Doc, getSt2DocVersioned, saveSt2DocIf, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales, getSt2ArchiveKey } from "./lib/store";
 import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, salesFor, archiveId, CAMPAIGN, type Doc, type SalesArchive } from "./lib/skilltool2";
 import type { CheckoutLead } from "./lib/store";
 
@@ -27,7 +27,7 @@ export default async (req: Request) => {
 
   if (path === "/api/skilltool2/login") {
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
-    const allowed = await allowHit(failKey(req), MAX_FAILS, HOUR).catch(() => null);
+    const allowed = await reserveHit(failKey(req), MAX_FAILS, HOUR).catch(() => null);
     if (allowed === null) return json({ error: "Gerade nicht erreichbar. Bitte gleich noch einmal." }, 503);
     if (!allowed) return blocked();
     const b = await req.json().catch(() => ({})) as Record<string, unknown>;

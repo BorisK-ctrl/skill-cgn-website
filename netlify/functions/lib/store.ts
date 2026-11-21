@@ -112,9 +112,16 @@ export async function saveSt2DocIf(campaign: string, doc: unknown, etag: string 
     m.set(campaign, doc); vm.set(campaign, Number(cur || 0) + 1); return true;
   }
   const r = etag ? await s.setJSON(campaign, doc, { onlyIfMatch: etag }) : await s.setJSON(campaign, doc, { onlyIfNew: true });
-  return !!r.modified;
+  if (!r.modified) return false;
+  if (r.etag) return true;
+  /* Antwort ohne Version: @netlify/blobs meldet bei bedingtem Schreiben jede Antwort außer 412 als gespeichert, auch einen Speicherfehler
+     nach allen Wiederholungen (Prüfung 21.11.2026). Darum nachlesen: gespeichert ist nur, was jetzt dort steht. Sonst Fehler (503). */
+  const back = await s.get(campaign, { type: "json" }) as unknown;
+  if (back !== null && JSON.stringify(back) === JSON.stringify(doc)) return true;
+  throw new Error("Speichern nicht bestätigt");
 }
-/** Fester Schlüssel für die E-Mail-Kennungen im Archiv, einmal zufällig erzeugt, nie gewechselt (unabhängig von SKILLTOOL2_SECRET). */
+/** Fester Schlüssel für die E-Mail-Kennungen im Archiv, einmal zufällig erzeugt, nie gewechselt (unabhängig von SKILLTOOL2_SECRET).
+ *  Zurück kommt immer der nachgelesene Schlüssel, nie der eben erzeugte: die Schreib-Antwort allein beweist nichts (siehe saveSt2DocIf). */
 export async function getSt2ArchiveKey(): Promise<string> {
   const k = "_meta/archive-key";
   const cur = await getJSON<{ key: string }>("skilltool2-sales", k);
@@ -122,11 +129,10 @@ export async function getSt2ArchiveKey(): Promise<string> {
   const fresh = { key: randomBytes(32).toString("hex"), createdAt: new Date().toISOString() };
   const s = store("skilltool2-sales");
   if (!s) { (mem["skilltool2-sales"] ||= new Map()).set(k, fresh); return fresh.key; }
-  const r = await s.setJSON(k, fresh, { onlyIfNew: true });
-  if (r.modified) return fresh.key;
+  await s.setJSON(k, fresh, { onlyIfNew: true });
   const again = await getJSON<{ key: string }>("skilltool2-sales", k);
   if (again?.key) return again.key;
-  throw new Error("Archiv-Schlüssel nicht lesbar");
+  throw new Error("Archiv-Schlüssel nicht gespeichert");
 }
 /* Sicherung der Verkaufszahlen je Kampagne (eigener Store, damit sie nie mit einem gleichzeitigen Werbezahlen-Eingang kollidiert) */
 export async function getSt2Sales<T>(archiveId: string) { return getJSON<T>("skilltool2-sales", archiveId); }
@@ -204,6 +210,27 @@ export async function allowHit(key: string, limit: number, windowMs: number): Pr
     cur.push(now);
     const r = got?.etag ? await s.setJSON(key, cur, { onlyIfMatch: got.etag }) : await s.setJSON(key, cur, { onlyIfNew: true });
     if (r.modified) return true;
+  }
+  return false;
+}
+/** Wie allowHit, aber für Bremsen, die nie offen fallen dürfen (Anmeldung SKILLTOOL2): erlaubt nur, wenn der Versuch nachweislich
+ *  gespeichert ist. Die Schreib-Antwort allein beweist das nicht (siehe saveSt2DocIf), darum mit eindeutiger Marke nachlesen.
+ *  Nicht bestätigt: Fehler, der Aufrufer lehnt ab (503). false = Grenze erreicht. */
+export async function reserveHit(key: string, limit: number, windowMs: number): Promise<boolean> {
+  safeKey(key);
+  const s = store("ratelimit");
+  if (!s) return allowHit(key, limit, windowMs);
+  const now = Date.now(), mark = now + Math.random() / 2;
+  for (let i = 0; i < 6; i++) {
+    const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
+    const cur = (Array.isArray(got?.data) ? (got!.data as number[]) : []).filter(t => now - t < windowMs);
+    if (cur.length >= limit) return false;
+    cur.push(mark);
+    const r = got?.etag ? await s.setJSON(key, cur, { onlyIfMatch: got.etag }) : await s.setJSON(key, cur, { onlyIfNew: true });
+    if (!r.modified) continue;
+    const back = await s.get(key, { type: "json" }) as unknown;
+    if (Array.isArray(back) && back.includes(mark)) return true;
+    throw new Error("Anmeldeversuch nicht gespeichert");
   }
   return false;
 }
