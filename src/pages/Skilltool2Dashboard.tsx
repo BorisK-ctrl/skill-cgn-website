@@ -192,22 +192,27 @@ function DayBars({ days }: { days: Day[] }) {
 /* Nächste Entscheidung und Offene Punkte, über den Stift bearbeitbar (POST /api/skilltool2/notes) */
 function Notes({ campaign, next, open, onSaved }: { campaign: string; next: string; open: string[]; onSaved: () => void }) {
   const [edit, setEdit] = useState(false), [n, setN] = useState(next), [o, setO] = useState(open.join("\n")), [busy, setBusy] = useState(false), [err, setErr] = useState("");
-  const [base, setBase] = useState({ next, open });
+  const [base, setBase] = useState({ next, open }), [dirty, setDirty] = useState({ next: false, open: false });
   useEffect(() => { if (!edit) { setN(next); setO(open.join("\n")); } }, [next, open, edit]);
-  const start = () => { setBase({ next, open }); setN(next); setO(open.join("\n")); setErr(""); setEdit(true); };
-  /* Nur die geänderten Felder senden: ein gleichzeitig per API geändertes anderes Feld bleibt erhalten (Prüfung 21.11.2026) */
+  const start = () => { setBase({ next, open }); setDirty({ next: false, open: false }); setN(next); setO(open.join("\n")); setErr(""); setEdit(true); };
+  /* Nur die geänderten Felder senden: ein gleichzeitig per API geändertes anderes Feld bleibt erhalten. Ein Feld aus einem fehlgeschlagenen
+     Speichern geht immer wieder mit, denn der Server kann es trotzdem gespeichert haben; sonst bliebe ein Zurücknehmen unbemerkt liegen.
+     Nach einem Fehler neu laden, damit die Karte zeigt, was wirklich gespeichert ist (Prüfung 21.11.2026). */
   const save = async () => {
     setErr("");
     const norm = (s: string) => s.replace(/\s+/g, " ").trim();
     const lines = o.split("\n").map(norm).filter(Boolean);
     const body: Record<string, unknown> = { campaign };
-    if (norm(n) !== norm(base.next)) body.next = n;
-    if (JSON.stringify(lines) !== JSON.stringify(base.open.map(norm))) body.open = lines;
+    if (dirty.next || norm(n) !== norm(base.next)) body.next = n;
+    if (dirty.open || JSON.stringify(lines) !== JSON.stringify(base.open.map(norm))) body.open = lines;
     if (!("next" in body) && !("open" in body)) { setEdit(false); return; }
     setBusy(true);
     const r = await fetch("/api/skilltool2/notes", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) }).catch(() => null);
     setBusy(false);
-    if (r?.ok) { setEdit(false); onSaved(); } else setErr("Speichern ging nicht. Noch einmal.");
+    if (r?.ok) { setEdit(false); onSaved(); return; }
+    setDirty({ next: "next" in body, open: "open" in body });
+    setErr("Speichern ging nicht. Noch einmal.");
+    if (r?.status !== 401) onSaved();
   };
   return (
     <section className={`${card} mt-2`}>
@@ -247,11 +252,13 @@ function AdForm({ campaign, days, onSaved }: { campaign: string; days: Day[]; on
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" });
   const [show, setShow] = useState(false), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const [v, setV] = useState<FormVals>(() => fromDay(today, days));
-  const [base, setBase] = useState<FormVals>(() => fromDay(today, days));
+  const [base, setBase] = useState<FormVals>(() => fromDay(today, days)), [dirty, setDirty] = useState<(keyof FormVals)[]>([]);
   const changed = (Object.keys(v) as (keyof FormVals)[]).filter(k => k !== "date" && v[k] !== base[k]);
-  const fill = (date: string) => { const f = fromDay(date, days); setV(f); setBase(f); };
-  /* Neue Daten (Neuladen alle 5 Minuten) übernehmen, solange nichts geändert wurde */
-  useEffect(() => { if (!changed.length) fill(v.date); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* Felder aus einem fehlgeschlagenen Speichern gehen wieder mit (wie bei den Notizen), auch wenn sie wieder dem alten Wert gleichen */
+  const send = [...new Set([...changed, ...dirty])];
+  const fill = (date: string) => { const f = fromDay(date, days); setV(f); setBase(f); setDirty([]); };
+  /* Neue Daten (Neuladen alle 5 Minuten) übernehmen, solange nichts geändert wurde und nichts offen ist */
+  useEffect(() => { if (!send.length) fill(v.date); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k: keyof FormVals) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setMsg("");
@@ -259,13 +266,15 @@ function AdForm({ campaign, days, onSaved }: { campaign: string; days: Day[]; on
   };
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setMsg("");
-    if (!changed.length) { setMsg("Nichts geändert."); return; }
+    if (!send.length) { setMsg("Nichts geändert."); return; }
     setBusy(true);
     const day: Record<string, unknown> = { date: v.date };
-    for (const k of changed) day[k] = k === "partial" ? v.partial : v[k] === "" ? 0 : v[k];
+    for (const k of send) day[k] = k === "partial" ? v.partial : v[k] === "" ? 0 : v[k];
     const r = await fetch("/api/skilltool2/ads", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ campaign, mergeDays: true, days: [day] }) }).catch(() => null);
     setBusy(false);
-    if (r?.ok) { setBase(v); setMsg("Gespeichert."); onSaved(); } else setMsg("Speichern ging nicht. Noch einmal.");
+    if (r?.ok) { setBase(v); setDirty([]); setMsg("Gespeichert."); onSaved(); return; }
+    setDirty(send); setMsg("Speichern ging nicht. Noch einmal.");
+    if (r?.status !== 401) onSaved();
   };
   const inp = (k: typeof NUM_FIELDS[number], label: string, mode: "decimal" | "numeric" = "decimal") => (
     <label className="block min-w-0"><span className={kicker}>{label}</span><input inputMode={mode} value={v[k] as string} onChange={set(k)} className={field} /></label>

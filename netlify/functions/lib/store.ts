@@ -101,8 +101,12 @@ export async function getSt2DocVersioned<T>(campaign: string): Promise<{ doc: T 
   const got = await s.getWithMetadata(campaign, { type: "json" }) as { data: T; etag?: string } | null;
   return { doc: got?.data ?? null, etag: got ? got.etag || null : null };
 }
-/** Nur schreiben, wenn das Dokument seit dem Lesen unverändert ist (etag) bzw. noch nicht existiert (etag null). false = jemand war schneller. */
-export async function saveSt2DocIf(campaign: string, doc: unknown, etag: string | null): Promise<boolean> {
+/** Kennungen der letzten Speichervorgänge im Dokument (Feld w): steht die eigene drin, ist genau dieser Vorgang gespeichert, auch wenn
+ *  danach schon jemand darüber gespeichert hat (der mischt auf diesem Stand weiter und behält die Kennung). */
+export const hasWrite = (doc: unknown, wid: string) => !!doc && typeof doc === "object" && Array.isArray((doc as { w?: unknown }).w) && (doc as { w: unknown[] }).w.includes(wid);
+/** Nur schreiben, wenn das Dokument seit dem Lesen unverändert ist (etag) bzw. noch nicht existiert (etag null). false = jemand war schneller.
+ *  wid: Kennung dieses Vorgangs, die doc.w schon enthält; damit gilt das Nachlesen auch dann, wenn inzwischen jemand darüber gespeichert hat. */
+export async function saveSt2DocIf(campaign: string, doc: unknown, etag: string | null, wid?: string): Promise<boolean> {
   safeKey(campaign);
   const s = store("skilltool2-ads");
   if (!s) {
@@ -115,9 +119,9 @@ export async function saveSt2DocIf(campaign: string, doc: unknown, etag: string 
   if (!r.modified) return false;
   /* @netlify/blobs meldet bei bedingtem Schreiben jede Antwort außer 412 als gespeichert, auch einen Speicherfehler nach allen
      Wiederholungen, und eine mitgeschickte Version beweist auch nichts (Prüfung 21.11.2026). Darum immer nachlesen: gespeichert ist nur,
-     was jetzt dort steht. Sonst Fehler (503); hat inzwischen jemand darüber gespeichert, ist auch das ein 503, das Wiederholen ist harmlos. */
+     was jetzt dort steht (mit Kennung: der Stand enthält sie, ohne: genau dieses Dokument). Sonst Fehler, der Aufrufer antwortet 503. */
   const back = await s.get(campaign, { type: "json" }) as unknown;
-  if (back !== null && JSON.stringify(back) === JSON.stringify(doc)) return true;
+  if (wid ? hasWrite(back, wid) : back !== null && JSON.stringify(back) === JSON.stringify(doc)) return true;
   throw new Error("Speichern nicht bestätigt");
 }
 /** Fester Schlüssel für die E-Mail-Kennungen im Archiv, einmal zufällig erzeugt, nie gewechselt (unabhängig von SKILLTOOL2_SECRET).
@@ -185,18 +189,12 @@ const recKey = (kind: string | undefined, email: string) => (kind === "probetrai
 export async function getOnboarding(email: string, kind = "onboarding") { return getJSON<OnboardingRecord>("onboarding", recKey(kind, email)); }
 export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboarding", recKey(r.kind, r.email), r); }
 
-/** Bremse je Schlüssel (z. B. gehashte IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt.
- *  Atomar über etag (onlyIfMatch/onlyIfNew): gleichzeitige Anfragen können sich nicht gegenseitig überschreiben. Bei Dauerkonflikt: ablehnen. */
-/** Treffer im Zeitfenster zählen, ohne einen hinzuzufügen (z. B. Fehlversuche vor der Passwortprüfung). */
-export async function hitCount(key: string, windowMs: number): Promise<number> {
-  safeKey(key);
-  const now = Date.now(), s = store("ratelimit");
-  const got = s ? await s.get(key, { type: "json" }) as unknown : mem["ratelimit"]?.get(key);
-  return (Array.isArray(got) ? got : []).filter(h => now - hitTime(h) < windowMs).length;
-}
 /* Einträge der Bremse: Zahl (Zeitpunkt, allowHit) oder {t, id} (reserveHit). Unlesbares zählt nicht (NaN fällt aus dem Zeitfenster). */
 const hitTime = (h: unknown) => typeof h === "number" ? h : h && typeof (h as { t?: unknown }).t === "number" ? (h as { t: number }).t : NaN;
-const hasHit = (arr: unknown, id: string) => Array.isArray(arr) && arr.some(h => !!h && typeof h === "object" && (h as { id?: unknown }).id === id);
+const isHit = (h: unknown, id: string) => !!h && typeof h === "object" && (h as { id?: unknown }).id === id;
+const hasHit = (arr: unknown, id: string) => Array.isArray(arr) && arr.some(h => isHit(h, id));
+/** Bremse je Schlüssel (z. B. gehashte IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt.
+ *  Atomar über etag (onlyIfMatch/onlyIfNew): gleichzeitige Anfragen können sich nicht gegenseitig überschreiben. Bei Dauerkonflikt: ablehnen. */
 export async function allowHit(key: string, limit: number, windowMs: number): Promise<boolean> {
   safeKey(key);
   const now = Date.now();
@@ -215,29 +213,43 @@ export async function allowHit(key: string, limit: number, windowMs: number): Pr
   }
   return false;
 }
-/** Bremse, die nie offen fallen darf (Anmeldung SKILLTOOL2): erlaubt nur, wenn der Versuch nachweislich gespeichert ist. Jeder Versuch
- *  bekommt eine zufällige Kennung {t, id}; die Schreib-Antwort allein beweist nichts (siehe saveSt2DocIf), darum wird nachgelesen.
+/** Bremse, die nie offen fallen darf (Anmeldung und API-Token SKILLTOOL2): erlaubt nur, wenn der Versuch nachweislich gespeichert ist.
+ *  Jeder Versuch bekommt eine zufällige Kennung {t, id}; die Schreib-Antwort allein beweist nichts (siehe saveSt2DocIf), darum wird nachgelesen.
  *  Ist die Kennung schon gespeichert (Antwort verloren, der Client wiederholte und bekam 412), zählt sie einmal, nicht doppelt.
- *  false = Grenze erreicht. Fehler (Aufrufer lehnt mit 503 ab): Versuch nicht bestätigt, Speicher gestört oder Dauerkonflikt. */
-export async function reserveHit(key: string, limit: number, windowMs: number): Promise<boolean> {
+ *  Rückgabe: die Kennung (für releaseHit) oder false = Grenze erreicht. Fehler (Aufrufer lehnt mit 503 ab): Versuch nicht bestätigt,
+ *  Speicher gestört oder Dauerkonflikt. */
+export async function reserveHit(key: string, limit: number, windowMs: number): Promise<string | false> {
   safeKey(key);
   const now = Date.now(), id = randomBytes(12).toString("hex"), s = store("ratelimit");
   if (!s) {
     const m = (mem["ratelimit"] ||= new Map()), cur = ((m.get(key) as unknown[]) || []).filter(h => now - hitTime(h) < windowMs);
-    if (cur.length >= limit) return false; cur.push({ t: now, id }); m.set(key, cur); return true;
+    if (cur.length >= limit) return false; cur.push({ t: now, id }); m.set(key, cur); return id;
   }
   for (let i = 0; i < 6; i++) {
     const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
-    if (hasHit(got?.data, id)) return true;
+    if (hasHit(got?.data, id)) return id;
     const cur = (Array.isArray(got?.data) ? got!.data as unknown[] : []).filter(h => now - hitTime(h) < windowMs);
     if (cur.length >= limit) return false;
     cur.push({ t: now, id });
     const r = got?.etag ? await s.setJSON(key, cur, { onlyIfMatch: got.etag }) : await s.setJSON(key, cur, { onlyIfNew: true });
     if (!r.modified) continue;
-    if (hasHit(await s.get(key, { type: "json" }), id)) return true;
+    if (hasHit(await s.get(key, { type: "json" }), id)) return id;
     throw new Error("Anmeldeversuch nicht gespeichert");
   }
   throw new Error("Anmeldebremse: Dauerkonflikt");
+}
+/** Eigenen Eintrag wieder freigeben (richtiger API-Token: soll die Bremse nicht füllen). Nur best effort: klappt es nicht, bleibt der
+ *  Platz bis zum Ende des Zeitfensters belegt, die Bremse ist dann nur strenger. Nimmt nur den Eintrag mit dieser Kennung heraus. */
+export async function releaseHit(key: string, id: string): Promise<void> {
+  safeKey(key);
+  const s = store("ratelimit");
+  if (!s) { const m = mem["ratelimit"], cur = m?.get(key); if (Array.isArray(cur)) m!.set(key, cur.filter(h => !isHit(h, id))); return; }
+  for (let i = 0; i < 3; i++) {
+    const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
+    if (!got?.etag || !hasHit(got.data, id)) return;
+    const r = await s.setJSON(key, (got.data as unknown[]).filter(h => !isHit(h, id)), { onlyIfMatch: got.etag });
+    if (r.modified) return;
+  }
 }
 
 /* ---------- Kurze Sperren (Netlify Blobs, starke Konsistenz): immer nur eine Buchung je Kunde und je Rasterzelle gleichzeitig ----------

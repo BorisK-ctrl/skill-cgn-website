@@ -44,7 +44,8 @@ export interface AdDay { date: string; meta?: number; google?: number; impressio
   purchases_meta?: number; purchases_test?: number; partial?: boolean; google_clicks?: number }
 export interface Ad { name: string; id?: string; spend?: number; impressions?: number; reach?: number; link_clicks?: number; ctr?: number; cpc?: number; lpv?: number; purchases_meta?: number; status?: string }
 export interface GoogleBlock { impressions?: number; clicks?: number; ctr?: number; cpc?: number; spend?: number; conversions?: number }
-export interface Doc { campaign: string; stand?: string; plan?: Plan; days: AdDay[]; ads: Ad[]; google?: GoogleBlock; next?: string; open?: string[]; updatedAt?: string }
+export interface Doc { campaign: string; stand?: string; plan?: Plan; days: AdDay[]; ads: Ad[]; google?: GoogleBlock; next?: string; open?: string[]; updatedAt?: string;
+  w?: string[] } // w: Kennungen der letzten Speichervorgänge (skilltool2.mts), nur intern, nicht im Dashboard
 
 export const CAMPAIGN = /^[a-z0-9-]{2,32}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -96,6 +97,8 @@ export function mergeDoc(prev: Doc | null, body: Record<string, unknown>, campai
     if (a.id !== undefined) ad.id = str(a.id, 30);
     if (a.status !== undefined) ad.status = str(a.status, 60);
     const i = doc.ads.findIndex(x => (ad.id && x.id === ad.id) || (!ad.id && x.name === ad.name));
+    /* Per Name gefunden: deren id behalten, sonst legt derselbe Aufruf beim Wiederholen die Anzeige doppelt an (Prüfung 21.11.2026) */
+    if (i >= 0 && !ad.id && doc.ads[i].id) ad.id = doc.ads[i].id;
     if (i >= 0) doc.ads[i] = ad; else doc.ads.push(ad);
   }
   doc.ads = doc.ads.slice(-40);
