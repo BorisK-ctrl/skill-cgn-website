@@ -3,7 +3,7 @@
    Daten: echte Verträge und Trichter aus den Checkout-Datensätzen mit den Regeln des Tagesberichts (lib/sales-report.ts), plus Archiv,
    Werbezahlen, Plan und Notizen aus dem Blob "skilltool2-ads" (POST /api/skilltool2/ads bzw. /notes). Keine Personendaten. */
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { campaignOf, dayOf, doneTime, reachedPayment, sourceGroup, testFilter, type CampaignStats, type DayStats } from "./sales-report";
+import { campaignOf, dayOf, doneTime, reachedPayment, sourceGroup, isTestByRule, type CampaignStats, type DayStats } from "./sales-report";
 import type { CheckoutLead } from "./store";
 
 export const COOKIE = "st2";
@@ -77,7 +77,7 @@ export function mergeDoc(prev: Doc | null, body: Record<string, unknown>, campai
     if (p.checkout_campaign !== undefined) plan.checkout_campaign = str(p.checkout_campaign, 60);
     doc.plan = plan;
   }
-  if (Array.isArray(body.days)) for (const raw of body.days.slice(0, 120)) {
+  if (Array.isArray(body.days)) for (const raw of body.days.slice(0, 1000)) {
     if (!raw || typeof raw !== "object") continue;
     const d = raw as Record<string, unknown>;
     if (typeof d.date !== "string" || !DATE.test(d.date)) continue;
@@ -87,7 +87,7 @@ export function mergeDoc(prev: Doc | null, body: Record<string, unknown>, campai
     if (i >= 0 && body.mergeDays === true) { const m: AdDay = { ...doc.days[i], ...day }; if (d.partial === false) delete m.partial; doc.days[i] = m; }
     else if (i >= 0) doc.days[i] = day; else doc.days.push(day);
   }
-  doc.days = doc.days.sort((a, b) => a.date.localeCompare(b.date)).slice(-120);
+  doc.days = doc.days.sort((a, b) => a.date.localeCompare(b.date)).slice(-1000); // fast drei Jahre, damit Ausgaben so lange bleiben wie das Archiv
   if (Array.isArray(body.ads)) for (const raw of body.ads.slice(0, 40)) {
     if (!raw || typeof raw !== "object") continue;
     const a = raw as Record<string, unknown>;
@@ -121,35 +121,41 @@ export function ampel(spend: number, contracts: number, plan: Plan = {}): Ampel 
 }
 const sum = (xs: (number | undefined)[]) => Math.round(xs.reduce<number>((s, x) => s + (x || 0), 0) * 100) / 100;
 
-/* Archiv je Kampagne (Store skilltool2-sales), damit Verträge und Trichter die 30-Tage-Löschung der Checkout-Datensätze überstehen
+/* Archiv (Store skilltool2-sales), damit Verträge und Trichter die 30-Tage-Löschung der Checkout-Datensätze überstehen
    (checkout-reminder.mts), während die Ausgaben bleiben. Eine Zeile je Datensatz, ohne Personendaten: t = Hash des Tokens,
-   e = HMAC der E-Mail (für REPORT_IGNORE_EMAILS), c = Tag von Schritt 1, p = bis zur Zahlung, s = Quelle, k = Vertrag.
-   Solange ein Datensatz existiert, entscheiden die Live-Daten (Testfilter, Ignorierliste, Kampagne). Das Archiv zählt nur für gelöschte
-   Datensätze. Der Zeitraum (plan.start/ende) gilt erst beim Rechnen, das Archiv selbst bleibt vollständig (Prüfung 21.11.2026). */
-export interface ArchEntry { t: string; e: string; c: string; p: boolean; s: string; k?: { d: string; id: string } }
-export interface SalesArchive { v: 2; key: string; entries: ArchEntry[]; savedAt: string }
+   e = HMAC der E-Mail (für REPORT_IGNORE_EMAILS), c = Tag von Schritt 1, p = bis zur Zahlung, s = Quelle, k = Vertrag,
+   x = Test nach Name oder Domain. Solange ein Datensatz existiert, entscheiden die Live-Daten. Das Archiv zählt nur für gelöschte.
+   Es wird nie gefiltert gespeichert: Testregel, Ignorierliste und Zeitraum gelten erst beim Zählen, und jede Aktion (Zuordnung)
+   hat ein eigenes Archiv. Umbenennen oder Ausblenden lässt sich so rückgängig machen (Prüfungen 21.11.2026). */
+export interface ArchEntry { t: string; e: string; c: string; p: boolean; s: string; k?: { d: string; id: string }; x?: true }
+export interface SalesArchive { v: 3; key: string; entries: ArchEntry[]; savedAt: string }
 const tokenTag = (token: string) => createHash("sha256").update("st2tok|" + token).digest("hex").slice(0, 24);
 const emailTag = (email: string) => createHmac("sha256", env().secret || "st2").update("st2mail|" + email.trim().toLowerCase()).digest("hex").slice(0, 24);
+/** Aktion in den Checkout-Datensätzen, zu der eine Dashboard-Kampagne gehört */
+export const checkoutKey = (doc: Doc | null, campaign: string) => doc?.plan?.checkout_campaign || CHECKOUT_CAMPAIGN[campaign] || doc?.plan?.name || campaign;
+/** Ein Archiv je Kampagne und Aktion: eine geänderte Zuordnung überschreibt das alte Archiv nicht */
+export const archiveId = (doc: Doc | null, campaign: string) => `${campaign}/${createHash("sha256").update(checkoutKey(doc, campaign)).digest("hex").slice(0, 12)}`;
 
 export function salesFor(doc: Doc | null, campaign: string, leads: CheckoutLead[], opts: { archive?: SalesArchive | null; ignoreEmails?: string[]; now?: Date } = {}): { stats: CampaignStats; archive: SalesArchive } {
   const plan = doc?.plan || {};
-  const key = plan.checkout_campaign || CHECKOUT_CAMPAIGN[campaign] || plan.name || campaign;
-  const isTest = testFilter(opts.ignoreEmails);
+  const key = checkoutKey(doc, campaign);
   const ignoreTags = new Set((opts.ignoreEmails || []).map(x => x.trim()).filter(Boolean).map(emailTag));
   const existing = new Set(leads.map(l => tokenTag(l.token)));
-  const mine = leads.filter(l => campaignOf(l) === key);
-  const live: ArchEntry[] = mine.filter(l => !isTest(l)).map(l => {
+  const live: ArchEntry[] = leads.filter(l => campaignOf(l) === key).map(l => {
     const dt = doneTime(l);
-    return { t: tokenTag(l.token), e: emailTag(l.email || ""), c: dayOf(l.createdAt), p: reachedPayment(l), s: sourceGroup(l.utm), ...(dt && l.contractId ? { k: { d: dayOf(dt), id: l.contractId } } : {}) };
+    return { t: tokenTag(l.token), e: emailTag(l.email || ""), c: dayOf(l.createdAt), p: reachedPayment(l), s: sourceGroup(l.utm),
+      ...(dt && l.contractId ? { k: { d: dayOf(dt), id: l.contractId } } : {}), ...(isTestByRule(l) ? { x: true as const } : {}) };
   });
-  /* Archiv nur für gelöschte Datensätze derselben Aktion; später Ausgeblendete (REPORT_IGNORE_EMAILS) fallen auch hier heraus */
-  const old = opts.archive && opts.archive.v === 2 && opts.archive.key === key ? opts.archive.entries.filter(x => x && !existing.has(x.t) && !ignoreTags.has(x.e)) : [];
+  /* Archivzeilen nur für Datensätze, die es nicht mehr gibt; gespeichert wird alles ungefiltert */
+  const old = opts.archive && opts.archive.v === 3 && opts.archive.key === key ? opts.archive.entries.filter(x => x && !existing.has(x.t)) : [];
   const all = [...live, ...old];
+  const counted = (e: ArchEntry) => !e.x && !ignoreTags.has(e.e);
   const inRange = (d: string) => !!d && (!plan.start || d >= plan.start) && (!plan.ende || d <= plan.ende);
   const days = new Map<string, DayStats>(), src = new Map<string, { starts: number; contracts: number }>();
   const day = (d: string) => { let x = days.get(d); if (!x) { x = { date: d, starts: 0, payment: 0, contracts: 0 }; days.set(d, x); } return x; };
-  const stats: CampaignStats = { starts: 0, payment: 0, contracts: 0, days: [], contractList: [], sources: [], tests: mine.length - live.length };
+  const stats: CampaignStats = { starts: 0, payment: 0, contracts: 0, days: [], contractList: [], sources: [], tests: live.filter(e => !counted(e)).length };
   for (const e of all) {
+    if (!counted(e)) continue;
     const s = src.get(e.s) || { starts: 0, contracts: 0 };
     if (inRange(e.c)) { stats.starts++; day(e.c).starts++; s.starts++; if (e.p) { stats.payment++; day(e.c).payment++; } }
     if (e.k && inRange(e.k.d)) { stats.contracts++; day(e.k.d).contracts++; s.contracts++; stats.contractList.push({ date: e.k.d, contractId: e.k.id, source: e.s }); }
@@ -158,14 +164,15 @@ export function salesFor(doc: Doc | null, campaign: string, leads: CheckoutLead[
   stats.days = [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
   stats.contractList.sort((a, b) => a.date.localeCompare(b.date) || a.contractId.localeCompare(b.contractId));
   stats.sources = [...src].map(([source, v]) => ({ source, ...v })).sort((a, b) => b.contracts - a.contracts || b.starts - a.starts || a.source.localeCompare(b.source));
-  return { stats, archive: { v: 2, key, entries: all, savedAt: (opts.now || new Date()).toISOString() } };
+  return { stats, archive: { v: 3, key, entries: all, savedAt: (opts.now || new Date()).toISOString() } };
 }
 
 export function buildKpi(doc: Doc | null, campaign: string, stats: CampaignStats, opts: { now?: Date; campaigns?: string[] } = {}) {
   const now = opts.now || new Date();
   const plan = doc?.plan || {};
   const today = dayOf(now.toISOString());
-  const adDays = doc?.days || [];
+  /* Ausgaben und Klicks im selben Zeitraum wie Verträge und Formulare (plan.start/ende) */
+  const adDays = (doc?.days || []).filter(d => (!plan.start || d.date >= plan.start) && (!plan.ende || d.date <= plan.ende));
   const spend_meta = sum(adDays.map(d => d.meta)), spend_google = sum(adDays.map(d => d.google)), spend = Math.round((spend_meta + spend_google) * 100) / 100;
   const contracts = stats.contracts;
   const google = doc?.google || {};

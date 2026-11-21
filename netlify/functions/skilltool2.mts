@@ -8,7 +8,7 @@
 import type { Config } from "@netlify/functions";
 import { json, clientKey } from "./lib/util";
 import { hitCount, allowHit, getSt2Doc, saveSt2Doc, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales } from "./lib/store";
-import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, salesFor, CAMPAIGN, type Doc, type SalesArchive } from "./lib/skilltool2";
+import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, salesFor, archiveId, CAMPAIGN, type Doc, type SalesArchive } from "./lib/skilltool2";
 import type { CheckoutLead } from "./lib/store";
 
 const HOUR = 3600000, MAX_FAILS = 10;
@@ -50,10 +50,11 @@ export default async (req: Request) => {
     /* Archiv nur mit vollständigen Eingaben neu schreiben: ein Lesefehler darf es nie verkleinern (Prüfung 21.11.2026) */
     let archive: SalesArchive | null = null, archiveOk = true, leads: CheckoutLead[] = [], leadsOk = true;
     const doc = await getSt2Doc<Doc>(campaign).catch(() => null);
-    try { archive = await getSt2Sales<SalesArchive>(campaign); } catch { archiveOk = false; }
+    const aid = archiveId(doc, campaign);
+    try { archive = await getSt2Sales<SalesArchive>(aid); } catch { archiveOk = false; }
     try { const r = await listCheckoutLeadsChecked(); leads = r.leads; leadsOk = r.complete; } catch { leadsOk = false; }
     const { stats, archive: next } = salesFor(doc, campaign, leads, { archive, ignoreEmails: (process.env.REPORT_IGNORE_EMAILS || "").split(",") });
-    if (doc && archiveOk && leadsOk) await saveSt2Sales(campaign, next).catch(e => console.log("skilltool2 Archiv", String(e)));
+    if (doc && archiveOk && leadsOk) await saveSt2Sales(aid, next).catch(e => console.log("skilltool2 Archiv", String(e)));
     return json(buildKpi(doc, campaign, stats, { campaigns: campaigns.includes(campaign) ? campaigns : [...campaigns, campaign].sort() }));
   }
 

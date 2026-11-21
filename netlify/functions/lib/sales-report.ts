@@ -68,9 +68,10 @@ export interface SalesReport { day: string; hasData: boolean; subject: string; h
 const zero = (): Counts => ({ starts: 0, payment: 0, contracts: 0, reminders: 0, recovered: 0 });
 
 /** Tests: "test" am Wortanfang in Name oder E-Mail (Tester, info+test@), eigene Domain, oder REPORT_IGNORE_EMAILS in Netlify */
+export const isTestByRule = (l: CheckoutLead) => /(^|[^a-zäöüß])test/i.test(`${l.firstName} ${l.lastName} ${l.email}`) || /@(.+\.)?skill-studios\.com$/i.test(l.email || "");
 export function testFilter(ignoreEmails: string[] = []) {
   const ignore = new Set(ignoreEmails.map(e => e.trim().toLowerCase()).filter(Boolean));
-  return (l: CheckoutLead) => /(^|[^a-zäöüß])test/i.test(`${l.firstName} ${l.lastName} ${l.email}`) || /@(.+\.)?skill-studios\.com$/i.test(l.email || "") || ignore.has((l.email || "").toLowerCase());
+  return (l: CheckoutLead) => isTestByRule(l) || ignore.has((l.email || "").toLowerCase());
 }
 
 /* Eine Aktion über einen Zeitraum (SKILLTOOL2-Dashboard): dieselben Regeln wie der Tagesbericht. Formulare und Zahlungsschritt nach Tag von

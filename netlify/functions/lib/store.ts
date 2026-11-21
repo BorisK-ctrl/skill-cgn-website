@@ -94,8 +94,8 @@ export async function getSt2Doc<T>(campaign: string) { return getJSON<T>("skillt
 export async function saveSt2Doc(campaign: string, doc: unknown) { await setJSON("skilltool2-ads", campaign, doc); }
 export async function listSt2Campaigns(): Promise<string[]> { return listKeys("skilltool2-ads", ""); }
 /* Sicherung der Verkaufszahlen je Kampagne (eigener Store, damit sie nie mit einem gleichzeitigen Werbezahlen-Eingang kollidiert) */
-export async function getSt2Sales<T>(campaign: string) { return getJSON<T>("skilltool2-sales", campaign); }
-export async function saveSt2Sales(campaign: string, snap: unknown) { await setJSON("skilltool2-sales", campaign, snap); }
+export async function getSt2Sales<T>(archiveId: string) { return getJSON<T>("skilltool2-sales", archiveId); }
+export async function saveSt2Sales(archiveId: string, snap: unknown) { await setJSON("skilltool2-sales", archiveId, snap); }
 /* Tagesbericht (sales-report.mts): Zahlen je Tag ohne Personendaten. Bleibt, wenn checkout-leads nach 30 Tagen gelöscht werden. */
 export async function saveDailyReport(day: string, summary: unknown) { await setJSON("reports", "tag/" + day, summary); }
 

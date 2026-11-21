@@ -150,8 +150,8 @@ export default function Skilltool2Dashboard() {
           </section>
         ) : null}
 
-        <Notes campaign={kpi.campaign} next={kpi.next} open={kpi.open} onSaved={load} />
-        <AdForm key={kpi.campaign} campaign={kpi.campaign} days={kpi.days} onSaved={load} />
+        <Notes key={`notes-${kpi.campaign}`} campaign={kpi.campaign} next={kpi.next} open={kpi.open} onSaved={load} />
+        <AdForm key={`form-${kpi.campaign}`} campaign={kpi.campaign} days={kpi.days} onSaved={load} />
 
         <footer className="mt-6 space-y-1 font-mono text-[11px] text-[#B8C0C3]">
           <p>Käufe laut Meta sind keine Verträge, echte Verträge kommen aus Magicline (gezählt über die Website, wie im Tagesbericht).</p>
