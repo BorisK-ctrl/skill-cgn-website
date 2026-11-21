@@ -1,7 +1,7 @@
 /* /skilltool2/dashboard: internes KPI-Dashboard (Boris 21.11.2026), mobil zuerst. Daten von /api/skilltool2/kpi (nur mit Sitzung),
    alle 5 Minuten neu. Ohne Sitzung zurück zur Passwortseite. Keine Personendaten, Verträge nur als Nummer, Tag und Quelle.
    Farben laut Auftrag: Fläche #2A3133, Karten #343C3F, Gelb #FBFF00 (Meta), Blau #6FA8FF (Google), Grün #4DFF88, Rot #FF4D4D. */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Pencil, RefreshCw } from "lucide-react";
 import { usePageMeta } from "@/lib/meta";
@@ -34,18 +34,23 @@ export default function Skilltool2Dashboard() {
   const [params, setParams] = useSearchParams();
   const campaign = params.get("campaign") || "";
   const [kpi, setKpi] = useState<Kpi | null>(null), [err, setErr] = useState(""), [loading, setLoading] = useState(false);
-
+  /* Laden immer für die Kampagne, die jetzt in der Adresse steht (auch wenn ein altes Speichern erst nach dem Wechsel antwortet), und nur
+     übernehmen, was neuer ist als das zuletzt Gezeigte: eine langsame ältere Antwort überschreibt keine neuere (Prüfung 21.11.2026, Runde 8) */
+  const camp = useRef(campaign), started = useRef(0), shown = useRef(0);
+  camp.current = campaign;
   const load = useCallback(async () => {
+    const my = ++started.current, c = camp.current;
     setLoading(true);
     try {
-      const r = await fetch(`/api/skilltool2/kpi${campaign ? `?campaign=${encodeURIComponent(campaign)}` : ""}`, { credentials: "same-origin", cache: "no-store" });
+      const r = await fetch(`/api/skilltool2/kpi${c ? `?campaign=${encodeURIComponent(c)}` : ""}`, { credentials: "same-origin", cache: "no-store" });
       if (r.status === 401 || r.status === 503) { nav("/skilltool2", { replace: true }); return; }
       if (!r.ok) throw new Error(String(r.status));
-      setKpi(await r.json()); setErr("");
-    } catch { setErr("Daten nicht erreichbar. Gleich noch einmal."); }
-    setLoading(false);
-  }, [campaign, nav]);
-  useEffect(() => { load(); const t = window.setInterval(load, 5 * 60000); return () => window.clearInterval(t); }, [load]);
+      const j = await r.json() as Kpi;
+      if (my > shown.current && c === camp.current) { shown.current = my; setKpi(j); setErr(""); }
+    } catch { if (my > shown.current && c === camp.current) setErr("Daten nicht erreichbar. Gleich noch einmal."); }
+    if (my === started.current) setLoading(false);
+  }, [nav]);
+  useEffect(() => { load(); const t = window.setInterval(load, 5 * 60000); return () => window.clearInterval(t); }, [load, campaign]);
 
   if (!kpi) return (
     <main className="flex min-h-screen items-center justify-center bg-[#2A3133] px-4 text-white">
@@ -197,7 +202,8 @@ function Notes({ campaign, next, open, onSaved }: { campaign: string; next: stri
   const start = () => { setBase({ next, open }); setDirty({ next: false, open: false }); setN(next); setO(open.join("\n")); setErr(""); setEdit(true); };
   /* Nur die geänderten Felder senden: ein gleichzeitig per API geändertes anderes Feld bleibt erhalten. Ein Feld aus einem fehlgeschlagenen
      Speichern geht immer wieder mit, denn der Server kann es trotzdem gespeichert haben; sonst bliebe ein Zurücknehmen unbemerkt liegen.
-     Nach einem Fehler neu laden, damit die Karte zeigt, was wirklich gespeichert ist (Prüfung 21.11.2026). */
+     Nach einem Fehler neu laden, damit die Karte zeigt, was wirklich gespeichert ist (Prüfung 21.11.2026). Solange gespeichert wird, ist der
+     Editor gesperrt (auch Abbrechen): die Antwort gehört so immer zu genau diesem Bearbeiten, nie zu einem danach neu geöffneten (Runde 8). */
   const save = async () => {
     setErr("");
     const norm = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -211,7 +217,7 @@ function Notes({ campaign, next, open, onSaved }: { campaign: string; next: stri
     setBusy(false);
     if (r?.ok) { setEdit(false); onSaved(); return; }
     setDirty({ next: "next" in body, open: "open" in body });
-    setErr("Speichern ging nicht. Noch einmal.");
+    setErr(r?.status === 401 ? "Nicht mehr angemeldet. Text kopieren, in einem neuen Tab neu anmelden, dann hier noch einmal speichern." : "Speichern ging nicht. Noch einmal.");
     if (r?.status !== 401) onSaved();
   };
   return (
@@ -220,12 +226,12 @@ function Notes({ campaign, next, open, onSaved }: { campaign: string; next: stri
         {!edit && <button type="button" onClick={start} aria-label="Bearbeiten" className="p-1 text-[#B8C0C3] hover:text-white"><Pencil className="h-4 w-4" /></button>}</div>
       {edit ? (
         <div className="mt-2 space-y-3">
-          <textarea aria-label="Nächste Entscheidung" value={n} onChange={e => setN(e.target.value)} rows={3} className={field + " py-2 font-sans"} />
-          <label className="block"><span className={kicker}>Offene Punkte, einer je Zeile</span><textarea value={o} onChange={e => setO(e.target.value)} rows={5} className={field + " py-2 font-sans"} /></label>
+          <textarea aria-label="Nächste Entscheidung" value={n} onChange={e => setN(e.target.value)} disabled={busy} rows={3} className={field + " py-2 font-sans disabled:opacity-60"} />
+          <label className="block"><span className={kicker}>Offene Punkte, einer je Zeile</span><textarea value={o} onChange={e => setO(e.target.value)} disabled={busy} rows={5} className={field + " py-2 font-sans disabled:opacity-60"} /></label>
           {err && <p className="border-l-4 border-[#FF4D4D] pl-3 text-sm font-bold">{err}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={save} disabled={busy} className="min-h-11 bg-[#FBFF00] px-5 text-sm font-bold uppercase tracking-[0.12em] text-black disabled:opacity-50">Speichern</button>
-            <button type="button" onClick={() => setEdit(false)} className="min-h-11 border border-white/30 px-5 text-sm font-bold uppercase tracking-[0.12em]">Abbrechen</button>
+            <button type="button" onClick={() => setEdit(false)} disabled={busy} className="min-h-11 border border-white/30 px-5 text-sm font-bold uppercase tracking-[0.12em] disabled:opacity-50">Abbrechen</button>
           </div>
         </div>
       ) : (
@@ -240,9 +246,20 @@ function Notes({ campaign, next, open, onSaved }: { campaign: string; next: stri
 }
 
 /* Werbezahlen eines Tages von Hand (POST /api/skilltool2/ads). Vorbefüllt mit dem, was für den Tag schon da ist. Gespeichert werden nur
-   die Felder, die geändert wurden (mergeDays), der Rest des Tages bleibt. Ohne Änderung im Formular zieht es neue Daten nach (Prüfung 21.11.2026). */
+   die Felder, die geändert wurden (mergeDays), der Rest des Tages bleibt. Ohne Änderung im Formular zieht es neue Daten nach (Prüfung 21.11.2026).
+   Solange gespeichert wird, ist das Formular gesperrt (Tag, Felder, Auf/Zu): die Antwort gehört so immer zu genau diesem Tag und Stand (Runde 8). */
 const NUM_FIELDS = ["meta", "google", "link_clicks", "junk_clicks", "lpv", "purchases_meta"] as const;
 type FormVals = { date: string; partial: boolean } & Record<typeof NUM_FIELDS[number], string>;
+/* Eingabe deutsch: Komma = Dezimal, Punkt = Tausender ("1.234,56", "1.234" = 1234). Ein Punkt ohne genau drei Ziffern danach ist ein
+   Dezimalpunkt ("24.7"). Gesendet wird die Zahl; Ungültiges wird gemeldet statt still verworfen (Prüfung 21.11.2026, Runde 8). */
+const deNum = (s: string): number | null => {
+  const t = s.replace(/[\s\u00a0\u202f€%]/g, "");
+  const m = /^(\d+(,\d*)?|,\d+)$/.test(t) ? t.replace(",", ".")
+    : /^\d{1,3}(\.\d{3})+(,\d*)?$/.test(t) ? t.replace(/\./g, "").replace(",", ".")
+    : /^\d*\.\d+$/.test(t) ? t : null;
+  const n = m === null ? NaN : Number(m);
+  return Number.isFinite(n) && n < 1e9 ? n : null;
+};
 const fromDay = (date: string, days: Day[]): FormVals => {
   const d = days.find(x => x.date === date) as (Day & Record<string, unknown>) | undefined;
   const v = Object.fromEntries(NUM_FIELDS.map(k => [k, d && typeof d[k] === "number" ? String(d[k]).replace(".", ",") : ""])) as Record<typeof NUM_FIELDS[number], string>;
@@ -266,27 +283,33 @@ function AdForm({ campaign, days, onSaved }: { campaign: string; days: Day[]; on
   };
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setMsg("");
+    if (busy) return;
     if (!send.length) { setMsg("Nichts geändert."); return; }
-    setBusy(true);
     const day: Record<string, unknown> = { date: v.date };
-    for (const k of send) day[k] = k === "partial" ? v.partial : v[k] === "" ? 0 : v[k];
+    for (const k of send) {
+      if (k === "partial") { day[k] = v.partial; continue; }
+      const n = v[k] === "" ? 0 : deNum(String(v[k]));
+      if (n === null) { setMsg("Bitte nur Zahlen eintragen, z. B. 1.234,56."); return; }
+      day[k] = n;
+    }
+    setBusy(true);
     const r = await fetch("/api/skilltool2/ads", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ campaign, mergeDays: true, days: [day] }) }).catch(() => null);
     setBusy(false);
     if (r?.ok) { setBase(v); setDirty([]); setMsg("Gespeichert."); onSaved(); return; }
-    setDirty(send); setMsg("Speichern ging nicht. Noch einmal.");
+    setDirty(send); setMsg(r?.status === 401 ? "Nicht mehr angemeldet. Bitte in einem neuen Tab neu anmelden, dann hier noch einmal speichern." : "Speichern ging nicht. Noch einmal.");
     if (r?.status !== 401) onSaved();
   };
   const inp = (k: typeof NUM_FIELDS[number], label: string, mode: "decimal" | "numeric" = "decimal") => (
-    <label className="block min-w-0"><span className={kicker}>{label}</span><input inputMode={mode} value={v[k] as string} onChange={set(k)} className={field} /></label>
+    <label className="block min-w-0"><span className={kicker}>{label}</span><input inputMode={mode} value={v[k] as string} onChange={set(k)} disabled={busy} className={field + " disabled:opacity-60"} /></label>
   );
   return (
     <section className={`${card} mt-2`}>
-      <button type="button" onClick={() => { if (!show) fill(v.date); setMsg(""); setShow(!show); }} className="flex w-full items-center justify-between text-left"><span className={kicker}>Zahlen eines Tages eintragen oder korrigieren</span><span className="font-mono text-sm">{show ? "−" : "+"}</span></button>
+      <button type="button" onClick={() => { if (!show) fill(v.date); setMsg(""); setShow(!show); }} disabled={busy} className="flex w-full items-center justify-between text-left"><span className={kicker}>Zahlen eines Tages eintragen oder korrigieren</span><span className="font-mono text-sm">{show ? "−" : "+"}</span></button>
       {show && (
         <form onSubmit={save} className="mt-3 grid grid-cols-2 gap-3">
-          <label className="col-span-2 block"><span className={kicker}>Tag</span><input type="date" value={v.date} onChange={set("date")} className={field} required /></label>
+          <label className="col-span-2 block"><span className={kicker}>Tag</span><input type="date" value={v.date} onChange={set("date")} disabled={busy} className={field + " disabled:opacity-60"} required /></label>
           {inp("meta", "Meta €")}{inp("google", "Google €")}{inp("link_clicks", "Link-Klicks", "numeric")}{inp("junk_clicks", "Davon Fehlklicks", "numeric")}{inp("lpv", "Seitenaufrufe", "numeric")}{inp("purchases_meta", "Käufe laut Meta", "numeric")}
-          <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={v.partial} onChange={set("partial")} className="h-4 w-4 accent-[#FBFF00]" /> Tag läuft noch</label>
+          <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={v.partial} onChange={set("partial")} disabled={busy} className="h-4 w-4 accent-[#FBFF00]" /> Tag läuft noch</label>
           <div className="col-span-2 flex items-center gap-3">
             <button type="submit" disabled={busy} className="min-h-11 bg-[#FBFF00] px-5 text-sm font-bold uppercase tracking-[0.12em] text-black disabled:opacity-50">Speichern</button>
             {msg && <span className="text-sm">{msg}</span>}

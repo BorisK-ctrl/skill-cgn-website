@@ -213,6 +213,13 @@ export async function allowHit(key: string, limit: number, windowMs: number): Pr
   }
   return false;
 }
+/** Kurze zufällige Pause nach einem verlorenen Wettlauf (412), damit gleichzeitige Anfragen auseinanderlaufen statt erneut zusammenzustoßen. */
+export const backoff = () => new Promise<void>(r => setTimeout(r, 5 + Math.random() * 45));
+/* Durchläufe für reserveHit und releaseHit. Ein verlorener Durchlauf heißt: eine andere Anfrage hat in der Zwischenzeit gespeichert, und jede
+   Anfrage speichert hier höchstens zweimal (belegen, freigeben). Gleichzeitig können höchstens 10 einen Platz halten, also reichen 24 Durchläufe
+   auch für 10 gleichzeitige richtige Tokens eines Anschlusses. Vorher 6 bzw. 3: schon 3 bis 5 gleichzeitige richtige Tokens ließen Plätze
+   liegen oder bekamen 503 (Prüfung 21.11.2026, Runde 8). */
+const HIT_TRIES = 24;
 /** Bremse, die nie offen fallen darf (Anmeldung und API-Token SKILLTOOL2): erlaubt nur, wenn der Versuch nachweislich gespeichert ist.
  *  Jeder Versuch bekommt eine zufällige Kennung {t, id}; die Schreib-Antwort allein beweist nichts (siehe saveSt2DocIf), darum wird nachgelesen.
  *  Ist die Kennung schon gespeichert (Antwort verloren, der Client wiederholte und bekam 412), zählt sie einmal, nicht doppelt.
@@ -225,31 +232,33 @@ export async function reserveHit(key: string, limit: number, windowMs: number): 
     const m = (mem["ratelimit"] ||= new Map()), cur = ((m.get(key) as unknown[]) || []).filter(h => now - hitTime(h) < windowMs);
     if (cur.length >= limit) return false; cur.push({ t: now, id }); m.set(key, cur); return id;
   }
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < HIT_TRIES; i++) {
     const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
     if (hasHit(got?.data, id)) return id;
     const cur = (Array.isArray(got?.data) ? got!.data as unknown[] : []).filter(h => now - hitTime(h) < windowMs);
     if (cur.length >= limit) return false;
     cur.push({ t: now, id });
     const r = got?.etag ? await s.setJSON(key, cur, { onlyIfMatch: got.etag }) : await s.setJSON(key, cur, { onlyIfNew: true });
-    if (!r.modified) continue;
+    if (!r.modified) { await backoff(); continue; }
     if (hasHit(await s.get(key, { type: "json" }), id)) return id;
     throw new Error("Anmeldeversuch nicht gespeichert");
   }
   throw new Error("Anmeldebremse: Dauerkonflikt");
 }
-/** Eigenen Eintrag wieder freigeben (richtiger API-Token: soll die Bremse nicht füllen). Nur best effort: klappt es nicht, bleibt der
- *  Platz bis zum Ende des Zeitfensters belegt, die Bremse ist dann nur strenger. Nimmt nur den Eintrag mit dieser Kennung heraus. */
-export async function releaseHit(key: string, id: string): Promise<void> {
+/** Eigenen Eintrag wieder freigeben (richtiger API-Token: soll die Bremse nicht füllen). Nimmt nur den Eintrag mit dieser Kennung heraus.
+ *  true = frei (oder nichts mehr da). false = aufgegeben: der Platz bleibt bis zum Ende des Zeitfensters belegt, die Bremse ist nur strenger. */
+export async function releaseHit(key: string, id: string): Promise<boolean> {
   safeKey(key);
   const s = store("ratelimit");
-  if (!s) { const m = mem["ratelimit"], cur = m?.get(key); if (Array.isArray(cur)) m!.set(key, cur.filter(h => !isHit(h, id))); return; }
-  for (let i = 0; i < 3; i++) {
+  if (!s) { const m = mem["ratelimit"], cur = m?.get(key); if (Array.isArray(cur)) m!.set(key, cur.filter(h => !isHit(h, id))); return true; }
+  for (let i = 0; i < HIT_TRIES; i++) {
     const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
-    if (!got?.etag || !hasHit(got.data, id)) return;
+    if (!got?.etag || !hasHit(got.data, id)) return true;
     const r = await s.setJSON(key, (got.data as unknown[]).filter(h => !isHit(h, id)), { onlyIfMatch: got.etag });
-    if (r.modified) return;
+    if (r.modified) return true;
+    await backoff();
   }
+  return false;
 }
 
 /* ---------- Kurze Sperren (Netlify Blobs, starke Konsistenz): immer nur eine Buchung je Kunde und je Rasterzelle gleichzeitig ----------

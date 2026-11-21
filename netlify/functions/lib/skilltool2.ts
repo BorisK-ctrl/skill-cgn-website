@@ -52,7 +52,17 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /* Kampagnen-Kürzel → Aktion in den Checkout-Datensätzen (lib/sales-report.ts campaignOf), falls der Plan sie nicht nennt */
 const CHECKOUT_CAMPAIGN: Record<string, string> = { bw29: "BLACK WEEK 29" };
 const str = (v: unknown, max: number) => String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
-const num = (v: unknown) => { const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v.replace(",", ".")) : NaN; return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : undefined; };
+/* Zahl aus JSON oder Text. Ein einzelnes Trennzeichen ist das Dezimalzeichen ("24,7", "24.7", wie bisher; die API schickt Zahlen). Dazu mit
+   Tausendertrennung "1.234,56", "1.234.567", "1,234.56". Leerzeichen, € und % fallen weg. Alles andere zählt nicht (Prüfung 21.11.2026, Runde 8:
+   "1.234,56" fiel bisher still weg). Das Formular im Dashboard rechnet deutsche Eingaben selbst um und schickt Zahlen. */
+const numText = (v: string) => {
+  const s = v.replace(/[\s\u00a0\u202f€%]/g, "");
+  if (/^(\d+([.,]\d*)?|[.,]\d+)$/.test(s)) return Number(s.replace(",", "."));
+  if (/^\d{1,3}(\.\d{3})+(,\d*)?$/.test(s)) return Number(s.replace(/\./g, "").replace(",", "."));
+  if (/^\d{1,3}(,\d{3})+(\.\d*)?$/.test(s)) return Number(s.replace(/,/g, ""));
+  return NaN;
+};
+const num = (v: unknown) => { const n = typeof v === "number" ? v : typeof v === "string" ? numText(v) : NaN; return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : undefined; };
 const pick = <T extends object>(o: Record<string, unknown>, keys: string[], f: (v: unknown) => unknown): Partial<T> => {
   const out: Record<string, unknown> = {};
   for (const k of keys) if (k in o) { const v = f(o[k]); if (v !== undefined && v !== "") out[k] = v; }

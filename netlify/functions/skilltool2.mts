@@ -9,15 +9,18 @@
 import type { Config } from "@netlify/functions";
 import { randomBytes } from "node:crypto";
 import { json, clientKey } from "./lib/util";
-import { reserveHit, releaseHit, getSt2Doc, getSt2DocVersioned, saveSt2DocIf, hasWrite, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales, getSt2ArchiveKey } from "./lib/store";
+import { reserveHit, releaseHit, backoff, getSt2Doc, getSt2DocVersioned, saveSt2DocIf, hasWrite, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales, getSt2ArchiveKey } from "./lib/store";
 import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, salesFor, archiveId, CAMPAIGN, type Doc, type SalesArchive } from "./lib/skilltool2";
 import type { CheckoutLead } from "./lib/store";
 
 const HOUR = 3600000, MAX_FAILS = 10;
+/* Mischen und Schreiben höchstens 10-mal, danach noch einmal nur nachlesen (siehe unten) */
+const SAVE_TRIES = 10;
 const failKey = (req: Request) => "st2fail/" + clientKey(req);
 const blocked = () => json({ error: "Zu viele Versuche, in einer Stunde wieder." }, 429);
 /* Nicht "gleich": jeder Versuch belegt einen Platz in der Bremse, sofortiges Wiederholen während einer Störung verbraucht sie (Prüfung 21.11.2026) */
 const unavailable = () => json({ error: "Gerade nicht erreichbar. Bitte in ein paar Minuten noch einmal." }, 503);
+const storeDown = (status = 503) => json({ error: "Speicher gerade nicht erreichbar. Bitte gleich noch einmal." }, status);
 
 export default async (req: Request) => {
   const url = new URL(req.url), path = url.pathname.replace(/\/+$/, "");
@@ -47,7 +50,7 @@ export default async (req: Request) => {
     if (hit === null) return unavailable();
     if (!hit) return blocked();
     if (!hasApiToken(req)) return json({ error: "Nicht angemeldet" }, 401);
-    await releaseHit(failKey(req), hit).catch(() => {});
+    if (!(await releaseHit(failKey(req), hit).catch(() => false))) console.log("skilltool2 Bremse: Platz eines richtigen Tokens nicht freigegeben");
   } else if (!session) return json({ error: "Nicht angemeldet" }, 401);
 
   if (path === "/api/skilltool2/kpi") {
@@ -57,7 +60,10 @@ export default async (req: Request) => {
     if (!CAMPAIGN.test(campaign)) return json({ error: "Unbekannte Kampagne" }, 400);
     /* Archiv nur mit vollständigen Eingaben neu schreiben: ein Lesefehler darf es nie verkleinern (Prüfung 21.11.2026) */
     let archive: SalesArchive | null = null, archiveOk = true, leads: CheckoutLead[] = [], leadsOk = true, tagKey = "";
-    const doc = await getSt2Doc<Doc>(campaign).catch(() => null);
+    /* Dokument nicht lesbar: Fehler statt leerem Dashboard. Sonst stünde "Noch keine Werbezahlen" da, und wer dann Offene Punkte speichert,
+       ersetzt die echte Liste durch die leere (Prüfung 21.11.2026, Runde 8). 502, weil 503 im Dashboard "nicht eingerichtet" heißt. */
+    let doc: Doc | null;
+    try { doc = await getSt2Doc<Doc>(campaign); } catch { return storeDown(502); }
     const aid = archiveId(doc, campaign);
     try { tagKey = await getSt2ArchiveKey(); archive = await getSt2Sales<SalesArchive>(aid); } catch { archiveOk = false; archive = null; tagKey = ""; }
     try { const r = await listCheckoutLeadsChecked(); leads = r.leads; leadsOk = r.complete; } catch { leadsOk = false; }
@@ -76,19 +82,24 @@ export default async (req: Request) => {
     /* notes nimmt nur next und open an, ads alles außer next/open nur wenn mitgeschickt */
     const body = path === "/api/skilltool2/notes" ? { next: b.next, open: b.open } : b;
     if (path === "/api/skilltool2/notes" && b.next === undefined && !Array.isArray(b.open)) return json({ error: "next oder open fehlt" }, 400);
-    /* Lesen mit Version, Schreiben nur wenn unverändert (etag). Lesefehler: nichts schreiben. Gleichzeitig gespeichert: neu lesen, neu mischen.
-       Der Vorgang trägt eine Kennung ins Dokument (w). Steht sie beim erneuten Lesen schon drin (Antwort verloren), ist er gespeichert und
-       wird nicht ein zweites Mal gemischt; speichert jemand gleich danach darüber, gilt er trotzdem als gespeichert (Prüfung 21.11.2026). */
+    /* Lesen mit Version, Schreiben nur wenn unverändert (etag). Lesefehler: nichts schreiben. Gleichzeitig gespeichert: kurz warten, neu lesen,
+       neu mischen. Der Vorgang trägt eine Kennung ins Dokument (w). Steht sie beim erneuten Lesen schon drin (Antwort verloren), ist er
+       gespeichert und wird nicht ein zweites Mal gemischt; speichert jemand gleich danach darüber, gilt er trotzdem als gespeichert.
+       Der letzte Durchlauf liest nur nach: ging die Antwort auf den letzten Schreibversuch verloren, steht die Kennung schon drin, und das
+       ist ein Erfolg, kein 409 (Prüfung 21.11.2026, Runde 8). Jeder verlorene Versuch heißt, ein anderer Vorgang hat gespeichert, darum
+       10 Versuche: 409 erst, wenn 10 andere in der Zwischenzeit gespeichert haben. */
     const wid = randomBytes(9).toString("hex");
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i <= SAVE_TRIES; i++) {
       let cur: { doc: Doc | null; etag: string | null };
-      try { cur = await getSt2DocVersioned<Doc>(campaign); } catch { return json({ error: "Speicher gerade nicht erreichbar. Bitte gleich noch einmal." }, 503); }
+      try { cur = await getSt2DocVersioned<Doc>(campaign); } catch { return storeDown(); }
       let doc: Doc, saved = false;
       if (cur.doc && hasWrite(cur.doc, wid)) { doc = cur.doc; saved = true; }
+      else if (i === SAVE_TRIES) break;
       else {
         doc = mergeDoc(cur.doc, body as Record<string, unknown>, campaign);
         doc.w = [...(Array.isArray(cur.doc?.w) ? cur.doc!.w : []), wid].slice(-20);
-        try { saved = await saveSt2DocIf(campaign, doc, cur.etag, wid); } catch { return json({ error: "Speicher gerade nicht erreichbar. Bitte gleich noch einmal." }, 503); }
+        try { saved = await saveSt2DocIf(campaign, doc, cur.etag, wid); } catch { return storeDown(); }
+        if (!saved) await backoff();
       }
       if (saved) {
         console.log(`skilltool2 ${path.split("/").pop()} ${campaign}: ${doc.days.length} Tage, ${doc.ads.length} Anzeigen (${session ? "Sitzung" : "Token"})`);
