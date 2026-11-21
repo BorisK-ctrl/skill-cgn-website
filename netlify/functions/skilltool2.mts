@@ -3,11 +3,12 @@
    GET  /api/skilltool2/kpi?campaign=bw29 → Dashboard-Daten (nur mit Sitzung)
    POST /api/skilltool2/ads   → Werbezahlen, Plan, Google-Block (Sitzung oder Authorization: Bearer SKILLTOOL2_API_TOKEN)
    POST /api/skilltool2/notes {next, open[]} → Nächste Entscheidung, Offene Punkte (Sitzung oder Token)
-   Bremse: höchstens 10 Fehlversuche (Passwort oder Token) je Anschluss und Stunde. Alle Antworten no-store (lib/util json). */
+   Bremse: höchstens 10 Anmeldeversuche je Anschluss und Stunde, jeder Versuch zählt vor der Prüfung (atomar, auch bei vielen gleichzeitigen
+   Anfragen); Speicher gestört: keine Anmeldung. Falsche API-Tokens zählen in dieselbe Bremse. Alle Antworten no-store (lib/util json). */
 import type { Config } from "@netlify/functions";
 import { json, clientKey } from "./lib/util";
-import { hitCount, allowHit, getSt2Doc, saveSt2Doc, listSt2Campaigns, listCheckoutLeads } from "./lib/store";
-import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, CAMPAIGN, type Doc } from "./lib/skilltool2";
+import { hitCount, allowHit, getSt2Doc, saveSt2Doc, listSt2Campaigns, listCheckoutLeads, getSt2Sales, saveSt2Sales } from "./lib/store";
+import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, statsFor, snapshotOf, CAMPAIGN, type Doc, type SalesSnap } from "./lib/skilltool2";
 
 const HOUR = 3600000, MAX_FAILS = 10;
 const failKey = (req: Request) => "st2fail/" + clientKey(req);
@@ -25,9 +26,11 @@ export default async (req: Request) => {
 
   if (path === "/api/skilltool2/login") {
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
-    if (await hitCount(failKey(req), HOUR).catch(() => 0) >= MAX_FAILS) return blocked();
+    const allowed = await allowHit(failKey(req), MAX_FAILS, HOUR).catch(() => null);
+    if (allowed === null) return json({ error: "Gerade nicht erreichbar. Bitte gleich noch einmal." }, 503);
+    if (!allowed) return blocked();
     const b = await req.json().catch(() => ({})) as Record<string, unknown>;
-    if (!passwordOk(b.password)) { await allowHit(failKey(req), MAX_FAILS, HOUR).catch(() => true); return json({ error: "Passwort stimmt nicht." }, 401); }
+    if (!passwordOk(b.password)) return json({ error: "Passwort stimmt nicht." }, 401);
     return json({ ok: true }, 200, { "Set-Cookie": sessionCookie() });
   }
 
@@ -43,8 +46,10 @@ export default async (req: Request) => {
     const campaigns = (await listSt2Campaigns().catch(() => [] as string[])).filter(c => CAMPAIGN.test(c)).sort();
     const campaign = url.searchParams.get("campaign") || campaigns[0] || "bw29";
     if (!CAMPAIGN.test(campaign)) return json({ error: "Unbekannte Kampagne" }, 400);
-    const [doc, leads] = await Promise.all([getSt2Doc<Doc>(campaign).catch(() => null), listCheckoutLeads().catch(() => [])]);
-    return json(buildKpi(doc, campaign, leads, { ignoreEmails: (process.env.REPORT_IGNORE_EMAILS || "").split(","), campaigns: campaigns.includes(campaign) ? campaigns : [...campaigns, campaign].sort() }));
+    const [doc, leads, snap] = await Promise.all([getSt2Doc<Doc>(campaign).catch(() => null), listCheckoutLeads().catch(() => []), getSt2Sales<SalesSnap>(campaign).catch(() => null)]);
+    const stats = statsFor(doc, campaign, leads, { snap, ignoreEmails: (process.env.REPORT_IGNORE_EMAILS || "").split(",") });
+    if (doc) await saveSt2Sales(campaign, snapshotOf(stats)).catch(e => console.log("skilltool2 Sicherung", String(e)));
+    return json(buildKpi(doc, campaign, stats, { campaigns: campaigns.includes(campaign) ? campaigns : [...campaigns, campaign].sort() }));
   }
 
   if (path === "/api/skilltool2/ads" || path === "/api/skilltool2/notes") {

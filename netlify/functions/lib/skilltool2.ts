@@ -3,14 +3,14 @@
    Daten: echte Verträge und Trichter aus den Checkout-Datensätzen (lib/sales-report.ts campaignStats, wie der Tagesbericht),
    Werbezahlen, Plan und Notizen aus dem Blob "skilltool2-ads" (POST /api/skilltool2/ads bzw. /notes). Keine Personendaten. */
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { campaignStats, dayOf, type CampaignStats } from "./sales-report";
+import { campaignStats, dayOf, type CampaignStats, type DayStats } from "./sales-report";
 import type { CheckoutLead } from "./store";
 
 export const COOKIE = "st2";
 export const COOKIE_DAYS = 30;
 const env = () => ({ pw: process.env.SKILLTOOL2_PASSWORD || "", secret: process.env.SKILLTOOL2_SECRET || "", token: process.env.SKILLTOOL2_API_TOKEN || "" });
-/** Eingerichtet: Passwort gesetzt und Secret lang genug. Der API-Token ist optional (ohne ihn nur Eingabe über das Dashboard). */
-export const configured = () => { const e = env(); return e.pw.length >= 8 && e.secret.length >= 32; };
+/** Eingerichtet: Passwort mit mindestens 16 Zeichen und Secret mit mindestens 32. Der API-Token ist optional (ohne ihn nur Eingabe über das Dashboard). */
+export const configured = () => { const e = env(); return e.pw.length >= 16 && e.secret.length >= 32; };
 /* Vergleich in konstanter Zeit: beide Seiten erst hashen, dann gleich lange Puffer vergleichen */
 const same = (a: string, b: string) => timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
 export const passwordOk = (pw: unknown) => configured() && typeof pw === "string" && pw.length <= 200 && same(pw, env().pw);
@@ -83,7 +83,9 @@ export function mergeDoc(prev: Doc | null, body: Record<string, unknown>, campai
     if (typeof d.date !== "string" || !DATE.test(d.date)) continue;
     const day: AdDay = { date: d.date, ...pick<AdDay>(d, DAY_NUMS, num), ...(d.partial === true ? { partial: true } : {}) };
     const i = doc.days.findIndex(x => x.date === day.date);
-    if (i >= 0) doc.days[i] = day; else doc.days.push(day);
+    /* mergeDays (Formular im Dashboard): nur die mitgeschickten Felder ersetzen, der Rest des Tages bleibt. Sonst ersetzt der Tag den Tag. */
+    if (i >= 0 && body.mergeDays === true) { const m: AdDay = { ...doc.days[i], ...day }; if (d.partial === false) delete m.partial; doc.days[i] = m; }
+    else if (i >= 0) doc.days[i] = day; else doc.days.push(day);
   }
   doc.days = doc.days.sort((a, b) => a.date.localeCompare(b.date)).slice(-120);
   if (Array.isArray(body.ads)) for (const raw of body.ads.slice(0, 40)) {
@@ -119,12 +121,37 @@ export function ampel(spend: number, contracts: number, plan: Plan = {}): Ampel 
 }
 const sum = (xs: (number | undefined)[]) => Math.round(xs.reduce<number>((s, x) => s + (x || 0), 0) * 100) / 100;
 
-export function buildKpi(doc: Doc | null, campaign: string, leads: CheckoutLead[], opts: { now?: Date; ignoreEmails?: string[]; campaigns?: string[] } = {}) {
+/* Checkout-Datensätze werden nach 30 Tagen gelöscht (checkout-reminder.mts). Damit Verträge und Trichter alter Tage nicht verschwinden,
+   während die Ausgaben bleiben, gibt es eine Sicherung je Kampagne (Store skilltool2-sales, täglich vom Tagesbericht und bei jedem Öffnen):
+   Tage vor der 30-Tage-Grenze kommen aus der Sicherung, Verträge bleiben über ihre Vertragsnummer erhalten. */
+export interface SalesSnap { days: DayStats[]; contracts: { date: string; contractId: string; source: string }[]; savedAt: string }
+export function mergeStats(live: CampaignStats, snap: SalesSnap | null, today: string): CampaignStats {
+  if (!snap) return live;
+  const cutoff = dayOf(new Date(Date.parse(today + "T12:00:00Z") - 29 * 86400000).toISOString());
+  const byDate = new Map<string, DayStats>();
+  for (const d of live.days) byDate.set(d.date, { ...d, contracts: 0 });
+  for (const d of snap.days || []) if (d.date < cutoff) byDate.set(d.date, { date: d.date, starts: d.starts || 0, payment: d.payment || 0, contracts: 0 });
+  const contracts = new Map<string, SalesSnap["contracts"][number]>();
+  for (const c of snap.contracts || []) if (c?.contractId) contracts.set(c.contractId, c);
+  for (const c of live.contractList) contracts.set(c.contractId, c);
+  for (const c of contracts.values()) { const d = byDate.get(c.date) || { date: c.date, starts: 0, payment: 0, contracts: 0 }; d.contracts++; byDate.set(c.date, d); }
+  const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  return { ...live, days, starts: days.reduce((s, d) => s + d.starts, 0), payment: days.reduce((s, d) => s + d.payment, 0), contracts: contracts.size,
+    contractList: [...contracts.values()].sort((a, b) => a.date.localeCompare(b.date) || a.contractId.localeCompare(b.contractId)) };
+}
+/** Verkaufszahlen einer Kampagne: Checkout-Datensätze (wie Tagesbericht) plus Sicherung für Tage älter als 30 Tage. */
+export function statsFor(doc: Doc | null, campaign: string, leads: CheckoutLead[], opts: { now?: Date; ignoreEmails?: string[]; snap?: SalesSnap | null } = {}): CampaignStats {
+  const plan = doc?.plan || {};
+  const key = plan.checkout_campaign || CHECKOUT_CAMPAIGN[campaign] || plan.name || campaign;
+  const live = campaignStats(leads, key, { from: plan.start, to: plan.ende, ignoreEmails: opts.ignoreEmails });
+  return mergeStats(live, opts.snap || null, dayOf((opts.now || new Date()).toISOString()));
+}
+export const snapshotOf = (s: CampaignStats, now = new Date()): SalesSnap => ({ days: s.days, contracts: s.contractList, savedAt: now.toISOString() });
+
+export function buildKpi(doc: Doc | null, campaign: string, stats: CampaignStats, opts: { now?: Date; campaigns?: string[] } = {}) {
   const now = opts.now || new Date();
   const plan = doc?.plan || {};
   const today = dayOf(now.toISOString());
-  const key = plan.checkout_campaign || CHECKOUT_CAMPAIGN[campaign] || plan.name || campaign;
-  const stats: CampaignStats = campaignStats(leads, key, { from: plan.start, to: plan.ende, ignoreEmails: opts.ignoreEmails });
   const adDays = doc?.days || [];
   const spend_meta = sum(adDays.map(d => d.meta)), spend_google = sum(adDays.map(d => d.google)), spend = Math.round((spend_meta + spend_google) * 100) / 100;
   const contracts = stats.contracts;

@@ -151,7 +151,7 @@ export default function Skilltool2Dashboard() {
         ) : null}
 
         <Notes campaign={kpi.campaign} next={kpi.next} open={kpi.open} onSaved={load} />
-        <AdForm campaign={kpi.campaign} onSaved={load} />
+        <AdForm campaign={kpi.campaign} days={kpi.days} onSaved={load} />
 
         <footer className="mt-6 space-y-1 font-mono text-[11px] text-[#B8C0C3]">
           <p>Käufe laut Meta sind keine Verträge, echte Verträge kommen aus Magicline (gezählt über die Website, wie im Tagesbericht).</p>
@@ -225,26 +225,38 @@ function Notes({ campaign, next, open, onSaved }: { campaign: string; next: stri
   );
 }
 
-/* Werbezahlen eines Tages von Hand (POST /api/skilltool2/ads), ersetzt den Tag */
-function AdForm({ campaign, onSaved }: { campaign: string; onSaved: () => void }) {
+/* Werbezahlen eines Tages von Hand (POST /api/skilltool2/ads). Vorbefüllt mit dem, was für den Tag schon da ist; gespeichert werden nur
+   die Felder dieses Formulars (mergeDays), der Rest des Tages bleibt (Prüfung 21.11.2026). */
+const NUM_FIELDS = ["meta", "google", "link_clicks", "junk_clicks", "lpv", "purchases_meta"] as const;
+type FormVals = { date: string; partial: boolean } & Record<typeof NUM_FIELDS[number], string>;
+const fromDay = (date: string, days: Day[]): FormVals => {
+  const d = days.find(x => x.date === date) as (Day & Record<string, unknown>) | undefined;
+  const v = Object.fromEntries(NUM_FIELDS.map(k => [k, d && typeof d[k] === "number" ? String(d[k]).replace(".", ",") : ""])) as Record<typeof NUM_FIELDS[number], string>;
+  return { date, partial: !!d?.partial && !!(d.meta || d.google), ...v };
+};
+function AdForm({ campaign, days, onSaved }: { campaign: string; days: Day[]; onSaved: () => void }) {
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" });
   const [show, setShow] = useState(false), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
-  const [v, setV] = useState({ date: today, meta: "", google: "", link_clicks: "", junk_clicks: "", lpv: "", purchases_meta: "", partial: false });
-  const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => setV(x => ({ ...x, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const [v, setV] = useState<FormVals>(() => fromDay(today, days));
+  const set = (k: keyof FormVals) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    setMsg("");
+    if (k === "date") setV(fromDay(String(val), days)); else setV(x => ({ ...x, [k]: val }));
+  };
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setMsg("");
     const day: Record<string, unknown> = { date: v.date, partial: v.partial };
-    for (const k of ["meta", "google", "link_clicks", "junk_clicks", "lpv", "purchases_meta"] as const) if (v[k] !== "") day[k] = v[k];
-    const r = await fetch("/api/skilltool2/ads", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ campaign, days: [day] }) }).catch(() => null);
+    for (const k of NUM_FIELDS) if (v[k] !== "") day[k] = v[k];
+    const r = await fetch("/api/skilltool2/ads", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ campaign, mergeDays: true, days: [day] }) }).catch(() => null);
     setBusy(false);
     if (r?.ok) { setMsg("Gespeichert."); onSaved(); } else setMsg("Speichern ging nicht. Noch einmal.");
   };
-  const inp = (k: keyof typeof v, label: string, mode: "decimal" | "numeric" = "decimal") => (
+  const inp = (k: typeof NUM_FIELDS[number], label: string, mode: "decimal" | "numeric" = "decimal") => (
     <label className="block min-w-0"><span className={kicker}>{label}</span><input inputMode={mode} value={v[k] as string} onChange={set(k)} className={field} /></label>
   );
   return (
     <section className={`${card} mt-2`}>
-      <button type="button" onClick={() => setShow(s => !s)} className="flex w-full items-center justify-between text-left"><span className={kicker}>Zahlen eines Tages eintragen</span><span className="font-mono text-sm">{show ? "−" : "+"}</span></button>
+      <button type="button" onClick={() => { if (!show) setV(fromDay(v.date, days)); setMsg(""); setShow(!show); }} className="flex w-full items-center justify-between text-left"><span className={kicker}>Zahlen eines Tages eintragen oder korrigieren</span><span className="font-mono text-sm">{show ? "−" : "+"}</span></button>
       {show && (
         <form onSubmit={save} className="mt-3 grid grid-cols-2 gap-3">
           <label className="col-span-2 block"><span className={kicker}>Tag</span><input type="date" value={v.date} onChange={set("date")} className={field} required /></label>
