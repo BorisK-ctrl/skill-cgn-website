@@ -7,7 +7,7 @@
    Anfragen); Speicher gestört: keine Anmeldung. Falsche API-Tokens zählen in dieselbe Bremse. Alle Antworten no-store (lib/util json). */
 import type { Config } from "@netlify/functions";
 import { json, clientKey } from "./lib/util";
-import { hitCount, allowHit, getSt2Doc, saveSt2Doc, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales } from "./lib/store";
+import { hitCount, allowHit, getSt2Doc, getSt2DocVersioned, saveSt2DocIf, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales, getSt2ArchiveKey } from "./lib/store";
 import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, salesFor, archiveId, CAMPAIGN, type Doc, type SalesArchive } from "./lib/skilltool2";
 import type { CheckoutLead } from "./lib/store";
 
@@ -48,12 +48,12 @@ export default async (req: Request) => {
     const campaign = url.searchParams.get("campaign") || campaigns[0] || "bw29";
     if (!CAMPAIGN.test(campaign)) return json({ error: "Unbekannte Kampagne" }, 400);
     /* Archiv nur mit vollständigen Eingaben neu schreiben: ein Lesefehler darf es nie verkleinern (Prüfung 21.11.2026) */
-    let archive: SalesArchive | null = null, archiveOk = true, leads: CheckoutLead[] = [], leadsOk = true;
+    let archive: SalesArchive | null = null, archiveOk = true, leads: CheckoutLead[] = [], leadsOk = true, tagKey = "";
     const doc = await getSt2Doc<Doc>(campaign).catch(() => null);
     const aid = archiveId(doc, campaign);
-    try { archive = await getSt2Sales<SalesArchive>(aid); } catch { archiveOk = false; }
+    try { tagKey = await getSt2ArchiveKey(); archive = await getSt2Sales<SalesArchive>(aid); } catch { archiveOk = false; archive = null; tagKey = ""; }
     try { const r = await listCheckoutLeadsChecked(); leads = r.leads; leadsOk = r.complete; } catch { leadsOk = false; }
-    const { stats, archive: next } = salesFor(doc, campaign, leads, { archive, ignoreEmails: (process.env.REPORT_IGNORE_EMAILS || "").split(",") });
+    const { stats, archive: next } = salesFor(doc, campaign, leads, { archive, tagKey, ignoreEmails: (process.env.REPORT_IGNORE_EMAILS || "").split(",") });
     if (doc && archiveOk && leadsOk) await saveSt2Sales(aid, next).catch(e => console.log("skilltool2 Archiv", String(e)));
     return json(buildKpi(doc, campaign, stats, { campaigns: campaigns.includes(campaign) ? campaigns : [...campaigns, campaign].sort() }));
   }
@@ -68,11 +68,19 @@ export default async (req: Request) => {
     /* notes nimmt nur next und open an, ads alles außer next/open nur wenn mitgeschickt */
     const body = path === "/api/skilltool2/notes" ? { next: b.next, open: b.open } : b;
     if (path === "/api/skilltool2/notes" && b.next === undefined && !Array.isArray(b.open)) return json({ error: "next oder open fehlt" }, 400);
-    const prev = await getSt2Doc<Doc>(campaign).catch(() => null);
-    const doc = mergeDoc(prev, body as Record<string, unknown>, campaign);
-    await saveSt2Doc(campaign, doc);
-    console.log(`skilltool2 ${path.split("/").pop()} ${campaign}: ${doc.days.length} Tage, ${doc.ads.length} Anzeigen (${session ? "Sitzung" : "Token"})`);
-    return json({ ok: true, campaign, days: doc.days.length, ads: doc.ads.length, updatedAt: doc.updatedAt });
+    /* Lesen mit Version, Schreiben nur wenn unverändert (etag). Lesefehler: nichts schreiben. Gleichzeitig gespeichert: neu lesen, neu mischen. */
+    for (let i = 0; i < 5; i++) {
+      let cur: { doc: Doc | null; etag: string | null };
+      try { cur = await getSt2DocVersioned<Doc>(campaign); } catch { return json({ error: "Speicher gerade nicht erreichbar. Bitte gleich noch einmal." }, 503); }
+      const doc = mergeDoc(cur.doc, body as Record<string, unknown>, campaign);
+      let saved = false;
+      try { saved = await saveSt2DocIf(campaign, doc, cur.etag); } catch { return json({ error: "Speicher gerade nicht erreichbar. Bitte gleich noch einmal." }, 503); }
+      if (saved) {
+        console.log(`skilltool2 ${path.split("/").pop()} ${campaign}: ${doc.days.length} Tage, ${doc.ads.length} Anzeigen (${session ? "Sitzung" : "Token"})`);
+        return json({ ok: true, campaign, days: doc.days.length, ads: doc.ads.length, updatedAt: doc.updatedAt });
+      }
+    }
+    return json({ error: "Gerade gleichzeitig gespeichert. Bitte noch einmal." }, 409);
   }
   return json({ error: "Nicht gefunden" }, 404);
 };

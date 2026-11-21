@@ -1,6 +1,6 @@
 /* Ablage in Netlify Blobs. Lokal ohne Blobs-Kontext: In-Memory-Fallback (nur für den Dev-Server). */
 import { getStore } from "@netlify/blobs";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { Booking, TicketAccount } from "./types";
 
 /* Sicherheit (Prüfung 19.11.2026): @netlify/blobs setzt den Schlüssel roh in den URL-Pfad und new URL() löst ".." und "%2e%2e" auf,
@@ -93,6 +93,41 @@ export async function deleteCheckoutLead(token: string) { safeKey(token); const 
 export async function getSt2Doc<T>(campaign: string) { return getJSON<T>("skilltool2-ads", campaign); }
 export async function saveSt2Doc(campaign: string, doc: unknown) { await setJSON("skilltool2-ads", campaign, doc); }
 export async function listSt2Campaigns(): Promise<string[]> { return listKeys("skilltool2-ads", ""); }
+/** Kampagnen-Dokument mit Version lesen. Wirft bei Lesefehlern: ein Fehler darf nie als "noch kein Dokument" gelten (Prüfung 21.11.2026). */
+export async function getSt2DocVersioned<T>(campaign: string): Promise<{ doc: T | null; etag: string | null }> {
+  safeKey(campaign);
+  const s = store("skilltool2-ads");
+  if (!s) { const v = (mem["skilltool2-ads"] ||= new Map()).get(campaign) as T | undefined; return { doc: v ?? null, etag: v === undefined ? null : String((mem["skilltool2-ads#v"] ||= new Map()).get(campaign) || 1) }; }
+  const got = await s.getWithMetadata(campaign, { type: "json" }) as { data: T; etag?: string } | null;
+  return { doc: got?.data ?? null, etag: got ? got.etag || null : null };
+}
+/** Nur schreiben, wenn das Dokument seit dem Lesen unverändert ist (etag) bzw. noch nicht existiert (etag null). false = jemand war schneller. */
+export async function saveSt2DocIf(campaign: string, doc: unknown, etag: string | null): Promise<boolean> {
+  safeKey(campaign);
+  const s = store("skilltool2-ads");
+  if (!s) {
+    const m = (mem["skilltool2-ads"] ||= new Map()), vm = (mem["skilltool2-ads#v"] ||= new Map());
+    const cur = m.has(campaign) ? String(vm.get(campaign) || 1) : null;
+    if (cur !== etag) return false;
+    m.set(campaign, doc); vm.set(campaign, Number(cur || 0) + 1); return true;
+  }
+  const r = etag ? await s.setJSON(campaign, doc, { onlyIfMatch: etag }) : await s.setJSON(campaign, doc, { onlyIfNew: true });
+  return !!r.modified;
+}
+/** Fester Schlüssel für die E-Mail-Kennungen im Archiv, einmal zufällig erzeugt, nie gewechselt (unabhängig von SKILLTOOL2_SECRET). */
+export async function getSt2ArchiveKey(): Promise<string> {
+  const k = "_meta/archive-key";
+  const cur = await getJSON<{ key: string }>("skilltool2-sales", k);
+  if (cur?.key) return cur.key;
+  const fresh = { key: randomBytes(32).toString("hex"), createdAt: new Date().toISOString() };
+  const s = store("skilltool2-sales");
+  if (!s) { (mem["skilltool2-sales"] ||= new Map()).set(k, fresh); return fresh.key; }
+  const r = await s.setJSON(k, fresh, { onlyIfNew: true });
+  if (r.modified) return fresh.key;
+  const again = await getJSON<{ key: string }>("skilltool2-sales", k);
+  if (again?.key) return again.key;
+  throw new Error("Archiv-Schlüssel nicht lesbar");
+}
 /* Sicherung der Verkaufszahlen je Kampagne (eigener Store, damit sie nie mit einem gleichzeitigen Werbezahlen-Eingang kollidiert) */
 export async function getSt2Sales<T>(archiveId: string) { return getJSON<T>("skilltool2-sales", archiveId); }
 export async function saveSt2Sales(archiveId: string, snap: unknown) { await setJSON("skilltool2-sales", archiveId, snap); }

@@ -130,26 +130,33 @@ const sum = (xs: (number | undefined)[]) => Math.round(xs.reduce<number>((s, x) 
 export interface ArchEntry { t: string; e: string; c: string; p: boolean; s: string; k?: { d: string; id: string }; x?: true }
 export interface SalesArchive { v: 3; key: string; entries: ArchEntry[]; savedAt: string }
 const tokenTag = (token: string) => createHash("sha256").update("st2tok|" + token).digest("hex").slice(0, 24);
-const emailTag = (email: string) => createHmac("sha256", env().secret || "st2").update("st2mail|" + email.trim().toLowerCase()).digest("hex").slice(0, 24);
+/* E-Mail-Kennung mit festem Archiv-Schlüssel (lib/store.ts getSt2ArchiveKey), nicht mit SKILLTOOL2_SECRET: der wird zum Abmelden gewechselt */
+const emailTag = (key: string, email: string) => createHmac("sha256", key).update("st2mail|" + email.trim().toLowerCase()).digest("hex").slice(0, 24);
 /** Aktion in den Checkout-Datensätzen, zu der eine Dashboard-Kampagne gehört */
 export const checkoutKey = (doc: Doc | null, campaign: string) => doc?.plan?.checkout_campaign || CHECKOUT_CAMPAIGN[campaign] || doc?.plan?.name || campaign;
 /** Ein Archiv je Kampagne und Aktion: eine geänderte Zuordnung überschreibt das alte Archiv nicht */
 export const archiveId = (doc: Doc | null, campaign: string) => `${campaign}/${createHash("sha256").update(checkoutKey(doc, campaign)).digest("hex").slice(0, 12)}`;
 
-export function salesFor(doc: Doc | null, campaign: string, leads: CheckoutLead[], opts: { archive?: SalesArchive | null; ignoreEmails?: string[]; now?: Date } = {}): { stats: CampaignStats; archive: SalesArchive } {
+/** tagKey fehlt (Schlüssel nicht lesbar): Archiv wird nicht genutzt und darf nicht gespeichert werden. */
+export function salesFor(doc: Doc | null, campaign: string, leads: CheckoutLead[], opts: { archive?: SalesArchive | null; ignoreEmails?: string[]; now?: Date; tagKey?: string } = {}): { stats: CampaignStats; archive: SalesArchive } {
   const plan = doc?.plan || {};
   const key = checkoutKey(doc, campaign);
-  const ignoreTags = new Set((opts.ignoreEmails || []).map(x => x.trim()).filter(Boolean).map(emailTag));
+  const tk = opts.tagKey || "";
+  const tag = (email: string) => (tk ? emailTag(tk, email) : "");
+  const ignoreEmails = (opts.ignoreEmails || []).map(x => x.trim().toLowerCase()).filter(Boolean);
+  const ignoreTags = new Set(tk ? ignoreEmails.map(tag) : []);
   const existing = new Set(leads.map(l => tokenTag(l.token)));
   const live: ArchEntry[] = leads.filter(l => campaignOf(l) === key).map(l => {
     const dt = doneTime(l);
-    return { t: tokenTag(l.token), e: emailTag(l.email || ""), c: dayOf(l.createdAt), p: reachedPayment(l), s: sourceGroup(l.utm),
-      ...(dt && l.contractId ? { k: { d: dayOf(dt), id: l.contractId } } : {}), ...(isTestByRule(l) ? { x: true as const } : {}) };
+    return { t: tokenTag(l.token), e: tag(l.email || ""), c: dayOf(l.createdAt), p: reachedPayment(l), s: sourceGroup(l.utm),
+      ...(dt && l.contractId ? { k: { d: dayOf(dt), id: l.contractId } } : {}), ...(isTestByRule(l) ? { x: true as const } : {}),
+      ...(ignoreEmails.includes((l.email || "").trim().toLowerCase()) ? { ign: true as const } : {}) };
   });
   /* Archivzeilen nur für Datensätze, die es nicht mehr gibt; gespeichert wird alles ungefiltert */
-  const old = opts.archive && opts.archive.v === 3 && opts.archive.key === key ? opts.archive.entries.filter(x => x && !existing.has(x.t)) : [];
+  const old = tk && opts.archive && opts.archive.v === 3 && opts.archive.key === key ? opts.archive.entries.filter(x => x && !existing.has(x.t)) : [];
+  /* "ign" ist nur eine Laufzeit-Markierung für Live-Datensätze (direkter E-Mail-Vergleich), gespeichert wird sie nicht */
   const all = [...live, ...old];
-  const counted = (e: ArchEntry) => !e.x && !ignoreTags.has(e.e);
+  const counted = (e: ArchEntry & { ign?: true }) => !e.x && !e.ign && !(e.e && ignoreTags.has(e.e));
   const inRange = (d: string) => !!d && (!plan.start || d >= plan.start) && (!plan.ende || d <= plan.ende);
   const days = new Map<string, DayStats>(), src = new Map<string, { starts: number; contracts: number }>();
   const day = (d: string) => { let x = days.get(d); if (!x) { x = { date: d, starts: 0, payment: 0, contracts: 0 }; days.set(d, x); } return x; };
@@ -164,7 +171,7 @@ export function salesFor(doc: Doc | null, campaign: string, leads: CheckoutLead[
   stats.days = [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
   stats.contractList.sort((a, b) => a.date.localeCompare(b.date) || a.contractId.localeCompare(b.contractId));
   stats.sources = [...src].map(([source, v]) => ({ source, ...v })).sort((a, b) => b.contracts - a.contracts || b.starts - a.starts || a.source.localeCompare(b.source));
-  return { stats, archive: { v: 3, key, entries: all, savedAt: (opts.now || new Date()).toISOString() } };
+  return { stats, archive: { v: 3, key, entries: all.map(({ ign, ...e }: ArchEntry & { ign?: true }) => e), savedAt: (opts.now || new Date()).toISOString() } };
 }
 
 export function buildKpi(doc: Doc | null, campaign: string, stats: CampaignStats, opts: { now?: Date; campaigns?: string[] } = {}) {
