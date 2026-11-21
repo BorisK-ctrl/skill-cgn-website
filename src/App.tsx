@@ -13,7 +13,8 @@ function ScrollManager() {
   const first = useRef(true);
   /* Klick-IDs, UTM und Quelle fürs Team beim ersten Aufruf sichern (Punkt 9), bevor ein Link der Startseite die URL ändert */
   useEffect(() => { utmParams(); captureLandingSource(); }, []);
-  useEffect(() => { if (first.current) { first.current = false; return; } track("PageView"); }, [pathname]);
+  /* SKILLTOOL2 (internes Dashboard): kein Meta-Pixel-Ereignis */
+  useEffect(() => { if (first.current) { first.current = false; return; } if (!pathname.startsWith("/skilltool2")) track("PageView"); }, [pathname]);
   useEffect(() => {
     if (!hash) { window.scrollTo(0, 0); return; }
     /* Seiten laden nachträglich (Code-Splitting): bis zu zwei Sekunden auf das Ankerziel warten. */
@@ -26,7 +27,7 @@ function ScrollManager() {
 }
 
 export default function App() {
-  const Home = page("Home"), Start39 = page("Start39"), Back39 = page("Back39"), VorOrt = page("VorOrt"), Shop = page("Shop"), Kursplan = page("Kursplan"), ShopDanke = page("ShopDanke"), Memberships = page("Memberships"), Classes = page("Classes"), Probetraining = page("Probetraining"), Checkout = page("Checkout"), Danke = page("Danke"), Kuendigung = page("Kuendigung"), KuendigungBestaetigt = page("KuendigungBestaetigt"), Impressum = page("Impressum"), Datenschutz = page("Datenschutz"), Agb = page("Agb"), Brand = page("Brand"), NotFound = page("NotFound"), Scan = page("Scan"), ScanDanke = page("ScanDanke"), PersonalTraining = page("PersonalTraining"), BlackMonth = page("BlackMonth"), BlackMonthDanke = page("BlackMonthDanke"), BlackWeek = page("BlackWeek"), BlackWeekDanke = page("BlackWeekDanke"), Onboarding = page("Onboarding");
+  const Home = page("Home"), Start39 = page("Start39"), Back39 = page("Back39"), VorOrt = page("VorOrt"), Shop = page("Shop"), Kursplan = page("Kursplan"), ShopDanke = page("ShopDanke"), Memberships = page("Memberships"), Classes = page("Classes"), Probetraining = page("Probetraining"), Checkout = page("Checkout"), Danke = page("Danke"), Kuendigung = page("Kuendigung"), KuendigungBestaetigt = page("KuendigungBestaetigt"), Impressum = page("Impressum"), Datenschutz = page("Datenschutz"), Agb = page("Agb"), Brand = page("Brand"), NotFound = page("NotFound"), Scan = page("Scan"), ScanDanke = page("ScanDanke"), PersonalTraining = page("PersonalTraining"), BlackMonth = page("BlackMonth"), BlackMonthDanke = page("BlackMonthDanke"), BlackWeek = page("BlackWeek"), BlackWeekDanke = page("BlackWeekDanke"), Onboarding = page("Onboarding"), Skilltool2 = page("Skilltool2"), Skilltool2Dashboard = page("Skilltool2Dashboard");
   return (
     <>
       <ScrollManager />
@@ -38,6 +39,8 @@ export default function App() {
           <Route path="/start39" element={<Start39 />} />
           <Route path="/back39" element={<Back39 />} />
           <Route path="/vor-ort" element={<VorOrt />} />
+          <Route path="/skilltool2" element={<Skilltool2 />} />
+          <Route path="/skilltool2/dashboard" element={<Skilltool2Dashboard />} />
           <Route path="/scan" element={<Scan />} />
           <Route path="/scan/danke" element={<ScanDanke />} />
           <Route path="/memberships" element={<Memberships />} />

@@ -37,5 +37,15 @@ for (const r of ROUTES) {
   fs.writeFileSync(out, html);
   n++;
 }
+/* SKILLTOOL2 (internes Dashboard): nicht vorrendern, nur eine leere Hülle mit noindex. Der Browser rendert selbst (main.tsx: leeres #root). */
+for (const p of ["/skilltool2", "/skilltool2/dashboard"]) {
+  const shell = template
+    .replace(/<title>[^<]*<\/title>/, "<title>SKILLTOOL2</title>")
+    .replace(/<meta name="description" content="[^"]*">/, '<meta name="description" content="Internes Dashboard.">')
+    .replace('<meta name="theme-color"', '<meta name="robots" content="noindex,nofollow">\n<meta name="theme-color"');
+  const out = path.join(dist, p.slice(1) + ".html");
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, shell);
+}
 fs.rmSync(ssrDir, { recursive: true, force: true });
 console.log(`prerendered ${n} routes`);

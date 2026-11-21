@@ -79,7 +79,17 @@ export interface CheckoutLead { welcome?: WelcomeState; token: string; campaign:
 export async function getCheckoutLead(token: string): Promise<CheckoutLead | null> { return getJSON<CheckoutLead>("checkout-leads", token); }
 export async function saveCheckoutLead(l: CheckoutLead) { await setJSON("checkout-leads", l.token, l); }
 export async function listCheckoutLeadTokens(): Promise<string[]> { return listKeys("checkout-leads", ""); }
+/** Alle Checkout-Datensätze (30 Tage), zehn gleichzeitig gelesen. Für Tagesbericht und SKILLTOOL2. */
+export async function listCheckoutLeads(): Promise<CheckoutLead[]> {
+  const tokens = await listCheckoutLeadTokens(), out: CheckoutLead[] = [];
+  for (let i = 0; i < tokens.length; i += 10) for (const l of await Promise.all(tokens.slice(i, i + 10).map(t => getCheckoutLead(t).catch(() => null)))) if (l) out.push(l);
+  return out;
+}
 export async function deleteCheckoutLead(token: string) { safeKey(token); const s = store("checkout-leads"); if (!s) { mem["checkout-leads"]?.delete(token); return; } await s.delete(token); }
+/* SKILLTOOL2 (Dashboard): Werbezahlen, Plan und Notizen je Kampagne, ohne Personendaten. Blob-Store "skilltool2-ads", Schlüssel = Kampagne (bw29). */
+export async function getSt2Doc<T>(campaign: string) { return getJSON<T>("skilltool2-ads", campaign); }
+export async function saveSt2Doc(campaign: string, doc: unknown) { await setJSON("skilltool2-ads", campaign, doc); }
+export async function listSt2Campaigns(): Promise<string[]> { return listKeys("skilltool2-ads", ""); }
 /* Tagesbericht (sales-report.mts): Zahlen je Tag ohne Personendaten. Bleibt, wenn checkout-leads nach 30 Tagen gelöscht werden. */
 export async function saveDailyReport(day: string, summary: unknown) { await setJSON("reports", "tag/" + day, summary); }
 
@@ -130,6 +140,14 @@ export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboa
 
 /** Bremse je Schlüssel (z. B. gehashte IP): höchstens limit Aufrufe im Zeitfenster. true = erlaubt.
  *  Atomar über etag (onlyIfMatch/onlyIfNew): gleichzeitige Anfragen können sich nicht gegenseitig überschreiben. Bei Dauerkonflikt: ablehnen. */
+/** Treffer im Zeitfenster zählen, ohne einen hinzuzufügen (z. B. Fehlversuche vor der Passwortprüfung). */
+export async function hitCount(key: string, windowMs: number): Promise<number> {
+  safeKey(key);
+  const now = Date.now(), s = store("ratelimit");
+  if (!s) return (((mem["ratelimit"]?.get(key) as number[]) || []).filter(t => now - t < windowMs)).length;
+  const got = await s.get(key, { type: "json" }) as unknown;
+  return (Array.isArray(got) ? (got as number[]) : []).filter(t => now - t < windowMs).length;
+}
 export async function allowHit(key: string, limit: number, windowMs: number): Promise<boolean> {
   safeKey(key);
   const now = Date.now();

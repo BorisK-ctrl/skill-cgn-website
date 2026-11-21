@@ -6,7 +6,7 @@ import { F_MONO } from "./notify";
 
 const H = 3600000;
 const BERLIN_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" });
-const dayOf = (iso?: string) => { const t = iso ? Date.parse(iso) : NaN; return Number.isFinite(t) ? BERLIN_DAY.format(new Date(t)) : ""; };
+export const dayOf = (iso?: string) => { const t = iso ? Date.parse(iso) : NaN; return Number.isFinite(t) ? BERLIN_DAY.format(new Date(t)) : ""; };
 const label = (day: string) => new Date(day + "T12:00:00Z").toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "UTC" });
 const short = (day: string) => new Date(day + "T12:00:00Z").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
 const time = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
@@ -67,11 +67,41 @@ export interface SalesReport { day: string; hasData: boolean; subject: string; h
 
 const zero = (): Counts => ({ starts: 0, payment: 0, contracts: 0, reminders: 0, recovered: 0 });
 
+/** Tests: "test" am Wortanfang in Name oder E-Mail (Tester, info+test@), eigene Domain, oder REPORT_IGNORE_EMAILS in Netlify */
+export function testFilter(ignoreEmails: string[] = []) {
+  const ignore = new Set(ignoreEmails.map(e => e.trim().toLowerCase()).filter(Boolean));
+  return (l: CheckoutLead) => /(^|[^a-zäöüß])test/i.test(`${l.firstName} ${l.lastName} ${l.email}`) || /@(.+\.)?skill-studios\.com$/i.test(l.email || "") || ignore.has((l.email || "").toLowerCase());
+}
+
+/* Eine Aktion über einen Zeitraum (SKILLTOOL2-Dashboard): dieselben Regeln wie der Tagesbericht. Formulare und Zahlungsschritt nach Tag von
+   Schritt 1, Verträge nach Abschlusstag. Keine Namen, nur Vertragsnummer, Tag und Quelle. */
+export interface DayStats { date: string; starts: number; payment: number; contracts: number }
+export interface CampaignStats { starts: number; payment: number; contracts: number; days: DayStats[]; contractList: { date: string; contractId: string; source: string }[];
+  sources: { source: string; starts: number; contracts: number }[]; tests: number }
+export function campaignStats(leads: CheckoutLead[], campaign: string, opts: { from?: string; to?: string; ignoreEmails?: string[] } = {}): CampaignStats {
+  const isTest = testFilter(opts.ignoreEmails);
+  const inRange = (d: string) => !!d && (!opts.from || d >= opts.from) && (!opts.to || d <= opts.to);
+  const mine = leads.filter(l => campaignOf(l) === campaign);
+  const list = mine.filter(l => !isTest(l));
+  const days = new Map<string, DayStats>(), src = new Map<string, { starts: number; contracts: number }>();
+  const day = (d: string) => { let x = days.get(d); if (!x) { x = { date: d, starts: 0, payment: 0, contracts: 0 }; days.set(d, x); } return x; };
+  const out: CampaignStats = { starts: 0, payment: 0, contracts: 0, days: [], contractList: [], sources: [], tests: mine.length - list.length };
+  for (const l of list) {
+    const created = dayOf(l.createdAt), doneAt = doneTime(l), done = dayOf(doneAt), g = sourceGroup(l.utm);
+    const s = src.get(g) || { starts: 0, contracts: 0 };
+    if (inRange(created)) { out.starts++; day(created).starts++; s.starts++; if (reachedPayment(l)) { out.payment++; day(created).payment++; } }
+    if (doneAt && inRange(done)) { out.contracts++; day(done).contracts++; s.contracts++; out.contractList.push({ date: done, contractId: l.contractId || "—", source: g }); }
+    if (s.starts || s.contracts) src.set(g, s);
+  }
+  out.days = [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+  out.contractList.sort((a, b) => a.date.localeCompare(b.date) || a.contractId.localeCompare(b.contractId));
+  out.sources = [...src].map(([source, v]) => ({ source, ...v })).sort((a, b) => b.contracts - a.contracts || b.starts - a.starts || a.source.localeCompare(b.source));
+  return out;
+}
+
 export function buildSalesReport(leads: CheckoutLead[], now = new Date(), opts: { ignoreEmails?: string[] } = {}): SalesReport {
   const day = dayOf(new Date(now.getTime() - 24 * H).toISOString()); // gestern in Köln
-  const ignore = new Set((opts.ignoreEmails || []).map(e => e.trim().toLowerCase()).filter(Boolean));
-  /* Tests: "test" am Wortanfang in Name oder E-Mail (Tester, info+test@), eigene Domain, oder REPORT_IGNORE_EMAILS in Netlify */
-  const isTest = (l: CheckoutLead) => /(^|[^a-zäöüß])test/i.test(`${l.firstName} ${l.lastName} ${l.email}`) || /@(.+\.)?skill-studios\.com$/i.test(l.email || "") || ignore.has((l.email || "").toLowerCase());
+  const isTest = testFilter(opts.ignoreEmails);
   const real = leads.filter(l => !isTest(l));
   const tests = leads.length - real.length;
 

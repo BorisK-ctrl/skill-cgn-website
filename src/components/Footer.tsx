@@ -82,6 +82,7 @@ export default function Footer() {
             ))}
             <button type="button" onClick={openCookieSettings} className="text-xs font-bold text-foreground/50 hover:text-primary transition-colors duration-200 uppercase tracking-widest whitespace-nowrap">Cookie-Einstellungen</button>
             <a href="/team/login" className="text-xs font-bold text-foreground/50 hover:text-primary transition-colors duration-200 uppercase tracking-widest whitespace-nowrap">Team</a>
+            <a href="/skilltool2" rel="nofollow" className="text-xs font-bold text-foreground/50 hover:text-primary transition-colors duration-200 uppercase tracking-widest whitespace-nowrap">SKILLTOOL2</a>
           </div>
         </div>
       </div>

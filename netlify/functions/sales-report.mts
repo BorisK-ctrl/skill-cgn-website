@@ -3,16 +3,12 @@
    Sichert je Tag eine Zusammenfassung ohne Personendaten (Blob-Store "reports"), damit die Zahlen die 30-Tage-Löschung überstehen.
    Ohne Datensätze: keine Mail. Testkäufe mit eigener Adresse: REPORT_IGNORE_EMAILS (kommagetrennt) in Netlify. */
 import type { Config } from "@netlify/functions";
-import { listCheckoutLeadTokens, getCheckoutLead, saveDailyReport, type CheckoutLead } from "./lib/store";
+import { listCheckoutLeads, saveDailyReport } from "./lib/store";
 import { sendSalesReport, mailConfigured } from "./lib/notify";
 import { buildSalesReport } from "./lib/sales-report";
 
 export default async () => {
-  const tokens = await listCheckoutLeadTokens();
-  const leads: CheckoutLead[] = [];
-  for (let i = 0; i < tokens.length; i += 10) { // zehn gleichzeitig, damit es in der Laufzeitgrenze bleibt
-    for (const l of await Promise.all(tokens.slice(i, i + 10).map(t => getCheckoutLead(t).catch(() => null)))) if (l) leads.push(l);
-  }
+  const leads = await listCheckoutLeads(); // zehn gleichzeitig, damit es in der Laufzeitgrenze bleibt
   const r = buildSalesReport(leads, new Date(), { ignoreEmails: (process.env.REPORT_IGNORE_EMAILS || "").split(",") });
   await saveDailyReport(r.day, r.summary).catch(e => console.log("sales-report speichern", String(e)));
   const sent = r.hasData && mailConfigured() ? await sendSalesReport(r.subject, r.html, r.text).catch(e => { console.log("sales-report mail", String(e)); return false; }) : false;

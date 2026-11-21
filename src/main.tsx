@@ -15,7 +15,8 @@ try {
   }
 } catch { /* sessionStorage gesperrt: Token bleibt in der Adresse, die Seite liest ihn dort */ }
 
-initGads();
+/* SKILLTOOL2 (internes Dashboard): kein Google-Tag */
+if (!/^\/skilltool2(\/|$)/.test(window.location.pathname)) initGads();
 
 const root = document.getElementById("root")!;
 const tree = <React.StrictMode><BrowserRouter><App /></BrowserRouter></React.StrictMode>;
