@@ -7,7 +7,7 @@
    Anfragen, nur mit nachgelesenem Eintrag); Speicher gestört: keine Anmeldung. Falsche API-Tokens zählen in dieselbe Bremse. Alle Antworten no-store (lib/util json). */
 import type { Config } from "@netlify/functions";
 import { json, clientKey } from "./lib/util";
-import { hitCount, allowHit, reserveHit, getSt2Doc, getSt2DocVersioned, saveSt2DocIf, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales, getSt2ArchiveKey } from "./lib/store";
+import { hitCount, reserveHit, getSt2Doc, getSt2DocVersioned, saveSt2DocIf, listSt2Campaigns, listCheckoutLeadsChecked, getSt2Sales, saveSt2Sales, getSt2ArchiveKey } from "./lib/store";
 import { configured, passwordOk, sessionCookie, clearCookie, hasSession, hasApiToken, mergeDoc, buildKpi, salesFor, archiveId, CAMPAIGN, type Doc, type SalesArchive } from "./lib/skilltool2";
 import type { CheckoutLead } from "./lib/store";
 
@@ -40,7 +40,7 @@ export default async (req: Request) => {
   const viaToken = !session && req.method === "POST" && (path === "/api/skilltool2/ads" || path === "/api/skilltool2/notes") && !!req.headers.get("authorization");
   if (viaToken && await hitCount(failKey(req), HOUR).catch(() => 0) >= MAX_FAILS) return blocked();
   const authed = session || (viaToken && hasApiToken(req));
-  if (!authed) { if (viaToken) await allowHit(failKey(req), MAX_FAILS, HOUR).catch(() => true); return json({ error: "Nicht angemeldet" }, 401); }
+  if (!authed) { if (viaToken) await reserveHit(failKey(req), MAX_FAILS, HOUR).catch(() => true); return json({ error: "Nicht angemeldet" }, 401); }
 
   if (path === "/api/skilltool2/kpi") {
     if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);

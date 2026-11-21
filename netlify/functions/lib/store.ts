@@ -113,9 +113,9 @@ export async function saveSt2DocIf(campaign: string, doc: unknown, etag: string 
   }
   const r = etag ? await s.setJSON(campaign, doc, { onlyIfMatch: etag }) : await s.setJSON(campaign, doc, { onlyIfNew: true });
   if (!r.modified) return false;
-  if (r.etag) return true;
-  /* Antwort ohne Version: @netlify/blobs meldet bei bedingtem Schreiben jede Antwort außer 412 als gespeichert, auch einen Speicherfehler
-     nach allen Wiederholungen (Prüfung 21.11.2026). Darum nachlesen: gespeichert ist nur, was jetzt dort steht. Sonst Fehler (503). */
+  /* @netlify/blobs meldet bei bedingtem Schreiben jede Antwort außer 412 als gespeichert, auch einen Speicherfehler nach allen
+     Wiederholungen, und eine mitgeschickte Version beweist auch nichts (Prüfung 21.11.2026). Darum immer nachlesen: gespeichert ist nur,
+     was jetzt dort steht. Sonst Fehler (503); hat inzwischen jemand darüber gespeichert, ist auch das ein 503, das Wiederholen ist harmlos. */
   const back = await s.get(campaign, { type: "json" }) as unknown;
   if (back !== null && JSON.stringify(back) === JSON.stringify(doc)) return true;
   throw new Error("Speichern nicht bestätigt");
@@ -191,10 +191,12 @@ export async function saveOnboarding(r: OnboardingRecord) { await setJSON("onboa
 export async function hitCount(key: string, windowMs: number): Promise<number> {
   safeKey(key);
   const now = Date.now(), s = store("ratelimit");
-  if (!s) return (((mem["ratelimit"]?.get(key) as number[]) || []).filter(t => now - t < windowMs)).length;
-  const got = await s.get(key, { type: "json" }) as unknown;
-  return (Array.isArray(got) ? (got as number[]) : []).filter(t => now - t < windowMs).length;
+  const got = s ? await s.get(key, { type: "json" }) as unknown : mem["ratelimit"]?.get(key);
+  return (Array.isArray(got) ? got : []).filter(h => now - hitTime(h) < windowMs).length;
 }
+/* Einträge der Bremse: Zahl (Zeitpunkt, allowHit) oder {t, id} (reserveHit). Unlesbares zählt nicht (NaN fällt aus dem Zeitfenster). */
+const hitTime = (h: unknown) => typeof h === "number" ? h : h && typeof (h as { t?: unknown }).t === "number" ? (h as { t: number }).t : NaN;
+const hasHit = (arr: unknown, id: string) => Array.isArray(arr) && arr.some(h => !!h && typeof h === "object" && (h as { id?: unknown }).id === id);
 export async function allowHit(key: string, limit: number, windowMs: number): Promise<boolean> {
   safeKey(key);
   const now = Date.now();
@@ -213,26 +215,29 @@ export async function allowHit(key: string, limit: number, windowMs: number): Pr
   }
   return false;
 }
-/** Wie allowHit, aber für Bremsen, die nie offen fallen dürfen (Anmeldung SKILLTOOL2): erlaubt nur, wenn der Versuch nachweislich
- *  gespeichert ist. Die Schreib-Antwort allein beweist das nicht (siehe saveSt2DocIf), darum mit eindeutiger Marke nachlesen.
- *  Nicht bestätigt: Fehler, der Aufrufer lehnt ab (503). false = Grenze erreicht. */
+/** Bremse, die nie offen fallen darf (Anmeldung SKILLTOOL2): erlaubt nur, wenn der Versuch nachweislich gespeichert ist. Jeder Versuch
+ *  bekommt eine zufällige Kennung {t, id}; die Schreib-Antwort allein beweist nichts (siehe saveSt2DocIf), darum wird nachgelesen.
+ *  Ist die Kennung schon gespeichert (Antwort verloren, der Client wiederholte und bekam 412), zählt sie einmal, nicht doppelt.
+ *  false = Grenze erreicht. Fehler (Aufrufer lehnt mit 503 ab): Versuch nicht bestätigt, Speicher gestört oder Dauerkonflikt. */
 export async function reserveHit(key: string, limit: number, windowMs: number): Promise<boolean> {
   safeKey(key);
-  const s = store("ratelimit");
-  if (!s) return allowHit(key, limit, windowMs);
-  const now = Date.now(), mark = now + Math.random() / 2;
+  const now = Date.now(), id = randomBytes(12).toString("hex"), s = store("ratelimit");
+  if (!s) {
+    const m = (mem["ratelimit"] ||= new Map()), cur = ((m.get(key) as unknown[]) || []).filter(h => now - hitTime(h) < windowMs);
+    if (cur.length >= limit) return false; cur.push({ t: now, id }); m.set(key, cur); return true;
+  }
   for (let i = 0; i < 6; i++) {
     const got = await s.getWithMetadata(key, { type: "json" }) as { data: unknown; etag?: string } | null;
-    const cur = (Array.isArray(got?.data) ? (got!.data as number[]) : []).filter(t => now - t < windowMs);
+    if (hasHit(got?.data, id)) return true;
+    const cur = (Array.isArray(got?.data) ? got!.data as unknown[] : []).filter(h => now - hitTime(h) < windowMs);
     if (cur.length >= limit) return false;
-    cur.push(mark);
+    cur.push({ t: now, id });
     const r = got?.etag ? await s.setJSON(key, cur, { onlyIfMatch: got.etag }) : await s.setJSON(key, cur, { onlyIfNew: true });
     if (!r.modified) continue;
-    const back = await s.get(key, { type: "json" }) as unknown;
-    if (Array.isArray(back) && back.includes(mark)) return true;
+    if (hasHit(await s.get(key, { type: "json" }), id)) return true;
     throw new Error("Anmeldeversuch nicht gespeichert");
   }
-  return false;
+  throw new Error("Anmeldebremse: Dauerkonflikt");
 }
 
 /* ---------- Kurze Sperren (Netlify Blobs, starke Konsistenz): immer nur eine Buchung je Kunde und je Rasterzelle gleichzeitig ----------

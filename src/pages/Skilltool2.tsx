@@ -15,7 +15,8 @@ export default function Skilltool2() {
       const r = await fetch("/api/skilltool2/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pw }), credentials: "same-origin" });
       if (r.ok) { nav("/skilltool2/dashboard", { replace: true }); return; }
       const j = await r.json().catch(() => ({}));
-      setErr(r.status === 429 ? "Zu viele Versuche, in einer Stunde wieder." : r.status === 503 ? "Noch nicht eingerichtet." : j.error || "Passwort stimmt nicht.");
+      /* Meldung des Servers zeigen (503 heißt "noch nicht eingerichtet" oder "Speicher kurz gestört"), sonst nach Status */
+      setErr(typeof j.error === "string" && j.error ? j.error : r.status === 429 ? "Zu viele Versuche, in einer Stunde wieder." : r.status === 401 ? "Passwort stimmt nicht." : "Gerade nicht erreichbar. Bitte gleich noch einmal.");
     } catch { setErr("Keine Verbindung. Bitte noch einmal."); }
     setBusy(false); setPw("");
   };
