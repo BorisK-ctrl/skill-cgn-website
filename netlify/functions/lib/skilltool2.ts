@@ -1,9 +1,9 @@
 /* SKILLTOOL2: internes KPI-Dashboard (Auftrag Boris 21.11.2026). Zugang mit einem gemeinsamen Passwort, Sitzung als HMAC-Cookie.
    Geheimnisse nur in Netlify: SKILLTOOL2_PASSWORD, SKILLTOOL2_SECRET (mind. 32 Zeichen), SKILLTOOL2_API_TOKEN (mind. 32 Zeichen).
-   Daten: echte Verträge und Trichter aus den Checkout-Datensätzen (lib/sales-report.ts campaignStats, wie der Tagesbericht),
+   Daten: echte Verträge und Trichter aus den Checkout-Datensätzen mit den Regeln des Tagesberichts (lib/sales-report.ts), plus Archiv,
    Werbezahlen, Plan und Notizen aus dem Blob "skilltool2-ads" (POST /api/skilltool2/ads bzw. /notes). Keine Personendaten. */
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { campaignStats, dayOf, type CampaignStats, type DayStats } from "./sales-report";
+import { campaignOf, dayOf, doneTime, reachedPayment, sourceGroup, testFilter, type CampaignStats, type DayStats } from "./sales-report";
 import type { CheckoutLead } from "./store";
 
 export const COOKIE = "st2";
@@ -121,32 +121,45 @@ export function ampel(spend: number, contracts: number, plan: Plan = {}): Ampel 
 }
 const sum = (xs: (number | undefined)[]) => Math.round(xs.reduce<number>((s, x) => s + (x || 0), 0) * 100) / 100;
 
-/* Checkout-Datensätze werden nach 30 Tagen gelöscht (checkout-reminder.mts). Damit Verträge und Trichter alter Tage nicht verschwinden,
-   während die Ausgaben bleiben, gibt es eine Sicherung je Kampagne (Store skilltool2-sales, täglich vom Tagesbericht und bei jedem Öffnen):
-   Tage vor der 30-Tage-Grenze kommen aus der Sicherung, Verträge bleiben über ihre Vertragsnummer erhalten. */
-export interface SalesSnap { days: DayStats[]; contracts: { date: string; contractId: string; source: string }[]; savedAt: string }
-export function mergeStats(live: CampaignStats, snap: SalesSnap | null, today: string): CampaignStats {
-  if (!snap) return live;
-  const cutoff = dayOf(new Date(Date.parse(today + "T12:00:00Z") - 29 * 86400000).toISOString());
-  const byDate = new Map<string, DayStats>();
-  for (const d of live.days) byDate.set(d.date, { ...d, contracts: 0 });
-  for (const d of snap.days || []) if (d.date < cutoff) byDate.set(d.date, { date: d.date, starts: d.starts || 0, payment: d.payment || 0, contracts: 0 });
-  const contracts = new Map<string, SalesSnap["contracts"][number]>();
-  for (const c of snap.contracts || []) if (c?.contractId) contracts.set(c.contractId, c);
-  for (const c of live.contractList) contracts.set(c.contractId, c);
-  for (const c of contracts.values()) { const d = byDate.get(c.date) || { date: c.date, starts: 0, payment: 0, contracts: 0 }; d.contracts++; byDate.set(c.date, d); }
-  const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-  return { ...live, days, starts: days.reduce((s, d) => s + d.starts, 0), payment: days.reduce((s, d) => s + d.payment, 0), contracts: contracts.size,
-    contractList: [...contracts.values()].sort((a, b) => a.date.localeCompare(b.date) || a.contractId.localeCompare(b.contractId)) };
-}
-/** Verkaufszahlen einer Kampagne: Checkout-Datensätze (wie Tagesbericht) plus Sicherung für Tage älter als 30 Tage. */
-export function statsFor(doc: Doc | null, campaign: string, leads: CheckoutLead[], opts: { now?: Date; ignoreEmails?: string[]; snap?: SalesSnap | null } = {}): CampaignStats {
+/* Archiv je Kampagne (Store skilltool2-sales), damit Verträge und Trichter die 30-Tage-Löschung der Checkout-Datensätze überstehen
+   (checkout-reminder.mts), während die Ausgaben bleiben. Eine Zeile je Datensatz, ohne Personendaten: t = Hash des Tokens,
+   e = HMAC der E-Mail (für REPORT_IGNORE_EMAILS), c = Tag von Schritt 1, p = bis zur Zahlung, s = Quelle, k = Vertrag.
+   Solange ein Datensatz existiert, entscheiden die Live-Daten (Testfilter, Ignorierliste, Kampagne). Das Archiv zählt nur für gelöschte
+   Datensätze. Der Zeitraum (plan.start/ende) gilt erst beim Rechnen, das Archiv selbst bleibt vollständig (Prüfung 21.11.2026). */
+export interface ArchEntry { t: string; e: string; c: string; p: boolean; s: string; k?: { d: string; id: string } }
+export interface SalesArchive { v: 2; key: string; entries: ArchEntry[]; savedAt: string }
+const tokenTag = (token: string) => createHash("sha256").update("st2tok|" + token).digest("hex").slice(0, 24);
+const emailTag = (email: string) => createHmac("sha256", env().secret || "st2").update("st2mail|" + email.trim().toLowerCase()).digest("hex").slice(0, 24);
+
+export function salesFor(doc: Doc | null, campaign: string, leads: CheckoutLead[], opts: { archive?: SalesArchive | null; ignoreEmails?: string[]; now?: Date } = {}): { stats: CampaignStats; archive: SalesArchive } {
   const plan = doc?.plan || {};
   const key = plan.checkout_campaign || CHECKOUT_CAMPAIGN[campaign] || plan.name || campaign;
-  const live = campaignStats(leads, key, { from: plan.start, to: plan.ende, ignoreEmails: opts.ignoreEmails });
-  return mergeStats(live, opts.snap || null, dayOf((opts.now || new Date()).toISOString()));
+  const isTest = testFilter(opts.ignoreEmails);
+  const ignoreTags = new Set((opts.ignoreEmails || []).map(x => x.trim()).filter(Boolean).map(emailTag));
+  const existing = new Set(leads.map(l => tokenTag(l.token)));
+  const mine = leads.filter(l => campaignOf(l) === key);
+  const live: ArchEntry[] = mine.filter(l => !isTest(l)).map(l => {
+    const dt = doneTime(l);
+    return { t: tokenTag(l.token), e: emailTag(l.email || ""), c: dayOf(l.createdAt), p: reachedPayment(l), s: sourceGroup(l.utm), ...(dt && l.contractId ? { k: { d: dayOf(dt), id: l.contractId } } : {}) };
+  });
+  /* Archiv nur für gelöschte Datensätze derselben Aktion; später Ausgeblendete (REPORT_IGNORE_EMAILS) fallen auch hier heraus */
+  const old = opts.archive && opts.archive.v === 2 && opts.archive.key === key ? opts.archive.entries.filter(x => x && !existing.has(x.t) && !ignoreTags.has(x.e)) : [];
+  const all = [...live, ...old];
+  const inRange = (d: string) => !!d && (!plan.start || d >= plan.start) && (!plan.ende || d <= plan.ende);
+  const days = new Map<string, DayStats>(), src = new Map<string, { starts: number; contracts: number }>();
+  const day = (d: string) => { let x = days.get(d); if (!x) { x = { date: d, starts: 0, payment: 0, contracts: 0 }; days.set(d, x); } return x; };
+  const stats: CampaignStats = { starts: 0, payment: 0, contracts: 0, days: [], contractList: [], sources: [], tests: mine.length - live.length };
+  for (const e of all) {
+    const s = src.get(e.s) || { starts: 0, contracts: 0 };
+    if (inRange(e.c)) { stats.starts++; day(e.c).starts++; s.starts++; if (e.p) { stats.payment++; day(e.c).payment++; } }
+    if (e.k && inRange(e.k.d)) { stats.contracts++; day(e.k.d).contracts++; s.contracts++; stats.contractList.push({ date: e.k.d, contractId: e.k.id, source: e.s }); }
+    if (s.starts || s.contracts) src.set(e.s, s);
+  }
+  stats.days = [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+  stats.contractList.sort((a, b) => a.date.localeCompare(b.date) || a.contractId.localeCompare(b.contractId));
+  stats.sources = [...src].map(([source, v]) => ({ source, ...v })).sort((a, b) => b.contracts - a.contracts || b.starts - a.starts || a.source.localeCompare(b.source));
+  return { stats, archive: { v: 2, key, entries: all, savedAt: (opts.now || new Date()).toISOString() } };
 }
-export const snapshotOf = (s: CampaignStats, now = new Date()): SalesSnap => ({ days: s.days, contracts: s.contractList, savedAt: now.toISOString() });
 
 export function buildKpi(doc: Doc | null, campaign: string, stats: CampaignStats, opts: { now?: Date; campaigns?: string[] } = {}) {
   const now = opts.now || new Date();

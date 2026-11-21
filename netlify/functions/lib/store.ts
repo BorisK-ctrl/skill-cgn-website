@@ -80,10 +80,13 @@ export async function getCheckoutLead(token: string): Promise<CheckoutLead | nul
 export async function saveCheckoutLead(l: CheckoutLead) { await setJSON("checkout-leads", l.token, l); }
 export async function listCheckoutLeadTokens(): Promise<string[]> { return listKeys("checkout-leads", ""); }
 /** Alle Checkout-Datensätze (30 Tage), zehn gleichzeitig gelesen. Für Tagesbericht und SKILLTOOL2. */
-export async function listCheckoutLeads(): Promise<CheckoutLead[]> {
-  const tokens = await listCheckoutLeadTokens(), out: CheckoutLead[] = [];
-  for (let i = 0; i < tokens.length; i += 10) for (const l of await Promise.all(tokens.slice(i, i + 10).map(t => getCheckoutLead(t).catch(() => null)))) if (l) out.push(l);
-  return out;
+export async function listCheckoutLeads(): Promise<CheckoutLead[]> { return (await listCheckoutLeadsChecked()).leads; }
+/** Wie listCheckoutLeads, meldet aber, ob jeder Datensatz gelesen wurde (complete). Die Liste selbst wirft bei Fehlern. */
+export async function listCheckoutLeadsChecked(): Promise<{ leads: CheckoutLead[]; complete: boolean }> {
+  const tokens = await listCheckoutLeadTokens(), leads: CheckoutLead[] = [];
+  let complete = true;
+  for (let i = 0; i < tokens.length; i += 10) for (const l of await Promise.all(tokens.slice(i, i + 10).map(t => getCheckoutLead(t).catch(() => { complete = false; return null; })))) if (l) leads.push(l);
+  return { leads, complete };
 }
 export async function deleteCheckoutLead(token: string) { safeKey(token); const s = store("checkout-leads"); if (!s) { mem["checkout-leads"]?.delete(token); return; } await s.delete(token); }
 /* SKILLTOOL2 (Dashboard): Werbezahlen, Plan und Notizen je Kampagne, ohne Personendaten. Blob-Store "skilltool2-ads", Schlüssel = Kampagne (bw29). */

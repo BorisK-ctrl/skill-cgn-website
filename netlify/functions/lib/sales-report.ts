@@ -45,9 +45,9 @@ export function campaignOf(l: Pick<CheckoutLead, "campaign" | "page" | "offer" |
 }
 
 /* Wie weit kam jemand? Schritt 1 = Datensatz existiert. Zahlungsschritt: Vertrag, Abbruch in Schritt 3, Kartendaten oder Stripe. */
-const reachedPayment = (l: CheckoutLead) => !!l.done || Math.max(l.maxStep || 0, l.abandonedStep || 0) >= 3 || !!l.card || !!l.stripe || !!l.express;
+export const reachedPayment = (l: CheckoutLead) => !!l.done || Math.max(l.maxStep || 0, l.abandonedStep || 0) >= 3 || !!l.card || !!l.stripe || !!l.express;
 /* Abschlusszeit: doneAt (neu), sonst die Zeit der Vertragsmail, Stripe-Zahlung oder Meta-Meldung, zuletzt Schritt 1 */
-const doneTime = (l: CheckoutLead): string | undefined => !l.done || !l.contractId ? undefined
+export const doneTime = (l: CheckoutLead): string | undefined => !l.done || !l.contractId ? undefined
   : l.doneAt || (l as any).mails?.at || l.stripe?.paidAt || l.capi?.at || l.createdAt;
 const metaStatus = (l: CheckoutLead): { key: "sent" | "consent" | "token" | "other" | "unknown"; text: string } => {
   /* Nur was der Server getan hat. Der Browser meldet den Kauf zusätzlich, wenn auf der Dankeseite zugestimmt wird. */
