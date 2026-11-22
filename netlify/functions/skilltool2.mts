@@ -5,7 +5,9 @@
    POST /api/skilltool2/notes {next, open[]} → Nächste Entscheidung, Offene Punkte (Sitzung oder Token)
    Bremse: höchstens 10 Versuche je Anschluss und Stunde, Passwort und API-Token gemeinsam. Jeder Versuch zählt vor der Prüfung (atomar, auch
    bei vielen gleichzeitigen Anfragen, nur mit nachgelesenem Eintrag); Speicher gestört: keine Prüfung, 503. Ein richtiger Token gibt seinen
-   Platz wieder frei, damit regelmäßige API-Aufrufe die Bremse nicht füllen. Alle Antworten no-store (lib/util json). */
+   Platz wieder frei, damit regelmäßige API-Aufrufe die Bremse nicht füllen. Alle Antworten no-store (lib/util json).
+   API-Nutzung: nacheinander senden, nicht dauerhaft viele parallel (siehe HIT_TRIES in lib/store.ts). Eine Anfrage nimmt alle Tage und
+   Anzeigen auf einmal; einzelne Felder eines Tages nur mit mergeDays: true, sonst ersetzt der Tag den gespeicherten (z. B. Google € von Hand). */
 import type { Config } from "@netlify/functions";
 import { randomBytes } from "node:crypto";
 import { json, clientKey } from "./lib/util";

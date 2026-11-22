@@ -216,9 +216,11 @@ export async function allowHit(key: string, limit: number, windowMs: number): Pr
 /** Kurze zufällige Pause nach einem verlorenen Wettlauf (412), damit gleichzeitige Anfragen auseinanderlaufen statt erneut zusammenzustoßen. */
 export const backoff = () => new Promise<void>(r => setTimeout(r, 5 + Math.random() * 45));
 /* Durchläufe für reserveHit und releaseHit. Ein verlorener Durchlauf heißt: eine andere Anfrage hat in der Zwischenzeit gespeichert, und jede
-   Anfrage speichert hier höchstens zweimal (belegen, freigeben). Gleichzeitig können höchstens 10 einen Platz halten, also reichen 24 Durchläufe
-   auch für 10 gleichzeitige richtige Tokens eines Anschlusses. Vorher 6 bzw. 3: schon 3 bis 5 gleichzeitige richtige Tokens ließen Plätze
-   liegen oder bekamen 503 (Prüfung 21.11.2026, Runde 8). */
+   Anfrage speichert hier höchstens zweimal (belegen, freigeben). Für eine Welle von bis zu 10 gleichzeitigen Anfragen eines Anschlusses reichen
+   24 Durchläufe daher (vorher 6 bzw. 3: schon 3 bis 5 gleichzeitige richtige Tokens ließen Plätze liegen oder bekamen 503, Runde 8).
+   Grenze (Prüfung 22.11.2026, Runde 9): laufen dauerhaft 8 bis 10 Anfragen eines Anschlusses parallel, starten also immer neue, während eine
+   noch wartet, kann sie trotzdem leer ausgehen. Selten (unter 1 %): 503, der Aufrufer wiederholt; oder der Platz bleibt bis zum Ende der Stunde
+   belegt (Logeintrag). Bewusst so gelassen: die API ist dafür nicht gedacht, eine Anfrage nimmt alle Tage und Anzeigen auf einmal. */
 const HIT_TRIES = 24;
 /** Bremse, die nie offen fallen darf (Anmeldung und API-Token SKILLTOOL2): erlaubt nur, wenn der Versuch nachweislich gespeichert ist.
  *  Jeder Versuch bekommt eine zufällige Kennung {t, id}; die Schreib-Antwort allein beweist nichts (siehe saveSt2DocIf), darum wird nachgelesen.
