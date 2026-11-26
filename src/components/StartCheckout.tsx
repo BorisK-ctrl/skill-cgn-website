@@ -76,6 +76,13 @@ function DoneCard({ n, title, summary, onEdit }: { n: number; title: string; sum
   );
 }
 
+/* Vor Ort: steht in Schritt 1 noch der übernommene Interessent? Anderer Name, oder E-Mail und Handy beide anders = andere Person. */
+const normText = (v: string) => v.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+const normPhone = (v: string) => { const d = v.replace(/\D/g, ""); return d.startsWith("0049") ? "0" + d.slice(4) : d.startsWith("49") && d.length > 10 ? "0" + d.slice(2) : d; };
+function otherPerson(p: Prefill, f: { firstName: string; lastName: string; email: string; phone: string }) {
+  if (normText(p.firstName) !== normText(f.firstName) || normText(p.lastName) !== normText(f.lastName)) return true;
+  return normText(p.email) !== normText(f.email) && normPhone(p.phone) !== normPhone(f.phone);
+}
 export interface PosOptions { staff: string; startDate: string }
 export interface SummaryRow { label: string; value: string }
 export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote, startToday, successPath = "/danke", utmContent, notes, prefill }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout" | "/blackweek"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
@@ -125,11 +132,15 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   }, [KEY]);
   /* Vor Ort mit Interessent aus Magicline: Formular einmal füllen, sobald die Sitzung geladen ist. Schritt 1 nur überspringen, wenn die
      Kontaktdaten gültig sind und die uuid da ist (sonst legt erst Schritt 1 den Interessenten an); Schritt 2 nur, wenn Magicline Geburtsdatum
-     (volljährig) und vollständige Adresse hat. Der Kunde sieht alles in den erledigten Schritten und kann es dort ändern. */
+     (volljährig) und vollständige Adresse hat und der Start nicht in der Vergangenheit liegt. Der Kunde sieht alles in den erledigten Schritten,
+     auch Handy und Geburtsdatum, und kann es dort ändern. Es gilt nur, was bei der Übergabe schon da war: eine Antwort, die erst danach kommt,
+     ändert nichts mehr (Prüfung 26.11.2026). */
+  const initialPrefill = useRef(isPos ? prefill : undefined);
   const fromMagicline = useRef("");
   useEffect(() => {
-    if (!restored || !isPos || !prefill || fromMagicline.current) return;
-    const p = prefill; fromMagicline.current = p.uuid || p.email || "ja";
+    const p = initialPrefill.current;
+    if (!restored || !p || fromMagicline.current) return;
+    fromMagicline.current = p.uuid || p.email || "ja";
     const fill: Partial<Form> = {};
     for (const k of ["firstName", "lastName", "email", "phone", "birthDate", "street", "streetNumber", "zipCode", "city"] as const) if (p[k]?.trim()) fill[k] = p[k].trim();
     setForm(f => ({ ...f, ...fill }));
@@ -138,8 +149,22 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const contactOk = !!(p.firstName.trim() && p.lastName.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(p.email.trim()) && p.phone.replace(/\D/g, "").length >= 8);
     const adult = /^\d{4}-\d{2}-\d{2}$/.test(p.birthDate) && (Date.now() - new Date(p.birthDate).getTime()) / 31557600000 >= 18;
     const addressOk = !!(p.street.trim() && p.streetNumber.trim() && /^\d{5}$/.test(p.zipCode.trim()) && p.city.trim());
-    if (contactOk) setStepRaw(adult && addressOk ? 3 : 2);
-  }, [restored, isPos, prefill]);
+    const startOk = !!startToday || (!!pos?.startDate && pos.startDate >= today());
+    if (contactOk) setStepRaw(adult && addressOk && startOk ? 3 : 2);
+  }, [restored]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* Notiz im Vertrag: nur wenn er wirklich am übernommenen Interessenten hängt; geänderte Kontaktdaten markieren, damit das Team sie prüft */
+  const prospectNote = () => {
+    const p = initialPrefill.current;
+    if (!p?.uuid || lead.uuid !== p.uuid) return "";
+    const changed = normText(p.email) !== normText(form.email) || normPhone(p.phone) !== normPhone(form.phone);
+    return `, Daten aus Interessent in Magicline${changed ? ", Kontakt am iPad geändert" : ""}`;
+  };
+  /* Im Protokoll: hat Magicline den Vertrag wirklich dem übernommenen Kunden gegeben (gleiche Kundennummer) oder einen neuen angelegt? */
+  const prospectMatch = (r: ContractResult) => {
+    const p = initialPrefill.current;
+    if (!p?.uuid || lead.uuid !== p.uuid) return undefined;
+    return !p.customerNumber || !r.customerNumber ? "unbekannt" : r.customerNumber === p.customerNumber ? "gleich" : "neu";
+  };
   useEffect(() => {
     if (!resume) return;
     setForm(f => ({ ...f, firstName: resume.firstName || f.firstName, lastName: resume.lastName || f.lastName, email: resume.email || f.email, phone: resume.phone || f.phone }));
@@ -223,7 +248,17 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const tok = token || newToken(); setToken(tok);
     /* Am Tresen ebenfalls als Interessent anlegen: so taucht jeder Abschluss in Magicline unter Interessenten → Eingang auf und wird mit dem Vertrag "Gewonnen". */
     if (isPos) {
-      if (!lead.uuid) createLead({ firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), notes: `${offerName} vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}` })
+      /* Übernommener Interessent, aber jetzt steht eine andere Person in Schritt 1 (anderer Name, oder E-Mail und Handy beide anders, etwa nach
+         einem falschen Treffer bei gleichem Namen): nicht an dessen Datensatz hängen und seine Adresse und sein Geburtsdatum nicht weiterverwenden,
+         sondern wie ohne Suche einen neuen Interessenten anlegen. Korrigiert dieselbe Person nur E-Mail oder Handy, bleibt sie verknüpft. */
+      const pf = initialPrefill.current, swap = !!(pf?.uuid && lead.uuid === pf.uuid && otherPerson(pf, form));
+      if (swap && pf) {
+        const keep = (k: "birthDate" | "street" | "streetNumber" | "zipCode" | "city", v: string) => (pf[k] && v.trim() === pf[k].trim() ? "" : v);
+        setLead({ uuid: "", customerNumber: "" });
+        setForm(f => ({ ...f, birthDate: keep("birthDate", f.birthDate), street: keep("street", f.street), streetNumber: keep("streetNumber", f.streetNumber), zipCode: keep("zipCode", f.zipCode), city: keep("city", f.city), accountHolder: "" }));
+        log("prospect-switch", {});
+      }
+      if (swap || !lead.uuid) createLead({ firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), notes: `${offerName} vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}` })
         .then(l => { if (l.uuid) setLead({ uuid: l.uuid, customerNumber: l.customerNumber }); log("lead", { response: { status: l.status, customerNumber: l.customerNumber, uuid: !!l.uuid } }); })
         .catch(e => log("lead-error", { error: String(e?.message || e) }));
       setStep(2); return;
@@ -298,12 +333,12 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const request = { rateBundleTermId: term.id, startDate, price: term.price, identityToken: lead.uuid || null, leadCustomerNumber: lead.customerNumber || null, signatureChars: sig.length, strokes: strokes.current.length, firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate, zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), ibanValid: ibanValid(form.iban) };
     try {
       const r: ContractResult = await createContract({
-        rateBundleTermId: term.id, startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}${fromMagicline.current && lead.uuid === prefill?.uuid ? ", Daten aus Interessent in Magicline" : ""}` : `${notes?.contract || `Onlineabschluss ${offerName} Landingpage`}, Quelle: ${utmSource(utmContent)}`,
+        rateBundleTermId: term.id, startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}${prospectNote()}` : `${notes?.contract || `Onlineabschluss ${offerName} Landingpage`}, Quelle: ${utmSource(utmContent)}`,
         firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate,
         street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), iban: form.iban,
       });
       /* Nur mit Vertrags-ID von Magicline geht es weiter. createContract wirft sonst. */
-      log("contract-ok", { request: { ...request, consent: consent(), fbp: !!cookie("_fbp"), fbc: !!cookie("_fbc") }, response: { status: r.status, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, paymentUrl: r.paymentUrl, followUpActionToken: r.followUpActionToken, raw: r.raw } });
+      log("contract-ok", { prospect: prospectMatch(r), request: { ...request, consent: consent(), fbp: !!cookie("_fbp"), fbc: !!cookie("_fbc") }, response: { status: r.status, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, paymentUrl: r.paymentUrl, followUpActionToken: r.followUpActionToken, raw: r.raw } });
       if (isPos) { const info = { firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim() }; try { sessionStorage.removeItem(KEY); } catch {} setForm(emptyForm()); setStepRaw(1); setToken(""); clearSig(); onSuccess?.(r, info); return; }
       /* Vertrag bestätigt: Abbrecher-Token schließen und Purchase serverseitig (Conversions API) mit derselben event_id anstoßen */
       if (token) fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, done: true, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, startDate, value: term.price, path, offer: offerName, months, consent: consent(), sourceUrl: location.href, zip: form.zipCode.trim(), city: form.city.trim(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }), keepalive: true }).catch(() => {});
@@ -337,8 +372,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       <div className="mb-6 flex gap-1" aria-hidden="true">{[1, 2, 3].map(i => <div key={i} className={`h-1 flex-1 ${i <= step ? "bg-[#FBFF00]" : "bg-white/10"}`} />)}</div>
 
       <div className="space-y-3">
-        {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email}`} onEdit={() => setStep(1)} />}
-        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(startToday ? today() : form.startDate)}`} onEdit={() => setStep(2)} />}
+        {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email} · ${form.phone}`} onEdit={() => setStep(1)} />}
+        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`Geboren ${fmtDe(form.birthDate)} · ${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(startToday ? today() : form.startDate)}`} onEdit={() => setStep(2)} />}
 
         {step === 1 && (
           <div ref={stepRef} className="scroll-mt-4 space-y-4">

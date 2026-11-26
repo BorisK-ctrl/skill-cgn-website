@@ -1,7 +1,8 @@
 /* Vor-Ort-Abschluss (iPad am Tresen): Team-Sitzung und Suche nach Interessenten in Magicline (Boris 26.11.2026).
    Wer zum Probetraining da war, steht schon als Interessent in Magicline. Das Team sucht ihn, die Daten gehen ins Formular, und der Vertrag
    hängt am selben Kunden (uuid = identityToken), statt einen zweiten anzulegen.
-   Zugang: Team-Passwort VOR_ORT_PASSWORD (Netlify, mindestens 12 Zeichen). Sitzung als HMAC-Cookie "vo", 14 Stunden, nur für /api/vor-ort.
+   Zugang: Team-Passwort VOR_ORT_PASSWORD (Netlify, mindestens 16 Zeichen, am besten aus dem Passwortmanager; das iPad kann es sich merken).
+   Sitzung als HMAC-Cookie "vo", 14 Stunden, nur für /api/vor-ort.
    Der Schlüssel des Cookies ist aus dem Passwort abgeleitet: ein neues Passwort meldet alle iPads ab. Keine Personendaten in Logs. */
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { MlCustomer } from "./magicline";
@@ -9,7 +10,7 @@ import type { MlCustomer } from "./magicline";
 export const COOKIE = "vo";
 const HOURS = 14;
 const pw = () => process.env.VOR_ORT_PASSWORD || "";
-export const configured = () => pw().length >= 12;
+export const configured = () => pw().length >= 16;
 const key = () => createHash("sha256").update("vor-ort-sitzung|" + pw()).digest();
 const sign = (exp: number) => createHmac("sha256", key()).update(`vo|${exp}`).digest("hex");
 /* Vergleich in konstanter Zeit: beide Seiten erst hashen, dann gleich lange Puffer vergleichen */
@@ -59,7 +60,8 @@ export function criteriaFor(q: string): Criteria[] | null {
 /* ---------- Treffer für die Liste: nur was das Team zum Erkennen braucht ---------- */
 export interface Hit { id: number; name: string; ort: string; seit: string; email: string; tel: string; mitglied: boolean; geburtsdatum: boolean; adresse: boolean }
 const phoneOf = (c: MlCustomer) => (c.phonePrivateMobile || c.phonePrivate || c.phoneBusinessMobile || c.phoneBusiness || "").trim();
-const maskEmail = (e: string) => { const [u, d] = e.trim().split("@"); return u && d ? `${u.slice(0, 2)}…@${d}` : ""; };
+/* Kurze Namen vor dem @ nur mit einem Zeichen, sonst stünde die Adresse fast ganz da */
+const maskEmail = (e: string) => { const [u, d] = e.trim().split("@"); return u && d ? `${u.slice(0, u.length > 4 ? 2 : 1)}…@${d}` : ""; };
 const isoDate = (v?: string) => (v || "").slice(0, 10);
 const deDate = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : "";
 const createdDay = (c: MlCustomer) => { const t = Date.parse(c.createdDateTime || ""); return Number.isFinite(t) ? new Date(t).toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" }) : ""; };

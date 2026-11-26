@@ -22,12 +22,14 @@ export const missingText = (p: Prefill) => {
 
 export default function ProbeSuche({ value, onChange }: { value: Prefill | null; onChange: (p: Prefill | null) => void }) {
   const [st, setSt] = useState<Status | null>(null), [pw, setPw] = useState(""), [q, setQ] = useState("");
-  const [hits, setHits] = useState<Hit[] | null>(null), [more, setMore] = useState(false), [busy, setBusy] = useState(false), [err, setErr] = useState(""), [picking, setPicking] = useState<number | null>(null);
+  const [hits, setHits] = useState<Hit[] | null>(null), [more, setMore] = useState(false), [partial, setPartial] = useState(false), [busy, setBusy] = useState(false), [err, setErr] = useState(""), [picking, setPicking] = useState<number | null>(null);
   const seq = useRef(0), timer = useRef(0);
+  /* Nach der Übergabe an den Kunden ist diese Ansicht weg: eine Antwort, die erst dann kommt, darf nichts mehr übernehmen (Prüfung 26.11.2026) */
+  const alive = useRef(true);
   useEffect(() => {
-    let on = true;
-    fetch("/api/vor-ort/status", { credentials: "same-origin", cache: "no-store" }).then(r => (r.ok ? r.json() : null)).then(s => { if (on) setSt(s && typeof s.ready === "boolean" ? s : null); }).catch(() => {});
-    return () => { on = false; window.clearTimeout(timer.current); };
+    alive.current = true;
+    fetch("/api/vor-ort/status", { credentials: "same-origin", cache: "no-store" }).then(r => (r.ok ? r.json() : null)).then(s => { if (alive.current) setSt(s && typeof s.ready === "boolean" ? s : null); }).catch(() => {});
+    return () => { alive.current = false; seq.current++; window.clearTimeout(timer.current); };
   }, []);
   const loggedOut = () => { setSt(s => (s ? { ...s, session: false } : s)); setHits(null); setErr("Bitte Team-Passwort eingeben."); };
 
@@ -42,26 +44,29 @@ export default function ProbeSuche({ value, onChange }: { value: Prefill | null;
   /* Suchen: kurz nach dem Tippen oder sofort mit Enter. Ältere Antworten werden verworfen. */
   const search = async (term: string) => {
     window.clearTimeout(timer.current);
-    if (!searchable(term)) { setHits(null); setMore(false); return; }
+    if (!searchable(term)) { seq.current++; setBusy(false); setHits(null); setMore(false); setPartial(false); return; }
     const my = ++seq.current;
     setBusy(true); setErr("");
     const r = await post("suche", { q: term }).catch(() => null);
-    if (my !== seq.current) return;
+    if (my !== seq.current || !alive.current) return;
     setBusy(false);
     if (r?.status === 401) { loggedOut(); return; }
     if (!r?.ok) { setHits(null); setErr(await msgOf(r, r ? "Suche ging nicht. Bitte noch einmal." : "Keine Verbindung. Bitte noch einmal.")); return; }
-    const j = await r.json().catch(() => ({})) as { hits?: Hit[]; more?: boolean };
-    setHits(Array.isArray(j.hits) ? j.hits : []); setMore(!!j.more);
+    const j = await r.json().catch(() => ({})) as { hits?: Hit[]; more?: boolean; partial?: boolean };
+    if (my !== seq.current || !alive.current) return;
+    setHits(Array.isArray(j.hits) ? j.hits : []); setMore(!!j.more); setPartial(!!j.partial);
   };
   const onType = (v: string) => { setQ(v); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => search(v), 450); };
   const pick = async (h: Hit) => {
     if (h.mitglied || picking) return;
     setPicking(h.id); setErr("");
     const r = await post("kunde", { id: h.id }).catch(() => null);
+    if (!alive.current) return;
     setPicking(null);
     if (r?.status === 401) { loggedOut(); return; }
     if (!r?.ok) { setErr(await msgOf(r, r ? "Daten nicht abrufbar. Bitte noch einmal." : "Keine Verbindung. Bitte noch einmal.")); return; }
     const j = await r.json().catch(() => ({})) as { kunde?: Prefill };
+    if (!alive.current) return;
     if (!j.kunde) { setErr("Daten nicht abrufbar. Bitte noch einmal."); return; }
     onChange(j.kunde); setHits(null); setQ("");
   };
@@ -108,6 +113,7 @@ export default function ProbeSuche({ value, onChange }: { value: Prefill | null;
             </ul>
           ) : <p className="mt-3 text-sm text-white/55">Niemand gefunden. Dann tippt der Kunde seine Daten selbst ein.</p>)}
           {more && <p className="mt-2 text-xs text-white/45">Mehr als 10 Treffer, bitte genauer suchen (Vor- und Nachname).</p>}
+          {partial && <p className="mt-2 text-xs text-white/60">Magicline hat nicht auf alles geantwortet. Fehlt die Person, Enter drücken und noch einmal suchen.</p>}
         </div>
       )}
       {err && <p role="alert" className="mt-3 border-l-4 border-[#FBFF00] pl-3 text-sm font-bold">{err}</p>}

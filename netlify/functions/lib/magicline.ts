@@ -6,14 +6,18 @@ const KEY = process.env.MAGICLINE_OPEN_API_KEY || "";
 const BASE = `https://${TENANT}.open-api.magicline.com/v1`;
 export const magiclineConfigured = () => KEY.length > 10;
 
-/** Fehler der Open API mit HTTP-Status (status 0: keine Antwort, etwa Zeitüberschreitung). */
-export class MagiclineError extends Error { constructor(message: string, readonly status: number) { super(message); } }
+/** Fehler der Open API mit HTTP-Status (status 0: keine Antwort, etwa Zeitüberschreitung) und errorCode aus der Antwort, falls vorhanden
+ *  (z. B. errormessage.customer.not.found). Der Code enthält keine Personendaten, die übrige Antwort kann welche enthalten. */
+export class MagiclineError extends Error { constructor(message: string, readonly status: number, readonly code = "") { super(message); } }
 async function api<T>(method: string, path: string, body?: unknown, opts: { timeoutMs?: number } = {}): Promise<T> {
   let r: Response;
   try { r = await fetch(BASE + path, { method, headers: { "x-api-key": KEY, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined, ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}) }); }
   catch (e) { throw new MagiclineError(`Magicline ${method} ${path}: keine Antwort (${String((e as Error)?.name || e)})`, 0); }
   const text = await r.text(); let data: any = null; try { data = JSON.parse(text); } catch { data = text; }
-  if (!r.ok) throw new MagiclineError(`Magicline ${method} ${path} ${r.status}: ${typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200)}`, r.status);
+  if (!r.ok) {
+    const code = data && typeof data === "object" && typeof data.errorCode === "string" && /^[a-z0-9._-]{1,120}$/i.test(data.errorCode) ? data.errorCode : "";
+    throw new MagiclineError(`Magicline ${method} ${path} ${r.status}: ${typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200)}`, r.status, code);
+  }
   return data as T;
 }
 
