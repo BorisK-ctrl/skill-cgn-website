@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, Lock, RotateCcw, ShieldCheck, Tablet } from "lucide-react";
 import StartCheckout from "@/components/StartCheckout";
+import ProbeSuche, { type Prefill } from "@/components/ProbeSuche";
 import { usePageMeta } from "@/lib/meta";
 import { euro, termLabel, termFees, termCancel, type RateBundle, type RateBundleTerm, type ContractResult } from "@/lib/magicline";
 import { START39_TERM_ID } from "@/lib/magicline";
@@ -58,6 +59,8 @@ export default function VorOrt() {
   const [staff, setStaff] = useState(() => { try { return localStorage.getItem("skill-pos-staff") || ""; } catch { return ""; } });
   const [mode, setMode] = useState<"team" | "kunde" | "fertig">("team");
   const [done, setDone] = useState<{ r: ContractResult; firstName: string } | null>(null);
+  /* Interessent aus Magicline (Suche im Team-Modus): gilt nur für den nächsten Kunden, danach wieder leer */
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [count, setCount] = useState(0);
   const backTimer = useRef<number>(0);
   useEffect(() => { try { localStorage.setItem("skill-pos-staff", staff); } catch {} }, [staff]);
@@ -79,7 +82,7 @@ export default function VorOrt() {
   const newDay = () => berlinToday() !== loadedDay.current;
   const lastInput = useRef(Date.now());
   const onSuccess = (r: ContractResult, info: { firstName: string }) => { setDone({ r, firstName: info.firstName }); setCount(c => c + 1); setMode("fertig"); window.scrollTo({ top: 0 }); };
-  const backToTeam = () => { window.clearTimeout(backTimer.current); clearPosSession(); if (newDay()) { window.location.reload(); return; } setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
+  const backToTeam = () => { window.clearTimeout(backTimer.current); clearPosSession(); setPrefill(null); if (newDay()) { window.location.reload(); return; } setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
   /* Übergabe: neuer Tag oder Black Week vorbei → erst neu laden; jeder Kunde beginnt leer */
   const handover = () => { if (newDay() || (bw && !blackWeekActive())) { window.location.reload(); return; } clearPosSession(); lastInput.current = Date.now(); setMode("kunde"); window.scrollTo({ top: 0 }); };
   const live = useRef({ mode, bw, backToTeam }); live.current = { mode, bw, backToTeam };
@@ -129,7 +132,7 @@ export default function VorOrt() {
             <p className="mt-5 flex items-center gap-2 text-xs text-white/45"><Lock className="h-3.5 w-3.5" /> Deine Daten gehen direkt in unser Mitgliedersystem, nichts wird auf diesem iPad gespeichert.</p>
           </aside>
           <section className="mt-8 lg:mt-0">
-            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate: start }} startToday={bw} onSuccess={onSuccess} />
+            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate: start }} startToday={bw} onSuccess={onSuccess} prefill={prefill || undefined} />
           </section>
         </div>
       </main>
@@ -165,6 +168,7 @@ export default function VorOrt() {
         </div>
       </header>
       <div className="mx-auto max-w-[1180px] px-6 py-8">
+        <ProbeSuche value={prefill} onChange={setPrefill} />
         <p className={kicker}>1. Tarif</p>
         {error ? (
           <div className="mt-3 border-2 border-[#FBFF00] bg-[#2A3133] p-5"><div className="flex items-start gap-3"><ShieldCheck className="h-6 w-6 shrink-0 text-[#FBFF00]" /><p className="text-sm text-white/70">Magicline antwortet nicht. Seite neu laden oder WLAN prüfen.</p></div></div>
@@ -209,7 +213,7 @@ export default function VorOrt() {
         )}
         {term && (
           <div className="mt-10 border-2 border-[#FBFF00] bg-[#1a2224] p-6 md:flex md:items-center md:justify-between md:gap-6">
-            <div><p className={kicker}>Bereit zur Übergabe</p><p className="mt-2 text-lg font-bold">{bundle?.name} · {fmtPrice(term.price)} € alle 4 Wochen · {termLabel(term)} · Start {bw ? "heute" : fmtDe(startDate)}</p><p className="mt-1 text-sm text-white/55">Der Kunde sieht nur dieses Angebot und die drei Schritte. Dreifach-Tipp auf das Logo holt dich zurück.</p></div>
+            <div><p className={kicker}>Bereit zur Übergabe</p><p className="mt-2 text-lg font-bold">{bundle?.name} · {fmtPrice(term.price)} € alle 4 Wochen · {termLabel(term)} · Start {bw ? "heute" : fmtDe(startDate)}{prefill ? ` · für ${prefill.firstName} ${prefill.lastName}` : ""}</p><p className="mt-1 text-sm text-white/55">Der Kunde sieht nur dieses Angebot und die drei Schritte. Dreifach-Tipp auf das Logo holt dich zurück.</p></div>
             <button type="button" onClick={handover} className="campaign-button mt-5 inline-flex min-h-16 w-full items-center justify-center gap-3 bg-[#FBFF00] px-8 py-4 text-base font-bold uppercase tracking-[0.14em] text-black hover:bg-white md:mt-0 md:w-auto"><Tablet className="h-5 w-5" /> iPad an Kunden übergeben <ArrowRight className="h-5 w-5" /></button>
           </div>
         )}

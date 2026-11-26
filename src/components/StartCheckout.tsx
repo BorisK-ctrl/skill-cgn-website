@@ -12,6 +12,7 @@ import { trackOnce, trackCustom, trackCustomOnce } from "@/lib/pixel";
 import { utmParams, landingSource, setSessionSource } from "@/lib/events";
 import { membershipPaymentLink } from "@/lib/stripe";
 import { consent } from "@/lib/pixel";
+import type { Prefill } from "@/components/ProbeSuche";
 const cookie = (n: string) => { try { return document.cookie.split("; ").find(c => c.startsWith(n + "="))?.split("=")[1] || ""; } catch { return ""; } };
 
 /** Unter 18: kein Onlineabschluss, Hinweis mit WhatsApp-Knopf (Express-Block und Formular). */
@@ -77,14 +78,16 @@ function DoneCard({ n, title, summary, onEdit }: { n: number; title: string; sum
 
 export interface PosOptions { staff: string; startDate: string }
 export interface SummaryRow { label: string; value: string }
-export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote, startToday, successPath = "/danke", utmContent, notes }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout" | "/blackweek"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
+export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote, startToday, successPath = "/danke", utmContent, notes, prefill }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout" | "/blackweek"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
   /** Zusammenfassung vor der Unterschrift: Tarif, Laufzeit, Preis, Classes, Parken. */ summary?: SummaryRow[]; cancelNote?: string;
   /** Vor-Ort-Modus (iPad): kein Interessent, kein Tracking, keine Abbrecher-Mail, Startdatum aus der Auswahl, Erfolg inline statt /danke. */
   pos?: PosOptions; onSuccess?: (r: ContractResult, info: { firstName: string; lastName: string; email: string }) => void;
   /** Vertragsstart immer am Tag des Abschlusses (contractStartType CONTRACT_CONCLUSION, z. B. Black Week): kein Datumsfeld. */ startToday?: boolean;
   /** Ziel nach dem Abschluss, Standard /danke. */ successPath?: string;
   /** utm_content zusätzlich in die Magicline-Notizen schreiben. */ utmContent?: boolean;
-  /** Eigene Notizen statt "<Angebot> Website, Schritt 1 abgeschickt" und "Onlineabschluss <Angebot> Landingpage". */ notes?: { lead: string; contract: string } }) {
+  /** Eigene Notizen statt "<Angebot> Website, Schritt 1 abgeschickt" und "Onlineabschluss <Angebot> Landingpage". */ notes?: { lead: string; contract: string };
+  /** Vor Ort: Interessent aus Magicline (Suche im Team-Modus, components/ProbeSuche.tsx). Füllt das Formular; seine uuid wird identityToken,
+      der Vertrag hängt also am selben Kunden statt an einem zweiten. */ prefill?: Prefill }) {
   const KEY = "skill-checkout-" + path.slice(1);
   const isPos = !!pos;
   const navigate = useNavigate();
@@ -120,6 +123,23 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     } catch {}
     setRestored(true);
   }, [KEY]);
+  /* Vor Ort mit Interessent aus Magicline: Formular einmal füllen, sobald die Sitzung geladen ist. Schritt 1 nur überspringen, wenn die
+     Kontaktdaten gültig sind und die uuid da ist (sonst legt erst Schritt 1 den Interessenten an); Schritt 2 nur, wenn Magicline Geburtsdatum
+     (volljährig) und vollständige Adresse hat. Der Kunde sieht alles in den erledigten Schritten und kann es dort ändern. */
+  const fromMagicline = useRef("");
+  useEffect(() => {
+    if (!restored || !isPos || !prefill || fromMagicline.current) return;
+    const p = prefill; fromMagicline.current = p.uuid || p.email || "ja";
+    const fill: Partial<Form> = {};
+    for (const k of ["firstName", "lastName", "email", "phone", "birthDate", "street", "streetNumber", "zipCode", "city"] as const) if (p[k]?.trim()) fill[k] = p[k].trim();
+    setForm(f => ({ ...f, ...fill }));
+    if (!p.uuid) return;
+    setLead({ uuid: p.uuid, customerNumber: p.customerNumber || "" });
+    const contactOk = !!(p.firstName.trim() && p.lastName.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(p.email.trim()) && p.phone.replace(/\D/g, "").length >= 8);
+    const adult = /^\d{4}-\d{2}-\d{2}$/.test(p.birthDate) && (Date.now() - new Date(p.birthDate).getTime()) / 31557600000 >= 18;
+    const addressOk = !!(p.street.trim() && p.streetNumber.trim() && /^\d{5}$/.test(p.zipCode.trim()) && p.city.trim());
+    if (contactOk) setStepRaw(adult && addressOk ? 3 : 2);
+  }, [restored, isPos, prefill]);
   useEffect(() => {
     if (!resume) return;
     setForm(f => ({ ...f, firstName: resume.firstName || f.firstName, lastName: resume.lastName || f.lastName, email: resume.email || f.email, phone: resume.phone || f.phone }));
@@ -278,7 +298,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const request = { rateBundleTermId: term.id, startDate, price: term.price, identityToken: lead.uuid || null, leadCustomerNumber: lead.customerNumber || null, signatureChars: sig.length, strokes: strokes.current.length, firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate, zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), ibanValid: ibanValid(form.iban) };
     try {
       const r: ContractResult = await createContract({
-        rateBundleTermId: term.id, startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}` : `${notes?.contract || `Onlineabschluss ${offerName} Landingpage`}, Quelle: ${utmSource(utmContent)}`,
+        rateBundleTermId: term.id, startDate, signatureSvgBase64: sig, identityToken: lead.uuid || undefined, notes: isPos ? `Abschluss vor Ort (iPad)${pos?.staff ? ", Berater:in " + pos.staff : ""}, ${offerName}${fromMagicline.current && lead.uuid === prefill?.uuid ? ", Daten aus Interessent in Magicline" : ""}` : `${notes?.contract || `Onlineabschluss ${offerName} Landingpage`}, Quelle: ${utmSource(utmContent)}`,
         firstname: form.firstName.trim(), lastname: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim(), dob: form.birthDate,
         street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), iban: form.iban,
       });

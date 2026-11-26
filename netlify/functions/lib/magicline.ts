@@ -6,10 +6,14 @@ const KEY = process.env.MAGICLINE_OPEN_API_KEY || "";
 const BASE = `https://${TENANT}.open-api.magicline.com/v1`;
 export const magiclineConfigured = () => KEY.length > 10;
 
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(BASE + path, { method, headers: { "x-api-key": KEY, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
+/** Fehler der Open API mit HTTP-Status (status 0: keine Antwort, etwa Zeitüberschreitung). */
+export class MagiclineError extends Error { constructor(message: string, readonly status: number) { super(message); } }
+async function api<T>(method: string, path: string, body?: unknown, opts: { timeoutMs?: number } = {}): Promise<T> {
+  let r: Response;
+  try { r = await fetch(BASE + path, { method, headers: { "x-api-key": KEY, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined, ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}) }); }
+  catch (e) { throw new MagiclineError(`Magicline ${method} ${path}: keine Antwort (${String((e as Error)?.name || e)})`, 0); }
   const text = await r.text(); let data: any = null; try { data = JSON.parse(text); } catch { data = text; }
-  if (!r.ok) throw new Error(`Magicline ${method} ${path} ${r.status}: ${typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200)}`);
+  if (!r.ok) throw new MagiclineError(`Magicline ${method} ${path} ${r.status}: ${typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200)}`, r.status);
   return data as T;
 }
 
@@ -35,6 +39,16 @@ export async function findCustomerByEmail(email: string): Promise<{ id: number; 
   const hit = list.find(c => String(c.email || "").toLowerCase() === email.toLowerCase()) || list[0];
   return hit ? { id: hit.id, status: hit.status, firstName: hit.firstName, lastName: hit.lastName } : null;
 }
+/* Kundensuche für den Vor-Ort-Abschluss (netlify/functions/vor-ort.mts): POST /v1/customers/search, Scope CUSTOMER_READ, höchstens 100 Treffer.
+   Vor- und Nachname vergleicht Magicline ab dem Anfang, E-Mail und Telefon als ganzen Wert. Interessenten haben den Status PROSPECT. */
+export interface MlCustomer { id: number; customerNumber?: string; firstName?: string; lastName?: string; dateOfBirth?: string; email?: string;
+  street?: string; houseNumber?: string; zipCode?: string; city?: string; status?: string; uuid?: string; createdDateTime?: string;
+  phonePrivate?: string; phonePrivateMobile?: string; phoneBusiness?: string; phoneBusinessMobile?: string }
+export async function searchCustomers(criteria: { firstName?: string; lastName?: string; email?: string; phoneNumber?: string }): Promise<MlCustomer[]> {
+  const res = await api<any>("POST", "/customers/search", criteria, { timeoutMs: 8000 });
+  return (Array.isArray(res) ? res : res?.result || res?.content || []).filter((c: any) => c && typeof c.id === "number");
+}
+export async function getCustomer(id: number): Promise<MlCustomer> { return api<MlCustomer>("GET", `/customers/${id}`, undefined, { timeoutMs: 8000 }); }
 export async function validateBooking(customerId: number, classSlotId: number): Promise<{ bookable: boolean; raw: any }> {
   const raw = await api<any>("POST", "/classes/booking/validate", { customerId, classSlotId });
   return { bookable: raw?.bookable !== false && !(raw?.errors?.length), raw };
