@@ -51,7 +51,7 @@ export default function ProbeSuche({ value, onChange }: { value: Prefill | null;
     if (my !== seq.current || !alive.current) return;
     setBusy(false);
     if (r?.status === 401) { loggedOut(); return; }
-    if (!r?.ok) { setHits(null); setErr(await msgOf(r, r ? "Suche ging nicht. Bitte noch einmal." : "Keine Verbindung. Bitte noch einmal.")); return; }
+    if (!r?.ok) { setHits(null); setMore(false); setPartial(false); setErr(await msgOf(r, r ? "Suche ging nicht. Bitte noch einmal." : "Keine Verbindung. Bitte noch einmal.")); return; }
     const j = await r.json().catch(() => ({})) as { hits?: Hit[]; more?: boolean; partial?: boolean };
     if (my !== seq.current || !alive.current) return;
     setHits(Array.isArray(j.hits) ? j.hits : []); setMore(!!j.more); setPartial(!!j.partial);
@@ -68,7 +68,7 @@ export default function ProbeSuche({ value, onChange }: { value: Prefill | null;
     const j = await r.json().catch(() => ({})) as { kunde?: Prefill };
     if (!alive.current) return;
     if (!j.kunde) { setErr("Daten nicht abrufbar. Bitte noch einmal."); return; }
-    onChange(j.kunde); setHits(null); setQ("");
+    onChange(j.kunde); setHits(null); setMore(false); setPartial(false); setQ("");
   };
 
   if (!st?.ready) return null;

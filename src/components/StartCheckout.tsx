@@ -66,11 +66,11 @@ function Input(p: { value: string; onChange: (v: string) => void; placeholder?: 
     </div>
   );
 }
-function DoneCard({ n, title, summary, onEdit }: { n: number; title: string; summary: string; onEdit: () => void }) {
+function DoneCard({ n, title, summary, onEdit, wrap }: { n: number; title: string; summary: string; onEdit: () => void; wrap?: boolean }) {
   return (
     <div className="flex items-start gap-3 border border-white/10 bg-[#141a1b] px-4 py-3">
       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-3 w-3 text-black" /></span>
-      <div className="min-w-0 flex-1"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/50">Schritt {n} · {title}</p><p className="mt-0.5 truncate text-sm text-white/80">{summary}</p></div>
+      <div className="min-w-0 flex-1"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/50">Schritt {n} · {title}</p><p className={`mt-0.5 text-sm text-white/80 ${wrap ? "break-words" : "truncate"}`}>{summary}</p></div>
       <button type="button" onClick={onEdit} className="flex shrink-0 items-center gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#FBFF00] hover:text-white"><Pencil className="h-3 w-3" /> Bearbeiten</button>
     </div>
   );
@@ -78,10 +78,19 @@ function DoneCard({ n, title, summary, onEdit }: { n: number; title: string; sum
 
 /* Vor Ort: steht in Schritt 1 noch der übernommene Interessent? Anderer Name, oder E-Mail und Handy beide anders = andere Person. */
 const normText = (v: string) => v.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
-const normPhone = (v: string) => { const d = v.replace(/\D/g, ""); return d.startsWith("0049") ? "0" + d.slice(4) : d.startsWith("49") && d.length > 10 ? "0" + d.slice(2) : d; };
+const normPhone = (v: string) => {
+  const t = v.replace(/\(0\)/g, "").trim(), d = t.replace(/\D/g, "");
+  if (/^\+\s*49/.test(t)) return "0" + d.slice(2);
+  if (d.startsWith("0049")) return "0" + d.slice(4);
+  return d.startsWith("49") && d.length > 10 ? "0" + d.slice(2) : d;
+};
+/* Ein in Magicline leeres Feld, das der Kunde ausfüllt, ist keine Änderung (Prüfung 26.11.2026, Runde 2) */
+const contactChanged = (p: Prefill, f: { email: string; phone: string }) => ({
+  email: !!normText(p.email) && normText(p.email) !== normText(f.email), phone: !!normPhone(p.phone) && normPhone(p.phone) !== normPhone(f.phone) });
 function otherPerson(p: Prefill, f: { firstName: string; lastName: string; email: string; phone: string }) {
   if (normText(p.firstName) !== normText(f.firstName) || normText(p.lastName) !== normText(f.lastName)) return true;
-  return normText(p.email) !== normText(f.email) && normPhone(p.phone) !== normPhone(f.phone);
+  const c = contactChanged(p, f);
+  return c.email && c.phone;
 }
 export interface PosOptions { staff: string; startDate: string }
 export interface SummaryRow { label: string; value: string }
@@ -150,14 +159,15 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const adult = /^\d{4}-\d{2}-\d{2}$/.test(p.birthDate) && (Date.now() - new Date(p.birthDate).getTime()) / 31557600000 >= 18;
     const addressOk = !!(p.street.trim() && p.streetNumber.trim() && /^\d{5}$/.test(p.zipCode.trim()) && p.city.trim());
     const startOk = !!startToday || (!!pos?.startDate && pos.startDate >= today());
-    if (contactOk) setStepRaw(adult && addressOk && startOk ? 3 : 2);
+    if (contactOk) { setToken(t => t || newToken()); setStepRaw(adult && addressOk && startOk ? 3 : 2); }
   }, [restored]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Notiz im Vertrag: nur wenn er wirklich am übernommenen Interessenten hängt; geänderte Kontaktdaten markieren, damit das Team sie prüft */
   const prospectNote = () => {
     const p = initialPrefill.current;
     if (!p?.uuid || lead.uuid !== p.uuid) return "";
-    const changed = normText(p.email) !== normText(form.email) || normPhone(p.phone) !== normPhone(form.phone);
-    return `, Daten aus Interessent in Magicline${changed ? ", Kontakt am iPad geändert" : ""}`;
+    const c = contactChanged(p, form);
+    const addr = (["birthDate", "street", "streetNumber", "zipCode", "city"] as const).some(k => !!p[k].trim() && normText(p[k]) !== normText(form[k]));
+    return `, Daten aus Interessent in Magicline${c.email || c.phone ? ", Kontakt am iPad geändert" : ""}${addr ? ", Adresse am iPad geändert" : ""}`;
   };
   /* Im Protokoll: hat Magicline den Vertrag wirklich dem übernommenen Kunden gegeben (gleiche Kundennummer) oder einen neuen angelegt? */
   const prospectMatch = (r: ContractResult) => {
@@ -338,7 +348,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
         street: form.street.trim(), houseNumber: form.streetNumber.trim(), zip: form.zipCode.trim(), city: form.city.trim(), accountHolder: form.accountHolder.trim(), iban: form.iban,
       });
       /* Nur mit Vertrags-ID von Magicline geht es weiter. createContract wirft sonst. */
-      log("contract-ok", { prospect: prospectMatch(r), request: { ...request, consent: consent(), fbp: !!cookie("_fbp"), fbc: !!cookie("_fbc") }, response: { status: r.status, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, paymentUrl: r.paymentUrl, followUpActionToken: r.followUpActionToken, raw: r.raw } });
+      log("contract-ok", { request: { ...request, prospect: prospectMatch(r), consent: consent(), fbp: !!cookie("_fbp"), fbc: !!cookie("_fbc") }, response: { status: r.status, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, paymentUrl: r.paymentUrl, followUpActionToken: r.followUpActionToken, raw: r.raw } });
       if (isPos) { const info = { firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim() }; try { sessionStorage.removeItem(KEY); } catch {} setForm(emptyForm()); setStepRaw(1); setToken(""); clearSig(); onSuccess?.(r, info); return; }
       /* Vertrag bestätigt: Abbrecher-Token schließen und Purchase serverseitig (Conversions API) mit derselben event_id anstoßen */
       if (token) fetch("/api/checkout-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, done: true, contractId: r.contractId, customerId: r.customerId, customerNumber: r.customerNumber, startDate, value: term.price, path, offer: offerName, months, consent: consent(), sourceUrl: location.href, zip: form.zipCode.trim(), city: form.city.trim(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }), keepalive: true }).catch(() => {});
@@ -372,8 +382,9 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       <div className="mb-6 flex gap-1" aria-hidden="true">{[1, 2, 3].map(i => <div key={i} className={`h-1 flex-1 ${i <= step ? "bg-[#FBFF00]" : "bg-white/10"}`} />)}</div>
 
       <div className="space-y-3">
-        {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email} · ${form.phone}`} onEdit={() => setStep(1)} />}
-        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`Geboren ${fmtDe(form.birthDate)} · ${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(startToday ? today() : form.startDate)}`} onEdit={() => setStep(2)} />}
+        {/* Am iPad auch Handy und Geburtsdatum: dort können Schritte aus Magicline übersprungen sein, der Kunde soll alles sehen, was er unterschreibt */}
+        {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email}${isPos ? ` · ${form.phone}` : ""}`} onEdit={() => setStep(1)} wrap={isPos} />}
+        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(startToday ? today() : form.startDate)}${isPos ? ` · Geboren ${fmtDe(form.birthDate)}` : ""}`} onEdit={() => setStep(2)} wrap={isPos} />}
 
         {step === 1 && (
           <div ref={stepRef} className="scroll-mt-4 space-y-4">
