@@ -22,8 +22,7 @@ import Countdown from "@/components/Countdown";
 import PromoVideo from "@/components/PromoVideo";
 import { trackCta } from "@/lib/events";
 import { useBlackMonthActive } from "@/lib/blackmonth";
-import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft, BLACK_FRIDAY_DATE } from "@/lib/blackweek";
-import { berlinToday } from "@/lib/blackmonth";
+import { useBlackWeekActive, usePromo, blackWeekPrices, useDaysLeft } from "@/lib/blackweek";
 import { GYM_ONLY_FEATURES } from "@/components/BlackWeekCard";
 
 // ─── Daten ────────────────────────────────────────────────────────────────────
@@ -119,8 +118,8 @@ export default function Home() {
   const promo = usePromo();
   const bw = blackWeekPrices(bundles);
   const bwHero = promo.key === "blackweek";
-  /* Banner zählt wie der Timer: bis Black Friday, danach bis Angebotsende */
-  const daysLeft = useDaysLeft(promo.key === "blackweek" && berlinToday() <= BLACK_FRIDAY_DATE ? BLACK_FRIDAY_DATE : promo.ends);
+  /* Banner zählt wie der Timer bis zum Angebotsende 30.11. (Boris 26.11.2026) */
+  const daysLeft = useDaysLeft(promo.ends);
   const price = (key: "start39" | "mitgliedschaft" | "unlimited", months: 1 | 12) => fmtPrice(offerPrice(bundles, key, months) ?? 0);
 
   /* Die Abschnitte der Startseite. Welche in welcher Reihenfolge erscheinen, steht in ORDER_BLACKWEEK und ORDER. */
