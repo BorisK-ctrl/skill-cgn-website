@@ -123,6 +123,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   /* Start: sofort oder später ("Deal sichern"), bis 8 Wochen. Nur mit startToday gibt es keine Wahl (derzeit nutzt das keine Seite). */
   const onlyNow = !!startToday;
   const [startLater, setStartLater] = useState(false);
+  /* Zuletzt gewähltes späteres Datum: Sofort → Später holt es zurück, auch nach Neuladen oder Laufzeitwechsel (/checkout baut das Formular neu) */
+  const lastLater = useRef("");
   const navigate = useNavigate();
   const [form, setForm] = useState<Form>(emptyForm);
   const [step, setStepRaw] = useState(1);
@@ -152,7 +154,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   useEffect(() => {
     try {
       const s = JSON.parse(sessionStorage.getItem(KEY) || "null");
-      if (s?.form) { const sd = clampStart(String(s.form.startDate || "")); setForm(f => ({ ...f, ...s.form, startDate: sd })); setStartLater(sd > today()); if (s.step > 1) setStepRaw(Math.min(3, s.step)); if (s.token) setToken(s.token); if (s.lead?.uuid) setLead(s.lead); }
+      if (s?.form) { const sd = clampStart(String(s.form.startDate || "")); setForm(f => ({ ...f, ...s.form, startDate: sd })); setStartLater(sd > today()); if (typeof s.lastLater === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.lastLater)) lastLater.current = s.lastLater; if (s.step > 1) setStepRaw(Math.min(3, s.step)); if (s.token) setToken(s.token); if (s.lead?.uuid) setLead(s.lead); }
     } catch {}
     setRestored(true);
   }, [KEY]);
@@ -204,7 +206,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   useEffect(() => {
     if (!restored) return;
     const keep: Partial<Form> = {}; for (const k of PERSIST) (keep as any)[k] = form[k];
-    try { sessionStorage.setItem(KEY, JSON.stringify({ step, form: keep, token, lead })); } catch {}
+    try { sessionStorage.setItem(KEY, JSON.stringify({ step, form: keep, token, lead, lastLater: lastLater.current })); } catch {}
   }, [form, step, token, lead, restored, KEY]);
   /* Abbruch in Schritt 2 oder 3 merken (Seite verlassen, Tab zu). Der Interessent aus Schritt 1 bleibt bestehen. */
   const stepRef2 = useRef(step); stepRef2.current = step;
@@ -219,18 +221,18 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   useEffect(() => { if (pos?.startDate) { setForm(f => ({ ...f, startDate: pos.startDate })); setStartLater(pos.startDate > today()); if (pos.startDate > today()) lastLater.current = pos.startDate; } }, [pos?.startDate]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Vertragsstart am Abschlusstag: Datum immer auf heute halten, auch nach Wiederherstellung aus sessionStorage */
   useEffect(() => { if (onlyNow && form.startDate !== today()) setForm(f => ({ ...f, startDate: today() })); }, [onlyNow, form.startDate]);
-  /* Sofort: heute. Später: das gewählte Datum, sonst der nächste Montag als Vorschlag, immer im Fenster bis 8 Wochen */
-  /* Das zuletzt gewählte spätere Datum bleibt gemerkt: Sofort → Später holt es zurück statt auf Montag zu springen (Prüfung 27.11.2026) */
-  const lastLater = useRef("");
+  /* Sofort: heute. Später: das angezeigte Datum, sonst das zuletzt gewählte spätere, sonst der nächste Montag, immer im Fenster bis 8 Wochen.
+     Tippen auf die schon gewählte Option ändert nichts: sonst sprang ein gerade geändertes Datum auf das gemerkte zurück (Prüfung 27.11.2026) */
+  const later = startLater && !onlyNow;
   const chooseStart = (wantLater: boolean) => {
+    if (wantLater === later) return;
     setStartLater(wantLater); setErrors(e => { if (!e.startDate) return e; const n = { ...e }; delete n.startDate; return n; });
     setForm(f => {
       if (!wantLater) { if (f.startDate > today()) lastLater.current = f.startDate; return { ...f, startDate: today() }; }
-      const keep = [lastLater.current, f.startDate].find(d => !!d && d > today() && d <= maxStart());
+      const keep = [f.startDate, lastLater.current].find(d => !!d && d > today() && d <= maxStart());
       return { ...f, startDate: keep || clampStart(nextMonday()) };
     });
   };
-  const later = startLater && !onlyNow;
   useEffect(() => { onStartChange?.(later ? form.startDate : today()); }, [later, form.startDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const startLabel = later ? fmtLong(form.startDate) : `Heute, ${fmtLong(today())}`;
 
