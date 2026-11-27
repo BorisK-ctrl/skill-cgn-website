@@ -203,7 +203,7 @@ export default function VorOrt() {
             </div>
             <div>
               <p className={kicker}>3. Start</p>
-              <input type="date" value={start} min={today()} max={maxStart()} onChange={e => setStartDate(clampStart(e.target.value))} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
+              <input type="date" value={start} min={today()} max={maxStart()} onChange={e => setStartDate(clampStart(e.target.value))} className="campaign-field campaign-date mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
               <p className="mt-2 text-xs text-white/45">Heute vorbelegt, wählbar bis {fmtDe(maxStart())} (8 Wochen).{bw ? " Abschluss nur bis 30.11., der Start darf später liegen." : ""} Erste Abbuchung zum Startdatum.</p>
             </div>
           </div>

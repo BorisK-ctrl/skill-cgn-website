@@ -447,7 +447,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
                     </button>
                   ); })}
                 </div>
-                {later && <div className="mt-3"><Field label="Startdatum" error={errors.startDate} hint={`Du sicherst dir den Deal heute. Erste Abbuchung zum Startdatum, spätestens ${fmtDe(maxStart())}.`}><Input type="date" value={form.startDate} onChange={set("startDate")} min={addDaysIso(today(), 1)} max={maxStart()} hasError={!!errors.startDate} /></Field></div>}
+                {later && <div className="mt-3"><Field label="Startdatum" error={errors.startDate} hint={`Du sicherst dir den Deal heute. Erste Abbuchung zum Startdatum, spätestens ${fmtDe(maxStart())}.`}><Input type="date" value={form.startDate} onChange={set("startDate")} min={addDaysIso(today(), 1)} max={maxStart()} hasError={!!errors.startDate} className="campaign-date" /></Field></div>}
               </div>
             )}
             <button type="button" onClick={submitStep2} className={btn}>Weiter zur Zahlung</button>
