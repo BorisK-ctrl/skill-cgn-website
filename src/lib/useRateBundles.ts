@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { getRateBundles, type RateBundle, type RateBundleTerm } from "./magicline";
 
-/* Preise kommen ausschließlich aus dem Magicline rate-bundle. Einmal laden, seitenübergreifend cachen. */
+/* Preise kommen ausschließlich aus dem Magicline rate-bundle. Einmal laden, seitenübergreifend cachen. Jeder Tarif (term) bekommt den
+   Vertragsbeginn seines Angebots mit (contractStartType), damit der Abschluss ihn ohne Nachschlagen kennt (Boris 27.11.2026). */
 let cache: Promise<RateBundle[]> | null = null;
-export function loadRateBundles() { if (!cache) cache = getRateBundles().catch(e => { cache = null; throw e; }); return cache; }
+const withStartType = (bundles: RateBundle[]) => bundles.map(b => ({ ...b, terms: (b.terms || []).map(t => ({ ...t, contractStartType: b.contractStartType })) }));
+export function loadRateBundles() { if (!cache) cache = getRateBundles().then(withStartType).catch(e => { cache = null; throw e; }); return cache; }
 
 export function useRateBundles() {
   const [bundles, setBundles] = useState<RateBundle[] | null>(null);

@@ -41,6 +41,11 @@ export function nextMonday(from = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 const today = () => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
+/** Vertragsbeginn wie in Magicline (Boris 27.11.2026): steht das Angebot dort auf CONTRACT_CONCLUSION, beginnt die Mitgliedschaft am Tag des
+ *  Abschlusses, ohne Datumsfeld. Andere Einstellungen: wie bisher frei wählbar, vorbelegt mit dem nächsten Montag. */
+export const startsAtConclusion = (term?: RateBundleTerm | null) => term?.contractStartType === "CONTRACT_CONCLUSION";
+/** Vertragsbeginn für einen Abschluss genau jetzt (für den Express-Abschluss ohne Formular). */
+export const contractStart = (term?: RateBundleTerm | null) => (startsAtConclusion(term) ? today() : nextMonday());
 /* Geburtsdatum mit Startwert 01.01.1990, damit der native Datumswähler auf mobil dort beginnt (Vorgabe Boris 27.09.2026). */
 const emptyForm = (): Form => ({ firstName: "", lastName: "", email: "", phone: "", birthDate: "1990-01-01", street: "", streetNumber: "", zipCode: "", city: "", startDate: nextMonday(), iban: "", accountHolder: "" });
 const PERSIST: (keyof Form)[] = ["firstName", "lastName", "email", "phone", "birthDate", "street", "streetNumber", "zipCode", "city", "startDate", "accountHolder"];
@@ -106,6 +111,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       der Vertrag hängt also am selben Kunden statt an einem zweiten. */ prefill?: Prefill }) {
   const KEY = "skill-checkout-" + path.slice(1);
   const isPos = !!pos;
+  /* Start am Abschlusstag: Black Week (startToday) und online jedes Angebot, das Magicline so eingestellt hat. Am iPad wählt das Team. */
+  const atConclusion = !!startToday || (!isPos && startsAtConclusion(term));
   const navigate = useNavigate();
   const [form, setForm] = useState<Form>(emptyForm);
   const [step, setStepRaw] = useState(1);
@@ -201,7 +208,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   useEffect(() => { onStepChange?.(step); }, [step, onStepChange]);
   useEffect(() => { if (pos?.startDate) setForm(f => ({ ...f, startDate: pos.startDate })); }, [pos?.startDate]);
   /* Vertragsstart am Abschlusstag: Datum immer auf heute halten, auch nach Wiederherstellung aus sessionStorage */
-  useEffect(() => { if (startToday && form.startDate !== today()) setForm(f => ({ ...f, startDate: today() })); }, [startToday, form.startDate]);
+  useEffect(() => { if (atConclusion && form.startDate !== today()) setForm(f => ({ ...f, startDate: today() })); }, [atConclusion, form.startDate]);
 
   const setStep = (n: number) => { userNav.current = true; setStepRaw(n); setErrors({}); setApiError(null); };
   /* Autofocus auf das erste Feld des Schritts, nur nach einem Klick des Nutzers, nicht beim Laden. */
@@ -240,7 +247,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       if (!/^\d{5}$/.test(form.zipCode.trim())) e.zipCode = "5-stellige PLZ";
       if (!form.city.trim()) e.city = "Bitte Ort eingeben";
       /* Start am Abschlusstag: immer heute, auch wenn die Seite über Mitternacht offen war (sonst hängt Schritt 2 ohne sichtbaren Fehler) */
-      const sd = startToday ? today() : form.startDate;
+      const sd = atConclusion ? today() : form.startDate;
       if (!sd || sd < today()) e.startDate = "Startdatum ab heute wählen";
     }
     if (s === 3 && payMethod === "sepa") {
@@ -324,8 +331,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     if (!isPos) trackOnce("payment-" + path, "AddPaymentInfo", { content_name: offerName, value: price, currency: "EUR", payment: payMethod, ...utmParams() });
     setPending(true); setApiError(null); setApiErrorCustomer("");
     const sig = sigSvg();
-    /* Start am Abschlusstag (startToday): heute zum Zeitpunkt des Absendens, nicht der Stand beim Laden der Seite */
-    const startDate = startToday ? today() : form.startDate;
+    /* Start am Abschlusstag: heute zum Zeitpunkt des Absendens, nicht der Stand beim Laden der Seite */
+    const startDate = atConclusion ? today() : form.startDate;
     if (payMethod === "card") {
       /* Karte, Apple Pay, Google Pay: Vertragsdaten sichern, dann zu Stripe. Der Webhook legt den Magicline-Vertrag nach der Zahlung an, /danke wartet darauf. */
       const tok = token || newToken(); if (!token) setToken(tok);
@@ -384,7 +391,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       <div className="space-y-3">
         {/* Am iPad auch Handy und Geburtsdatum: dort können Schritte aus Magicline übersprungen sein, der Kunde soll alles sehen, was er unterschreibt */}
         {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email}${isPos ? ` · ${form.phone}` : ""}`} onEdit={() => setStep(1)} wrap={isPos} />}
-        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(startToday ? today() : form.startDate)}${isPos ? ` · Geboren ${fmtDe(form.birthDate)}` : ""}`} onEdit={() => setStep(2)} wrap={isPos} />}
+        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(atConclusion ? today() : form.startDate)}${isPos ? ` · Geboren ${fmtDe(form.birthDate)}` : ""}`} onEdit={() => setStep(2)} wrap={isPos} />}
 
         {step === 1 && (
           <div ref={stepRef} className="scroll-mt-4 space-y-4">
@@ -411,7 +418,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
               <Field label="PLZ" error={errors.zipCode}><Input inputMode="numeric" autoComplete="postal-code" value={form.zipCode} onChange={v => set("zipCode")(v.replace(/\D/g, "").slice(0, 5))} placeholder="50667" hasError={!!errors.zipCode} /></Field>
               <Field label="Ort" error={errors.city}><Input value={form.city} onChange={set("city")} autoComplete="address-level2" placeholder="Köln" hasError={!!errors.city} /></Field>
             </div>
-            {startToday ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : (
+            {atConclusion ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : (
             <Field label="Startdatum" error={errors.startDate} hint={isPos ? "Heute oder ein Datum deiner Wahl." : "Vorbelegt mit dem nächsten Montag, du kannst es ändern."}><Input type="date" value={form.startDate} onChange={set("startDate")} min={today()} hasError={!!errors.startDate} /></Field>
             )}
             <button type="button" onClick={submitStep2} className={btn}>Weiter zur Zahlung</button>

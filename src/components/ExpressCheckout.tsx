@@ -16,7 +16,7 @@ import { consent, trackOnce, trackCustom, trackCustomOnce } from "@/lib/pixel";
 import { utmParams } from "@/lib/events";
 import { expressAvailable, loadStripe } from "@/lib/stripe";
 import { useSignaturePad } from "@/lib/signature";
-import { nextMonday, utmSource, MINOR_TEXT, MinorNotice } from "@/components/StartCheckout";
+import { contractStart, startsAtConclusion, utmSource, MINOR_TEXT, MinorNotice } from "@/components/StartCheckout";
 
 const cookie = (n: string) => { try { return document.cookie.split("; ").find(c => c.startsWith(n + "="))?.split("=")[1] || ""; } catch { return ""; } };
 const newToken = () => { const a = "abcdefghijkmnpqrstuvwxyz23456789"; let s = ""; for (const x of crypto.getRandomValues(new Uint8Array(24))) s += a[x % a.length]; return s; };
@@ -132,14 +132,14 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
         const tok = newToken(); let confirmed = false;
         try {
           const { error: submitError } = await elements.submit(); if (submitError) throw new Error(submitError.message || "Eingabe unvollständig");
-          const r = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", token: tok, path, offerName, months, rateBundleTermId: t.id, startDate: nextMonday(), dob: c.birthDate, signatureSvgBase64: sig.svgBase64(),
+          const r = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", token: tok, path, offerName, months, rateBundleTermId: t.id, startDate: contractStart(term), dob: c.birthDate, signatureSvgBase64: sig.svgBase64(),
             ...person, houseNumber: person.streetNumber, wallet: event?.expressPaymentType || "", price: t.price, utm: utmSource(true), sourceUrl: location.href, consent: consent(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }) });
           const j = await r.json().catch(() => ({}));
           if (r.status === 400 && Array.isArray(j.missing) && j.missing.length) { try { event.paymentFailed({ reason: "fail" }); } catch {} setFill(f => ({ ...f, ...person })); setMissing(j.missing); setStatus("ready"); return; }
           if (!r.ok || !j.clientSecret) throw new Error(j.error || "Der Abschluss konnte nicht vorbereitet werden");
           trackOnce("lead-" + path, "Lead", { content_name: offerName, content_category: "Membership", value: price, currency: "EUR", ...utmParams() });
           trackOnce("payment-" + path, "AddPaymentInfo", { content_name: offerName, value: price, currency: "EUR", payment: "express", ...utmParams() });
-          try { sessionStorage.setItem("skill-contract-pending", JSON.stringify({ token: tok, offer: offerName, name: person.firstName, start: nextMonday(), price: t.price, express: true })); } catch {}
+          try { sessionStorage.setItem("skill-contract-pending", JSON.stringify({ token: tok, offer: offerName, name: person.firstName, start: contractStart(term), price: t.price, express: true })); } catch {}
           confirmed = true;
           const { error } = await stripe.confirmPayment({ elements, clientSecret: j.clientSecret, confirmParams: { return_url: `${location.origin}/danke?express=${tok}` }, redirect: "if_required" });
           if (error) throw new Error(error.message || "Zahlung nicht bestätigt");
@@ -147,7 +147,7 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
           const cr = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", token: tok }) });
           const cj = await cr.json().catch(() => ({}));
           if (cj.done && cj.contractId) {
-            try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: cj.contractId, customer: cj.customerNumber, name: person.firstName, start: nextMonday(), price: t.price, payment: "express", t: tok })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
+            try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: cj.contractId, customer: cj.customerNumber, name: person.firstName, start: contractStart(term), price: t.price, payment: "express", t: tok })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
             navigate(`/danke?offer=${encodeURIComponent(offerName)}&vertrag=${encodeURIComponent(cj.contractId)}`);
           } else navigate(`/danke?express=${tok}`);
         } catch (ex: any) {
@@ -162,7 +162,7 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
 
   if (!enabled) return null;
   const visible = status !== "loading" && status !== "none";
-  const startLabel = new Date(nextMonday() + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "numeric", year: "numeric" });
+  const startLabel = new Date(contractStart(term) + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "numeric", year: "numeric" });
   const label = "text-[11px] font-bold uppercase tracking-[0.14em] text-white/55";
   const box = (checked: boolean, on: () => void, text: React.ReactNode) => (
     <button type="button" role="checkbox" aria-checked={checked} onClick={on} className="flex w-full items-start gap-3 text-left">
@@ -230,9 +230,10 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
               <a href={`${WHATSAPP}?text=${encodeURIComponent(`Hi Boris, mein Express-Abschluss ${offerName} hat nicht geklappt: ${errMsg}`)}`} target="_blank" rel="noopener noreferrer" className="campaign-button mt-3 inline-flex min-h-11 items-center gap-2 bg-[#FBFF00] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-black hover:bg-white">Boris per WhatsApp schreiben</a>
             </div>
           )}
-          {/* §312j BGB: Der Wallet-Knopf ist nicht beschriftbar, deshalb steht die Zahlungspflicht direkt darüber. Startdatum immer der nächste Montag nach dem Abschluss (nextMonday), dasselbe Datum geht als Vertragsbeginn an Magicline. */}
+          {/* §312j BGB: Der Wallet-Knopf ist nicht beschriftbar, deshalb steht die Zahlungspflicht direkt darüber. Startdatum wie in Magicline eingestellt
+              (contractStart: am Abschlusstag oder der nächste Montag), dasselbe Datum geht als Vertragsbeginn an Magicline. */}
           <div>
-            <p className="mb-2 text-center text-xs leading-relaxed text-white/70">Erste Zahlung von {price} € sofort, deine Mitgliedschaft beginnt am Montag, {startLabel}.</p>
+            <p className="mb-2 text-center text-xs leading-relaxed text-white/70">Erste Zahlung von {price} € sofort, deine Mitgliedschaft beginnt {startsAtConclusion(term) ? "heute" : "am Montag"}, {startLabel}.</p>
             <p className="mb-2 text-center text-sm font-bold uppercase tracking-[0.1em] text-white">Zahlungspflichtig abschließen, {price} € alle vier Wochen</p>
             <div className="relative">
               <div ref={mountRef} className={status === "pending" ? "pointer-events-none opacity-40" : ""} />

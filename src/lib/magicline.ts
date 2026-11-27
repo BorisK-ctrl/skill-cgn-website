@@ -24,8 +24,11 @@ export interface RateBundleTerm {
   paymentFrequencyValue: number; paymentFrequencyUnit: "MONTH" | "WEEK" | "DAY" | "YEAR" | string;
   cancellationPeriod?: number; cancellationPeriodUnit?: string;
   defaultContractStartDate?: string; flatFees?: FlatFee[];
+  /** Vertragsbeginn laut Magicline, beim Laden aus dem Angebot (rate-bundle) übernommen (lib/useRateBundles.ts). CONTRACT_CONCLUSION =
+   *  Beginn am Tag des Abschlusses. */
+  contractStartType?: string;
 }
-export interface RateBundle { id: number; name: string; terms: RateBundleTerm[] }
+export interface RateBundle { id: number; name: string; terms: RateBundleTerm[]; contractStartType?: string }
 
 export async function getRateBundles(): Promise<RateBundle[]> {
   const r = await fetch(`${API}/rate-bundle?studioId=${STUDIO_ID}`, { headers: { Accept: "application/json" } });
