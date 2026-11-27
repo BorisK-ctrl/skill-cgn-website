@@ -391,7 +391,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       <div className="space-y-3">
         {/* Am iPad auch Handy und Geburtsdatum: dort können Schritte aus Magicline übersprungen sein, der Kunde soll alles sehen, was er unterschreibt */}
         {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email}${isPos ? ` · ${form.phone}` : ""}`} onEdit={() => setStep(1)} wrap={isPos} />}
-        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${fmtDe(atConclusion ? today() : form.startDate)}${isPos ? ` · Geboren ${fmtDe(form.birthDate)}` : ""}`} onEdit={() => setStep(2)} wrap={isPos} />}
+        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city}${!term && !isPos && !atConclusion ? "" : ` · Start ${fmtDe(atConclusion ? today() : form.startDate)}`}${isPos ? ` · Geboren ${fmtDe(form.birthDate)}` : ""}`} onEdit={() => setStep(2)} wrap={isPos} />}
 
         {step === 1 && (
           <div ref={stepRef} className="scroll-mt-4 space-y-4">
@@ -418,7 +418,9 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
               <Field label="PLZ" error={errors.zipCode}><Input inputMode="numeric" autoComplete="postal-code" value={form.zipCode} onChange={v => set("zipCode")(v.replace(/\D/g, "").slice(0, 5))} placeholder="50667" hasError={!!errors.zipCode} /></Field>
               <Field label="Ort" error={errors.city}><Input value={form.city} onChange={set("city")} autoComplete="address-level2" placeholder="Köln" hasError={!!errors.city} /></Field>
             </div>
-            {atConclusion ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : (
+            {/* Solange das Angebot aus Magicline noch lädt (etwa nach Neuladen in Schritt 2 oder über die Erinnerungsmail), ist der Vertragsbeginn
+                noch unbekannt: dann kein Datumsfeld, sonst wählt jemand ein Datum, das danach durch "heute" ersetzt wird (Prüfung 27.11.2026) */}
+            {atConclusion ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : !term && !isPos ? null : (
             <Field label="Startdatum" error={errors.startDate} hint={isPos ? "Heute oder ein Datum deiner Wahl." : "Vorbelegt mit dem nächsten Montag, du kannst es ändern."}><Input type="date" value={form.startDate} onChange={set("startDate")} min={today()} hasError={!!errors.startDate} /></Field>
             )}
             <button type="button" onClick={submitStep2} className={btn}>Weiter zur Zahlung</button>

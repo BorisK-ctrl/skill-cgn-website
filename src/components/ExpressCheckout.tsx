@@ -117,6 +117,9 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
       ece.on("confirm", async (event: any) => {
         setStatus("pending"); setErrMsg("");
         const c = live.current; const t = c.term!;
+        /* Vertragsbeginn einmal je Abschluss: Vertrag, Zwischenstand und Dankeseite tragen dasselbe Datum, auch wenn zwischen Klick und
+           Bestätigung der Bank Mitternacht liegt (Prüfung 27.11.2026) */
+        const start = contractStart(t);
         /* Wallet-Daten plus nachgefragte Felder; fehlt noch etwas, Sheet schließen und nachfragen */
         const w = fromWallet(event?.billingDetails);
         /* Name, E-Mail, Handy aus den Pflichtfeldern (haben Vorrang), Adresse aus der Wallet, Rest aus der Nachfrage */
@@ -132,14 +135,14 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
         const tok = newToken(); let confirmed = false;
         try {
           const { error: submitError } = await elements.submit(); if (submitError) throw new Error(submitError.message || "Eingabe unvollständig");
-          const r = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", token: tok, path, offerName, months, rateBundleTermId: t.id, startDate: contractStart(term), dob: c.birthDate, signatureSvgBase64: sig.svgBase64(),
+          const r = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", token: tok, path, offerName, months, rateBundleTermId: t.id, startDate: start, dob: c.birthDate, signatureSvgBase64: sig.svgBase64(),
             ...person, houseNumber: person.streetNumber, wallet: event?.expressPaymentType || "", price: t.price, utm: utmSource(true), sourceUrl: location.href, consent: consent(), fbp: cookie("_fbp"), fbc: cookie("_fbc") || (utmParams().fbclid ? `fb.1.${Date.now()}.${utmParams().fbclid}` : "") }) });
           const j = await r.json().catch(() => ({}));
           if (r.status === 400 && Array.isArray(j.missing) && j.missing.length) { try { event.paymentFailed({ reason: "fail" }); } catch {} setFill(f => ({ ...f, ...person })); setMissing(j.missing); setStatus("ready"); return; }
           if (!r.ok || !j.clientSecret) throw new Error(j.error || "Der Abschluss konnte nicht vorbereitet werden");
           trackOnce("lead-" + path, "Lead", { content_name: offerName, content_category: "Membership", value: price, currency: "EUR", ...utmParams() });
           trackOnce("payment-" + path, "AddPaymentInfo", { content_name: offerName, value: price, currency: "EUR", payment: "express", ...utmParams() });
-          try { sessionStorage.setItem("skill-contract-pending", JSON.stringify({ token: tok, offer: offerName, name: person.firstName, start: contractStart(term), price: t.price, express: true })); } catch {}
+          try { sessionStorage.setItem("skill-contract-pending", JSON.stringify({ token: tok, offer: offerName, name: person.firstName, start, price: t.price, express: true })); } catch {}
           confirmed = true;
           const { error } = await stripe.confirmPayment({ elements, clientSecret: j.clientSecret, confirmParams: { return_url: `${location.origin}/danke?express=${tok}` }, redirect: "if_required" });
           if (error) throw new Error(error.message || "Zahlung nicht bestätigt");
@@ -147,7 +150,7 @@ export default function ExpressCheckout({ term, offerName, path, priceLine, mont
           const cr = await fetch("/api/stripe/express", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", token: tok }) });
           const cj = await cr.json().catch(() => ({}));
           if (cj.done && cj.contractId) {
-            try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: cj.contractId, customer: cj.customerNumber, name: person.firstName, start: contractStart(term), price: t.price, payment: "express", t: tok })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
+            try { sessionStorage.setItem("skill-contract", JSON.stringify({ offer: offerName, cid: cj.contractId, customer: cj.customerNumber, name: person.firstName, start, price: t.price, payment: "express", t: tok })); sessionStorage.removeItem("skill-contract-pending"); } catch {}
             navigate(`/danke?offer=${encodeURIComponent(offerName)}&vertrag=${encodeURIComponent(cj.contractId)}`);
           } else navigate(`/danke?express=${tok}`);
         } catch (ex: any) {
