@@ -14,31 +14,42 @@ import { consent, track, CONSENT_EVENT, openCookieSettings } from "@/lib/pixel";
 import { OFFERS, WHATSAPP, type OfferKey } from "@/lib/magicline";
 import { useRateBundles, offerBundle, offerTerm, offerPrice, fmtPrice } from "@/lib/useRateBundles";
 import { tarif, parkingLabel } from "@/lib/tarife";
+import { useHydrated } from "@/lib/useHydrated";
 
 const LOGO_WHITE = "/img/manus/skill-cgn-original-white_18b77f12.svg";
 type Months = 1 | 12;
 const kicker = "campaign-mono text-[10px] uppercase tracking-[0.22em] text-[#FBFF00]";
+const NO_QUERY = new URLSearchParams();
 
 export default function Checkout() {
-  const [params] = useSearchParams();
+  /* /checkout ist ohne Query vorgerendert (SKILL Mitgliedschaft, 12 Monate). Beim Hydrieren deshalb ohne Query rendern, direkt danach
+     gelten ?offer und ?laufzeit. Sonst passt das HTML nicht zur URL: React-Fehler #418/#425/#422, die Seite wird komplett neu aufgebaut. */
+  const [urlParams] = useSearchParams();
+  const hydrated = useHydrated();
+  const params = hydrated ? urlParams : NO_QUERY;
   const raw = (params.get("offer") || "mitgliedschaft").toLowerCase();
   const key: OfferKey = raw === "unlimited" ? "unlimited" : raw === "start39" ? "start39" : "mitgliedschaft";
   const offer = OFFERS[key]; const t = tarif(key);
   usePageMeta(`${offer.title} abschließen — SKILL CGN`, "Vertrag online abschließen. Drei Minuten, alle Konditionen vorab sichtbar.", "noindex,nofollow");
   const { bundles, error } = useRateBundles();
-  const [months, setMonths] = useState<Months>(params.get("laufzeit") === "monatlich" ? 1 : 12);
+  /* Laufzeit: Wahl im Umschalter, ohne Wahl aus ?laufzeit (monatlich, sonst 12 Monate) */
+  const [chosen, setChosen] = useState<Months | null>(null);
+  const months: Months = chosen ?? (params.get("laufzeit") === "monatlich" ? 1 : 12);
   const term = offerTerm(bundles, key, months);
   const bundleReady = !!offerBundle(bundles, key);
   const price = offerPrice(bundles, key, months) ?? (months === 12 ? offer.prices.year ?? offer.prices.monthly : offer.prices.monthly);
 
+  /* ViewContent erst nach dem Hydrieren: dann steht das Angebot aus der URL fest und der Pixel ist geladen (vorher ging das Event beim
+     direkten Aufruf verloren). START 39 leitet auf /start39 weiter, das misst selbst. */
   useEffect(() => {
+    if (!hydrated || key === "start39") return;
     let fired = false;
     const fire = () => { if (fired) return; fired = true; track("ViewContent", { content_name: offer.title, content_category: "Membership", value: price, currency: "EUR" }); };
     if (consent() === "accepted") fire();
     const onConsent = (e: Event) => { if ((e as CustomEvent).detail === "accepted") setTimeout(fire, 300); };
     window.addEventListener(CONSENT_EVENT, onConsent);
     return () => window.removeEventListener(CONSENT_EVENT, onConsent);
-  }, [offer.title]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hydrated, offer.title]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (key === "start39") return <Navigate to="/start39" replace />;
 
@@ -73,7 +84,7 @@ export default function Checkout() {
           {/* Laufzeit */}
           <div className="mt-6 grid grid-cols-2 gap-px bg-white/15" role="radiogroup" aria-label="Laufzeit wählen">
             {options.map(o => { const active = months === o.months; return (
-              <button key={o.months} type="button" role="radio" aria-checked={active} onClick={() => setMonths(o.months)} className={`campaign-button flex min-h-[84px] flex-col items-start justify-center p-4 text-left ${active ? "bg-[#FBFF00] text-black" : "bg-[#2A3133] text-white hover:bg-[#33403f]"}`}>
+              <button key={o.months} type="button" role="radio" aria-checked={active} onClick={() => setChosen(o.months)} className={`campaign-button flex min-h-[84px] flex-col items-start justify-center p-4 text-left ${active ? "bg-[#FBFF00] text-black" : "bg-[#2A3133] text-white hover:bg-[#33403f]"}`}>
                 <span className="campaign-display text-3xl leading-none">{o.title}</span>
                 <span className={`mt-1.5 text-[11px] leading-snug ${active ? "text-black/70" : "text-white/55"}`}>{o.copy}</span>
               </button>
