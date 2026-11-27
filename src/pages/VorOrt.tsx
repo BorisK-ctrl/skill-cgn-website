@@ -5,11 +5,13 @@
  * kein Tarifvergleich, kein Tracking. Nach dem Abschluss Willkommensbild, nach 30 Sekunden oder per Tipp zurück ins Team.
  * Vertrag entsteht sofort in Magicline (Connect API), Zahlart SEPA. Noindex, nur per Link.
  * Black Week (bis 30.11.2026, Boris 19.11.): Deal steht vorn und ist vorausgewählt, Kundenansicht wie /blackweek (Gym Only ohne Kurse,
- * 0 € Aufnahmegebühr aus dem rate-bundle), Start immer heute (contractStartType CONTRACT_CONCLUSION). Ab 1.12. verschwindet er von selbst.
+ * 0 € Aufnahmegebühr aus dem rate-bundle). Ab 1.12. verschwindet er von selbst.
+ * Start (Boris 27.11.2026): für jeden Tarif, auch die Black Week, heute vorbelegt und bis höchstens 8 Wochen später wählbar. Abschluss der
+ * Black Week nur bis 30.11., der Start darf danach liegen (Magicline-Vorschau nimmt ihn an, Preis bleibt).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, Lock, RotateCcw, ShieldCheck, Tablet } from "lucide-react";
-import StartCheckout from "@/components/StartCheckout";
+import StartCheckout, { clampPosStart, posMaxStart } from "@/components/StartCheckout";
 import ProbeSuche, { type Prefill } from "@/components/ProbeSuche";
 import { usePageMeta } from "@/lib/meta";
 import { euro, termLabel, termFees, termCancel, type RateBundle, type RateBundleTerm, type ContractResult } from "@/lib/magicline";
@@ -71,7 +73,8 @@ export default function VorOrt() {
   const term: RateBundleTerm | null = terms.find(t => t.id === termId) || null;
   /* Black Week startet immer am Tag des Abschlusses: kein Datumsfeld, Start heute (bei jedem Rendern neu, nicht aus dem Stand von gestern) */
   const bw = isBW(bundle);
-  const start = bw ? today() : startDate;
+  /* Gewählter Start, immer im Fenster heute bis 8 Wochen (auch wenn die Seite über Mitternacht offen war) */
+  const start = clampPosStart(startDate);
   const fee = term ? termFees(term) : "";
   const priceLine = term ? `${fmtPrice(term.price)} € alle ${term.paymentFrequencyValue} ${term.paymentFrequencyUnit === "WEEK" ? "Wochen" : "Monate"}, ${termLabel(term)}, ${termFees(term) === "keine" ? "0 € Aufnahmegebühr" : "Gebühr: " + termFees(term)}` : "";
 
@@ -126,13 +129,13 @@ export default function VorOrt() {
               {fee === "keine"
                 ? <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Aufnahmegebühr</dt><dd className={`font-bold ${bw ? "text-[#FBFF00]" : ""}`}>0&nbsp;€</dd></div>
                 : <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Gebühr</dt><dd className="font-bold">{fee}</dd></div>}
-              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{bw ? "Heute, " : ""}{fmtDe(start)}</dd></div>
+              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{start === today() ? "Heute, " : ""}{fmtDe(start)}</dd></div>
             </dl>
             {bw && <p className="mt-4 text-xs text-white/55">Nur bis {BW_END}. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt.</p>}
             <p className="mt-5 flex items-center gap-2 text-xs text-white/45"><Lock className="h-3.5 w-3.5" /> Deine Daten gehen direkt in unser Mitgliedersystem, nichts wird auf diesem iPad gespeichert.</p>
           </aside>
           <section className="mt-8 lg:mt-0">
-            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate: start }} startToday={bw} onSuccess={onSuccess} prefill={prefill || undefined} />
+            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate: start }} onSuccess={onSuccess} prefill={prefill || undefined} />
           </section>
         </div>
       </main>
@@ -201,19 +204,14 @@ export default function VorOrt() {
             </div>
             <div>
               <p className={kicker}>3. Start</p>
-              {bw ? <>
-                <p className="campaign-field mt-3 flex min-h-[52px] items-center text-base font-bold">Heute, {fmtDe(start)}</p>
-                <p className="mt-2 text-xs text-white/45">Der Black Week Deal startet immer am Tag des Abschlusses.</p>
-              </> : <>
-                <input type="date" value={startDate} min={today()} onChange={e => setStartDate(e.target.value)} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
-                <p className="mt-2 text-xs text-white/45">Heute vorbelegt. Erste Abbuchung zum Startdatum.</p>
-              </>}
+              <input type="date" value={start} min={today()} max={posMaxStart()} onChange={e => setStartDate(clampPosStart(e.target.value))} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
+              <p className="mt-2 text-xs text-white/45">Heute vorbelegt, wählbar bis {fmtDe(posMaxStart())} (8 Wochen).{bw ? " Abschluss nur bis 30.11., der Start darf später liegen." : ""} Erste Abbuchung zum Startdatum.</p>
             </div>
           </div>
         )}
         {term && (
           <div className="mt-10 border-2 border-[#FBFF00] bg-[#1a2224] p-6 md:flex md:items-center md:justify-between md:gap-6">
-            <div><p className={kicker}>Bereit zur Übergabe</p><p className="mt-2 text-lg font-bold">{bundle?.name} · {fmtPrice(term.price)} € alle 4 Wochen · {termLabel(term)} · Start {bw ? "heute" : fmtDe(startDate)}{prefill ? ` · für ${prefill.firstName} ${prefill.lastName}` : ""}</p><p className="mt-1 text-sm text-white/55">Der Kunde sieht nur dieses Angebot und die drei Schritte. Dreifach-Tipp auf das Logo holt dich zurück.</p></div>
+            <div><p className={kicker}>Bereit zur Übergabe</p><p className="mt-2 text-lg font-bold">{bundle?.name} · {fmtPrice(term.price)} € alle 4 Wochen · {termLabel(term)} · Start {start === today() ? "heute" : fmtDe(start)}{prefill ? ` · für ${prefill.firstName} ${prefill.lastName}` : ""}</p><p className="mt-1 text-sm text-white/55">Der Kunde sieht nur dieses Angebot und die drei Schritte. Dreifach-Tipp auf das Logo holt dich zurück.</p></div>
             <button type="button" onClick={handover} className="campaign-button mt-5 inline-flex min-h-16 w-full items-center justify-center gap-3 bg-[#FBFF00] px-8 py-4 text-base font-bold uppercase tracking-[0.14em] text-black hover:bg-white md:mt-0 md:w-auto"><Tablet className="h-5 w-5" /> iPad an Kunden übergeben <ArrowRight className="h-5 w-5" /></button>
           </div>
         )}

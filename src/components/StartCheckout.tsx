@@ -44,6 +44,12 @@ const today = () => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.to
 /** Vertragsbeginn wie in Magicline (Boris 27.11.2026): steht das Angebot dort auf CONTRACT_CONCLUSION, beginnt die Mitgliedschaft am Tag des
  *  Abschlusses, ohne Datumsfeld. Andere Einstellungen: wie bisher frei wählbar, vorbelegt mit dem nächsten Montag. */
 export const startsAtConclusion = (term?: RateBundleTerm | null) => term?.contractStartType === "CONTRACT_CONCLUSION";
+/** Am iPad (/vor-ort) frei wählbarer Start: von heute bis höchstens 8 Wochen später, für jeden Tarif (Boris 27.11.2026). */
+export const POS_MAX_START_DAYS = 56;
+export const addDaysIso = (iso: string, days: number) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
+export const posMaxStart = () => addDaysIso(today(), POS_MAX_START_DAYS);
+/** Startdatum am iPad ins Fenster holen: vor heute → heute, nach 8 Wochen → letzter erlaubter Tag. */
+export const clampPosStart = (iso: string) => (!iso || iso < today() ? today() : iso > posMaxStart() ? posMaxStart() : iso);
 /** Vertragsbeginn für einen Abschluss genau jetzt (für den Express-Abschluss ohne Formular). */
 export const contractStart = (term?: RateBundleTerm | null) => (startsAtConclusion(term) ? today() : nextMonday());
 /* Geburtsdatum mit Startwert 01.01.1990, damit der native Datumswähler auf mobil dort beginnt (Vorgabe Boris 27.09.2026). */
@@ -165,7 +171,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const contactOk = !!(p.firstName.trim() && p.lastName.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(p.email.trim()) && p.phone.replace(/\D/g, "").length >= 8);
     const adult = /^\d{4}-\d{2}-\d{2}$/.test(p.birthDate) && (Date.now() - new Date(p.birthDate).getTime()) / 31557600000 >= 18;
     const addressOk = !!(p.street.trim() && p.streetNumber.trim() && /^\d{5}$/.test(p.zipCode.trim()) && p.city.trim());
-    const startOk = !!startToday || (!!pos?.startDate && pos.startDate >= today());
+    const startOk = !!startToday || (!!pos?.startDate && pos.startDate >= today() && pos.startDate <= posMaxStart());
     if (contactOk) { setToken(t => t || newToken()); setStepRaw(adult && addressOk && startOk ? 3 : 2); }
   }, [restored]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Notiz im Vertrag: nur wenn er wirklich am übernommenen Interessenten hängt; geänderte Kontaktdaten markieren, damit das Team sie prüft */
@@ -249,6 +255,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       /* Start am Abschlusstag: immer heute, auch wenn die Seite über Mitternacht offen war (sonst hängt Schritt 2 ohne sichtbaren Fehler) */
       const sd = atConclusion ? today() : form.startDate;
       if (!sd || sd < today()) e.startDate = "Startdatum ab heute wählen";
+      else if (isPos && !atConclusion && sd > posMaxStart()) e.startDate = "Start höchstens 8 Wochen im Voraus";
     }
     if (s === 3 && payMethod === "sepa") {
       if (!ibanValid(form.iban)) e.iban = "Die IBAN ist nicht gültig";
@@ -421,7 +428,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
             {/* Solange das Angebot aus Magicline noch lädt (etwa nach Neuladen in Schritt 2 oder über die Erinnerungsmail), ist der Vertragsbeginn
                 noch unbekannt: dann kein Datumsfeld, sonst wählt jemand ein Datum, das danach durch "heute" ersetzt wird (Prüfung 27.11.2026) */}
             {atConclusion ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : !term && !isPos ? null : (
-            <Field label="Startdatum" error={errors.startDate} hint={isPos ? "Heute oder ein Datum deiner Wahl." : "Vorbelegt mit dem nächsten Montag, du kannst es ändern."}><Input type="date" value={form.startDate} onChange={set("startDate")} min={today()} hasError={!!errors.startDate} /></Field>
+            <Field label="Startdatum" error={errors.startDate} hint={isPos ? `Heute oder ein Datum deiner Wahl, bis ${fmtDe(posMaxStart())}.` : "Vorbelegt mit dem nächsten Montag, du kannst es ändern."}><Input type="date" value={form.startDate} onChange={set("startDate")} min={today()} max={isPos ? posMaxStart() : undefined} hasError={!!errors.startDate} /></Field>
             )}
             <button type="button" onClick={submitStep2} className={btn}>Weiter zur Zahlung</button>
             {trust}
