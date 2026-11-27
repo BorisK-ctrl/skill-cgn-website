@@ -44,16 +44,18 @@ const today = () => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.to
 /** Vertragsbeginn wie in Magicline (Boris 27.11.2026): steht das Angebot dort auf CONTRACT_CONCLUSION, beginnt die Mitgliedschaft am Tag des
  *  Abschlusses, ohne Datumsfeld. Andere Einstellungen: wie bisher frei wählbar, vorbelegt mit dem nächsten Montag. */
 export const startsAtConclusion = (term?: RateBundleTerm | null) => term?.contractStartType === "CONTRACT_CONCLUSION";
-/** Am iPad (/vor-ort) frei wählbarer Start: von heute bis höchstens 8 Wochen später, für jeden Tarif (Boris 27.11.2026). */
-export const POS_MAX_START_DAYS = 56;
+/** Start wählbar, online und am iPad (Boris 27.11.2026): sofort (heute) oder später, höchstens 8 Wochen nach heute ("Deal sichern").
+ *  Magicline steht auf CONTRACT_CONCLUSION, nimmt aber ein späteres Startdatum an (defaultContractStartDate ist nur die Vorgabe). */
+export const START_WINDOW_DAYS = 56;
 export const addDaysIso = (iso: string, days: number) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + days); d.setHours(12, 0, 0, 0); return d.toISOString().slice(0, 10); };
-export const posMaxStart = () => addDaysIso(today(), POS_MAX_START_DAYS);
-/** Startdatum am iPad ins Fenster holen: vor heute → heute, nach 8 Wochen → letzter erlaubter Tag. */
-export const clampPosStart = (iso: string) => (!iso || iso < today() ? today() : iso > posMaxStart() ? posMaxStart() : iso);
+export const maxStart = () => addDaysIso(today(), START_WINDOW_DAYS);
+/** Startdatum ins Fenster holen: vor heute → heute, nach 8 Wochen → letzter erlaubter Tag. */
+export const clampStart = (iso: string) => (!iso || iso < today() ? today() : iso > maxStart() ? maxStart() : iso);
+const fmtLong = (iso: string) => new Date(iso + "T12:00:00").toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
 /** Vertragsbeginn für einen Abschluss genau jetzt (für den Express-Abschluss ohne Formular). */
 export const contractStart = (term?: RateBundleTerm | null) => (startsAtConclusion(term) ? today() : nextMonday());
 /* Geburtsdatum mit Startwert 01.01.1990, damit der native Datumswähler auf mobil dort beginnt (Vorgabe Boris 27.09.2026). */
-const emptyForm = (): Form => ({ firstName: "", lastName: "", email: "", phone: "", birthDate: "1990-01-01", street: "", streetNumber: "", zipCode: "", city: "", startDate: nextMonday(), iban: "", accountHolder: "" });
+const emptyForm = (): Form => ({ firstName: "", lastName: "", email: "", phone: "", birthDate: "1990-01-01", street: "", streetNumber: "", zipCode: "", city: "", startDate: today(), iban: "", accountHolder: "" });
 const PERSIST: (keyof Form)[] = ["firstName", "lastName", "email", "phone", "birthDate", "street", "streetNumber", "zipCode", "city", "startDate", "accountHolder"];
 const newToken = () => { const a = "abcdefghijkmnpqrstuvwxyz23456789"; let s = ""; for (const x of crypto.getRandomValues(new Uint8Array(24))) s += a[x % a.length]; return s; };
 const fmtDe = (iso: string) => (iso ? new Date(iso + "T12:00:00").toLocaleDateString("de-DE") : "");
@@ -117,8 +119,9 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       der Vertrag hängt also am selben Kunden statt an einem zweiten. */ prefill?: Prefill }) {
   const KEY = "skill-checkout-" + path.slice(1);
   const isPos = !!pos;
-  /* Start am Abschlusstag: Black Week (startToday) und online jedes Angebot, das Magicline so eingestellt hat. Am iPad wählt das Team. */
-  const atConclusion = !!startToday || (!isPos && startsAtConclusion(term));
+  /* Start: sofort oder später ("Deal sichern"), bis 8 Wochen. Nur mit startToday gibt es keine Wahl (derzeit nutzt das keine Seite). */
+  const onlyNow = !!startToday;
+  const [startLater, setStartLater] = useState(false);
   const navigate = useNavigate();
   const [form, setForm] = useState<Form>(emptyForm);
   const [step, setStepRaw] = useState(1);
@@ -148,7 +151,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   useEffect(() => {
     try {
       const s = JSON.parse(sessionStorage.getItem(KEY) || "null");
-      if (s?.form) { setForm(f => ({ ...f, ...s.form })); if (s.step > 1) setStepRaw(Math.min(3, s.step)); if (s.token) setToken(s.token); if (s.lead?.uuid) setLead(s.lead); }
+      if (s?.form) { const sd = clampStart(String(s.form.startDate || "")); setForm(f => ({ ...f, ...s.form, startDate: sd })); setStartLater(sd > today()); if (s.step > 1) setStepRaw(Math.min(3, s.step)); if (s.token) setToken(s.token); if (s.lead?.uuid) setLead(s.lead); }
     } catch {}
     setRestored(true);
   }, [KEY]);
@@ -171,7 +174,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     const contactOk = !!(p.firstName.trim() && p.lastName.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(p.email.trim()) && p.phone.replace(/\D/g, "").length >= 8);
     const adult = /^\d{4}-\d{2}-\d{2}$/.test(p.birthDate) && (Date.now() - new Date(p.birthDate).getTime()) / 31557600000 >= 18;
     const addressOk = !!(p.street.trim() && p.streetNumber.trim() && /^\d{5}$/.test(p.zipCode.trim()) && p.city.trim());
-    const startOk = !!startToday || (!!pos?.startDate && pos.startDate >= today() && pos.startDate <= posMaxStart());
+    const startOk = !!startToday || (!!pos?.startDate && pos.startDate >= today() && pos.startDate <= maxStart());
     if (contactOk) { setToken(t => t || newToken()); setStepRaw(adult && addressOk && startOk ? 3 : 2); }
   }, [restored]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Notiz im Vertrag: nur wenn er wirklich am übernommenen Interessenten hängt; geänderte Kontaktdaten markieren, damit das Team sie prüft */
@@ -212,9 +215,16 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     return () => { window.removeEventListener("pagehide", mark); document.removeEventListener("visibilitychange", onHide); };
   }, []);
   useEffect(() => { onStepChange?.(step); }, [step, onStepChange]);
-  useEffect(() => { if (pos?.startDate) setForm(f => ({ ...f, startDate: pos.startDate })); }, [pos?.startDate]);
+  useEffect(() => { if (pos?.startDate) { setForm(f => ({ ...f, startDate: pos.startDate })); setStartLater(pos.startDate > today()); } }, [pos?.startDate]);
   /* Vertragsstart am Abschlusstag: Datum immer auf heute halten, auch nach Wiederherstellung aus sessionStorage */
-  useEffect(() => { if (atConclusion && form.startDate !== today()) setForm(f => ({ ...f, startDate: today() })); }, [atConclusion, form.startDate]);
+  useEffect(() => { if (onlyNow && form.startDate !== today()) setForm(f => ({ ...f, startDate: today() })); }, [onlyNow, form.startDate]);
+  /* Sofort: heute. Später: das gewählte Datum, sonst der nächste Montag als Vorschlag, immer im Fenster bis 8 Wochen */
+  const chooseStart = (later: boolean) => {
+    setStartLater(later); setErrors(e => { if (!e.startDate) return e; const n = { ...e }; delete n.startDate; return n; });
+    setForm(f => ({ ...f, startDate: later ? (f.startDate > today() ? clampStart(f.startDate) : clampStart(nextMonday())) : today() }));
+  };
+  const later = startLater && !onlyNow;
+  const startLabel = later ? fmtLong(form.startDate) : `Heute, ${fmtLong(today())}`;
 
   const setStep = (n: number) => { userNav.current = true; setStepRaw(n); setErrors({}); setApiError(null); };
   /* Autofocus auf das erste Feld des Schritts, nur nach einem Klick des Nutzers, nicht beim Laden. */
@@ -252,10 +262,11 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       if (!form.streetNumber.trim()) e.streetNumber = "Nr. fehlt";
       if (!/^\d{5}$/.test(form.zipCode.trim())) e.zipCode = "5-stellige PLZ";
       if (!form.city.trim()) e.city = "Bitte Ort eingeben";
-      /* Start am Abschlusstag: immer heute, auch wenn die Seite über Mitternacht offen war (sonst hängt Schritt 2 ohne sichtbaren Fehler) */
-      const sd = atConclusion ? today() : form.startDate;
-      if (!sd || sd < today()) e.startDate = "Startdatum ab heute wählen";
-      else if (isPos && !atConclusion && sd > posMaxStart()) e.startDate = "Start höchstens 8 Wochen im Voraus";
+      /* Sofort: immer heute, auch wenn die Seite über Mitternacht offen war. Später: ab morgen bis höchstens 8 Wochen */
+      if (later) {
+        if (!form.startDate || form.startDate <= today()) e.startDate = "Startdatum ab morgen wählen, oder sofort starten";
+        else if (form.startDate > maxStart()) e.startDate = "Start höchstens 8 Wochen im Voraus";
+      }
     }
     if (s === 3 && payMethod === "sepa") {
       if (!ibanValid(form.iban)) e.iban = "Die IBAN ist nicht gültig";
@@ -339,7 +350,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     setPending(true); setApiError(null); setApiErrorCustomer("");
     const sig = sigSvg();
     /* Start am Abschlusstag: heute zum Zeitpunkt des Absendens, nicht der Stand beim Laden der Seite */
-    const startDate = atConclusion ? today() : form.startDate;
+    const startDate = later ? form.startDate : today();
     if (payMethod === "card") {
       /* Karte, Apple Pay, Google Pay: Vertragsdaten sichern, dann zu Stripe. Der Webhook legt den Magicline-Vertrag nach der Zahlung an, /danke wartet darauf. */
       const tok = token || newToken(); if (!token) setToken(tok);
@@ -398,7 +409,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
       <div className="space-y-3">
         {/* Am iPad auch Handy und Geburtsdatum: dort können Schritte aus Magicline übersprungen sein, der Kunde soll alles sehen, was er unterschreibt */}
         {step > 1 && <DoneCard n={1} title="Kontakt" summary={`${form.firstName} ${form.lastName} · ${form.email}${isPos ? ` · ${form.phone}` : ""}`} onEdit={() => setStep(1)} wrap={isPos} />}
-        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city}${!term && !isPos && !atConclusion ? "" : ` · Start ${fmtDe(atConclusion ? today() : form.startDate)}`}${isPos ? ` · Geboren ${fmtDe(form.birthDate)}` : ""}`} onEdit={() => setStep(2)} wrap={isPos} />}
+        {step > 2 && <DoneCard n={2} title="Adresse & Start" summary={`${form.street} ${form.streetNumber}, ${form.zipCode} ${form.city} · Start ${later ? fmtDe(form.startDate) : `heute, ${fmtDe(today())}`}${isPos ? ` · Geboren ${fmtDe(form.birthDate)}` : ""}`} onEdit={() => setStep(2)} wrap={isPos} />}
 
         {step === 1 && (
           <div ref={stepRef} className="scroll-mt-4 space-y-4">
@@ -425,10 +436,19 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
               <Field label="PLZ" error={errors.zipCode}><Input inputMode="numeric" autoComplete="postal-code" value={form.zipCode} onChange={v => set("zipCode")(v.replace(/\D/g, "").slice(0, 5))} placeholder="50667" hasError={!!errors.zipCode} /></Field>
               <Field label="Ort" error={errors.city}><Input value={form.city} onChange={set("city")} autoComplete="address-level2" placeholder="Köln" hasError={!!errors.city} /></Field>
             </div>
-            {/* Solange das Angebot aus Magicline noch lädt (etwa nach Neuladen in Schritt 2 oder über die Erinnerungsmail), ist der Vertragsbeginn
-                noch unbekannt: dann kein Datumsfeld, sonst wählt jemand ein Datum, das danach durch "heute" ersetzt wird (Prüfung 27.11.2026) */}
-            {atConclusion ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : !term && !isPos ? null : (
-            <Field label="Startdatum" error={errors.startDate} hint={isPos ? `Heute oder ein Datum deiner Wahl, bis ${fmtDe(posMaxStart())}.` : "Vorbelegt mit dem nächsten Montag, du kannst es ändern."}><Input type="date" value={form.startDate} onChange={set("startDate")} min={today()} max={isPos ? posMaxStart() : undefined} hasError={!!errors.startDate} /></Field>
+            {/* Start: sofort oder später mit Wunschdatum bis 8 Wochen, "Deal sichern" (Boris 27.11.2026) */}
+            {onlyNow ? <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] px-4 py-3 text-xs leading-relaxed text-white/75">Dein Vertrag startet heute, am Tag des Abschlusses.</p> : (
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">Start</p>
+                <div className="grid gap-px bg-white/15 sm:grid-cols-2" role="radiogroup" aria-label="Start">
+                  {([[false, "Sofort starten", `Heute, ${fmtLong(today())}`], [true, "Später starten, Deal sichern", `Wunschtermin bis ${fmtLong(maxStart())}`]] as const).map(([v, t, sub]) => { const active = later === v; return (
+                    <button key={t} type="button" role="radio" aria-checked={active} onClick={() => chooseStart(v)} className={`campaign-button flex min-h-[64px] flex-col items-start justify-center p-3 text-left ${active ? "bg-[#FBFF00] text-black" : "bg-[#2A3133] text-white hover:bg-[#33403f]"}`}>
+                      <span className="text-xs font-bold uppercase tracking-[0.08em]">{t}</span><span className={`mt-1 text-[11px] ${active ? "text-black/70" : "text-white/55"}`}>{sub}</span>
+                    </button>
+                  ); })}
+                </div>
+                {later && <div className="mt-3"><Field label="Startdatum" error={errors.startDate} hint={`Du sicherst dir den Deal heute. Erste Abbuchung zum Startdatum, spätestens ${fmtDe(maxStart())}.`}><Input type="date" value={form.startDate} onChange={set("startDate")} min={addDaysIso(today(), 1)} max={maxStart()} hasError={!!errors.startDate} /></Field></div>}
+              </div>
             )}
             <button type="button" onClick={submitStep2} className={btn}>Weiter zur Zahlung</button>
             {trust}
@@ -451,7 +471,7 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
             {summary && summary.length > 0 && (
               <div className="border-l-4 border-[#FBFF00] bg-[#2A3133] p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">Zusammenfassung</p>
-                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">{summary.map(r => <div key={r.label} className="contents"><dt className="text-white/50">{r.label}</dt><dd className="font-bold text-white">{r.value}</dd></div>)}</dl>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">{[...summary.filter(r => r.label !== "Start"), { label: "Start", value: startLabel }].map(r => <div key={r.label} className="contents"><dt className="text-white/50">{r.label}</dt><dd className="font-bold text-white">{r.value}</dd></div>)}</dl>
               </div>
             )}
             {payMethod === "card" && <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] p-4 text-xs leading-relaxed text-white/70">Nach der Unterschrift geht es zu Stripe. Dort zahlst du das Abo per Karte, Apple Pay oder Google Pay, {priceLine}. Danach kommst du automatisch zurück.</p>}

@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { ArrowDown, Check, MapPin, ShieldCheck } from "lucide-react";
-import StartCheckout, { startsAtConclusion } from "@/components/StartCheckout";
+import StartCheckout from "@/components/StartCheckout";
 import ExpressCheckout from "@/components/ExpressCheckout";
 import { usePageMeta } from "@/lib/meta";
 import { consent, track, CONSENT_EVENT, openCookieSettings } from "@/lib/pixel";
@@ -85,7 +85,7 @@ export default function Checkout() {
             {[t.gym, t.classes, t.scan, t.plan, ...(t.coachTalk ? [t.coachTalk] : []), parkingLabel(t.parkingPerWeek), "Keine Gebühr"].map(b => <li key={b} className="flex items-center gap-3 text-sm font-bold text-white/90 md:text-base"><span className="flex h-5 w-5 shrink-0 items-center justify-center bg-[#FBFF00]"><Check className="h-3 w-3 text-black" /></span>{b}</li>)}
           </ul>
           <button type="button" onClick={toForm} className="campaign-button mt-6 flex min-h-14 w-full items-center justify-center gap-3 bg-[#FBFF00] px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-black hover:bg-white lg:hidden">Jetzt abschließen <ArrowDown className="h-4 w-4" /></button>
-          <p className="mt-6 text-xs leading-relaxed text-white/45">{term && !startsAtConclusion(term) ? "Vertragsbeginn frei wählbar." : "Mitgliedschaft beginnt am Tag des Abschlusses."} 14 Tage Widerruf beim Onlineabschluss. Fragen? <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">WhatsApp</a>. <Link to="/memberships" className="underline hover:text-white">Alle Tarife vergleichen</Link>.</p>
+          <p className="mt-6 text-xs leading-relaxed text-white/45">Sofort starten oder bis zu 8 Wochen später, Preis heute sichern. 14 Tage Widerruf beim Onlineabschluss. Fragen? <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">WhatsApp</a>. <Link to="/memberships" className="underline hover:text-white">Alle Tarife vergleichen</Link>.</p>
         </div>
 
         <section id="formular" className="mt-8 scroll-mt-4 lg:mt-0">

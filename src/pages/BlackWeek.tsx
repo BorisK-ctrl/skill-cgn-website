@@ -1,6 +1,6 @@
 /*
  * /blackweek: Black Week, Gym Only für 29 € alle 4 Wochen (18. bis 30.11.2026). Aufbau wie /start39 (CampaignLanding + StartCheckout), nur SEPA.
- * Angebot 1215762330, Term 1215762340, Preis live aus dem rate-bundle (src/lib/blackweek.ts). Vertragsstart am Abschlusstag, Dankeseite /blackweek/danke.
+ * Angebot 1215762330, Term 1215762340, Preis live aus dem rate-bundle (src/lib/blackweek.ts). Start sofort oder bis 8 Wochen später (StartCheckout), Dankeseite /blackweek/danke.
  * Fehlt das Angebot im rate-bundle (nach dem 30.11.), zeigt die Seite "beendet" statt des Formulars.
  */
 import { useEffect, type ReactNode } from "react";
@@ -116,9 +116,9 @@ export default function BlackWeek() {
         : (
           <>
             <StartCheckout term={term} offerName={BLACK_WEEK.offer} path="/blackweek" priceLine={`${p} € alle 4 Wochen, monatlich kündbar, keine Aufnahmegebühr`} resume={resume}
-              startToday successPath="/blackweek/danke" utmContent
+              successPath="/blackweek/danke" utmContent
               notes={{ lead: "BLACK WEEK 29 Website, Schritt 1 abgeschickt", contract: "BLACK WEEK 29 Website, Vertrag abgeschlossen" }}
-              summary={[{ label: "Tarif", value: "BLACK WEEK Gym Only" }, { label: "Laufzeit", value: "1 Monat, verlängert sich um je 1 Monat" }, { label: "Preis", value: `${p} € alle 4 Wochen, dauerhaft` }, { label: "Aufnahmegebühr", value: "Keine" }, { label: "Kündigung", value: "1 Monat Frist zum Laufzeitende" }, { label: "Start", value: "Heute, am Tag des Abschlusses" }, { label: "Classes", value: "Nicht enthalten" }]}
+              summary={[{ label: "Tarif", value: "BLACK WEEK Gym Only" }, { label: "Laufzeit", value: "1 Monat, verlängert sich um je 1 Monat" }, { label: "Preis", value: `${p} € alle 4 Wochen, dauerhaft` }, { label: "Aufnahmegebühr", value: "Keine" }, { label: "Kündigung", value: "1 Monat Frist zum Laufzeitende" }, { label: "Classes", value: "Nicht enthalten" }]}
               cancelNote={`Nur für Neukunden ohne laufenden SKILL Vertrag. Laufzeit 1 Monat, verlängert sich automatisch um jeweils 1 Monat zu ${p} €, kündbar mit 1 Monat Frist zum Laufzeitende. Erste Abbuchung zum Vertragsstart.`} />
             <p className="campaign-mono mt-3 text-center text-[10px] uppercase tracking-[0.16em] text-white/45">Fragen? <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="underline hover:text-[#FBFF00]">WhatsApp</a> · <Link to="/datenschutz" className="underline hover:text-[#FBFF00]">Datenschutz</Link></p>
           </>

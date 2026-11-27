@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, Lock, RotateCcw, ShieldCheck, Tablet } from "lucide-react";
-import StartCheckout, { clampPosStart, posMaxStart } from "@/components/StartCheckout";
+import StartCheckout, { clampStart, maxStart } from "@/components/StartCheckout";
 import ProbeSuche, { type Prefill } from "@/components/ProbeSuche";
 import { usePageMeta } from "@/lib/meta";
 import { euro, termLabel, termFees, termCancel, type RateBundle, type RateBundleTerm, type ContractResult } from "@/lib/magicline";
@@ -71,10 +71,9 @@ export default function VorOrt() {
   const terms = useMemo(() => (bundle ? [...bundle.terms].sort((a, b) => a.termValue - b.termValue) : []), [bundle]);
   useEffect(() => { if (terms.length && !terms.some(t => t.id === termId)) setTermId(terms.find(t => t.id === START39_TERM_ID)?.id ?? terms[0].id); }, [terms, termId]);
   const term: RateBundleTerm | null = terms.find(t => t.id === termId) || null;
-  /* Black Week startet immer am Tag des Abschlusses: kein Datumsfeld, Start heute (bei jedem Rendern neu, nicht aus dem Stand von gestern) */
   const bw = isBW(bundle);
   /* Gewählter Start, immer im Fenster heute bis 8 Wochen (auch wenn die Seite über Mitternacht offen war) */
-  const start = clampPosStart(startDate);
+  const start = clampStart(startDate);
   const fee = term ? termFees(term) : "";
   const priceLine = term ? `${fmtPrice(term.price)} € alle ${term.paymentFrequencyValue} ${term.paymentFrequencyUnit === "WEEK" ? "Wochen" : "Monate"}, ${termLabel(term)}, ${termFees(term) === "keine" ? "0 € Aufnahmegebühr" : "Gebühr: " + termFees(term)}` : "";
 
@@ -204,8 +203,8 @@ export default function VorOrt() {
             </div>
             <div>
               <p className={kicker}>3. Start</p>
-              <input type="date" value={start} min={today()} max={posMaxStart()} onChange={e => setStartDate(clampPosStart(e.target.value))} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
-              <p className="mt-2 text-xs text-white/45">Heute vorbelegt, wählbar bis {fmtDe(posMaxStart())} (8 Wochen).{bw ? " Abschluss nur bis 30.11., der Start darf später liegen." : ""} Erste Abbuchung zum Startdatum.</p>
+              <input type="date" value={start} min={today()} max={maxStart()} onChange={e => setStartDate(clampStart(e.target.value))} className="campaign-field mt-3 min-h-[52px] text-base" aria-label="Startdatum" />
+              <p className="mt-2 text-xs text-white/45">Heute vorbelegt, wählbar bis {fmtDe(maxStart())} (8 Wochen).{bw ? " Abschluss nur bis 30.11., der Start darf später liegen." : ""} Erste Abbuchung zum Startdatum.</p>
             </div>
           </div>
         )}

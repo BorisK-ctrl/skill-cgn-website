@@ -1,5 +1,5 @@
 /*
- * Black Week 2026: Gym Only für 29 € alle 4 Wochen, Abschluss 18. bis 30.11.2026, nur SEPA, Vertragsstart am Abschlusstag.
+ * Black Week 2026: Gym Only für 29 € alle 4 Wochen, Abschluss 18. bis 30.11.2026, nur SEPA, Start sofort oder bis 8 Wochen später.
  * Magicline (gelesen am 18.11.2026 aus GET rate-bundle): Vertragsangebot 1215762330 "BLACK WEEK ONLY GYM 29", Laufzeit-Term 1215762340
  * (1 Monat, 29,00 € alle 4 Wochen, Verlängerung je 1 Monat, Kündigungsfrist 1 Monat), allowedPaymentChoices DIRECT_DEBIT, keine flatFees.
  * Ab 1.12. verschwinden Startseiten-Balken und Preishinweis von allein; taucht das Angebot im rate-bundle nicht mehr auf, zeigt /blackweek "beendet".
