@@ -63,6 +63,8 @@ export default function VorOrt() {
   const [done, setDone] = useState<{ r: ContractResult; firstName: string } | null>(null);
   /* Interessent aus Magicline (Suche im Team-Modus): gilt nur für den nächsten Kunden, danach wieder leer */
   const [prefill, setPrefill] = useState<Prefill | null>(null);
+  /* Start, den der Kunde in Schritt 2 gewählt hat (kann vom Team-Vorschlag abweichen); die Angebotsspalte zeigt ihn (Prüfung 27.11.2026) */
+  const [custStart, setCustStart] = useState<string | null>(null);
   const [count, setCount] = useState(0);
   const backTimer = useRef<number>(0);
   useEffect(() => { try { localStorage.setItem("skill-pos-staff", staff); } catch {} }, [staff]);
@@ -84,7 +86,7 @@ export default function VorOrt() {
   const newDay = () => berlinToday() !== loadedDay.current;
   const lastInput = useRef(Date.now());
   const onSuccess = (r: ContractResult, info: { firstName: string }) => { setDone({ r, firstName: info.firstName }); setCount(c => c + 1); setMode("fertig"); window.scrollTo({ top: 0 }); };
-  const backToTeam = () => { window.clearTimeout(backTimer.current); clearPosSession(); setPrefill(null); if (newDay()) { window.location.reload(); return; } setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
+  const backToTeam = () => { window.clearTimeout(backTimer.current); clearPosSession(); setPrefill(null); setCustStart(null); if (newDay()) { window.location.reload(); return; } setDone(null); setStartDate(today()); setMode("team"); window.scrollTo({ top: 0 }); };
   /* Übergabe: neuer Tag oder Black Week vorbei → erst neu laden; jeder Kunde beginnt leer */
   const handover = () => { if (newDay() || (bw && !blackWeekActive())) { window.location.reload(); return; } clearPosSession(); lastInput.current = Date.now(); setMode("kunde"); window.scrollTo({ top: 0 }); };
   const live = useRef({ mode, bw, backToTeam }); live.current = { mode, bw, backToTeam };
@@ -128,13 +130,13 @@ export default function VorOrt() {
               {fee === "keine"
                 ? <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Aufnahmegebühr</dt><dd className={`font-bold ${bw ? "text-[#FBFF00]" : ""}`}>0&nbsp;€</dd></div>
                 : <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Gebühr</dt><dd className="font-bold">{fee}</dd></div>}
-              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{start === today() ? "Heute, " : ""}{fmtDe(start)}</dd></div>
+              <div className="flex justify-between bg-[#1a2224] px-4 py-3"><dt className="text-white/55">Start</dt><dd className="font-bold">{(custStart || start) === today() ? "Heute, " : ""}{fmtDe(custStart || start)}</dd></div>
             </dl>
             {bw && <p className="mt-4 text-xs text-white/55">Nur bis {BW_END}. Nicht für Mitglieder mit laufendem Vertrag. Preis inkl. MwSt.</p>}
             <p className="mt-5 flex items-center gap-2 text-xs text-white/45"><Lock className="h-3.5 w-3.5" /> Deine Daten gehen direkt in unser Mitgliedersystem, nichts wird auf diesem iPad gespeichert.</p>
           </aside>
           <section className="mt-8 lg:mt-0">
-            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate: start }} onSuccess={onSuccess} prefill={prefill || undefined} />
+            <StartCheckout term={term} offerName={bundle.name} path="/vor-ort" priceLine={priceLine} pos={{ staff, startDate: start }} onStartChange={setCustStart} onSuccess={onSuccess} prefill={prefill || undefined} />
           </section>
         </div>
       </main>

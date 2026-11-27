@@ -10,6 +10,8 @@ import OnboardingNext from "@/components/OnboardingNext";
 
 const DEFAULT = "Dein Vertrag ist angelegt. Die Bestätigung mit allen Unterlagen kommt in den nächsten Minuten per E-Mail.";
 
+/* Start "YYYY-MM-DD" mittags lesen: sonst zeigt ein Gerät westlich von UTC den Vortag (Prüfung 27.11.2026) */
+const startDe = (s: unknown) => { if (typeof s !== "string" || !s) return ""; const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + "T12:00:00" : s); return isNaN(d.getTime()) ? "" : d.toLocaleDateString("de-DE"); };
 export default function Danke() {
   usePageMeta("Willkommen im Team — SKILL CGN", "Dein Vertrag ist angelegt.", "noindex,nofollow");
   const [text, setText] = useState(DEFAULT);
@@ -52,7 +54,7 @@ export default function Danke() {
     try {
       const c = JSON.parse(sessionStorage.getItem("skill-contract") || "null");
       if (c) setWa({ name: c.name || "", offer: c.offer || "", t: typeof c.t === "string" ? c.t : undefined, cid: c.cid ? String(c.cid) : undefined });
-      if (c?.cid) setText(`${c.name ? `Hey ${c.name}, dein` : "Dein"} ${c.offer} Vertrag ist angelegt (Vertragsnummer ${c.cid}).${c.start ? ` Start am ${new Date(c.start).toLocaleDateString("de-DE")}.` : ""} Die Bestätigung mit allen Unterlagen kommt in den nächsten Minuten per E-Mail.`);
+      if (c?.cid) setText(`${c.name ? `Hey ${c.name}, dein` : "Dein"} ${c.offer} Vertrag ist angelegt (Vertragsnummer ${c.cid}).${startDe(c.start) ? ` Start am ${startDe(c.start)}.` : ""} Die Bestätigung mit allen Unterlagen kommt in den nächsten Minuten per E-Mail.`);
     } catch {}
   }, [ready]);
 

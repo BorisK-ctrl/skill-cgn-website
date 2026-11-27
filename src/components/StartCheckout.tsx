@@ -107,7 +107,7 @@ function otherPerson(p: Prefill, f: { firstName: string; lastName: string; email
 }
 export interface PosOptions { staff: string; startDate: string }
 export interface SummaryRow { label: string; value: string }
-export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote, startToday, successPath = "/danke", utmContent, notes, prefill }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout" | "/blackweek"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
+export default function StartCheckout({ term, offerName, path, priceLine, months, resume, onStepChange, pos, onSuccess, summary, cancelNote, startToday, successPath = "/danke", utmContent, notes, prefill, onStartChange }: { term: RateBundleTerm | null; offerName: string; path: "/start39" | "/back39" | "/vor-ort" | "/checkout" | "/blackweek"; priceLine: string; months?: 1 | 12; resume?: ResumeData | null; onStepChange?: (step: number) => void;
   /** Zusammenfassung vor der Unterschrift: Tarif, Laufzeit, Preis, Classes, Parken. */ summary?: SummaryRow[]; cancelNote?: string;
   /** Vor-Ort-Modus (iPad): kein Interessent, kein Tracking, keine Abbrecher-Mail, Startdatum aus der Auswahl, Erfolg inline statt /danke. */
   pos?: PosOptions; onSuccess?: (r: ContractResult, info: { firstName: string; lastName: string; email: string }) => void;
@@ -116,7 +116,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   /** utm_content zusätzlich in die Magicline-Notizen schreiben. */ utmContent?: boolean;
   /** Eigene Notizen statt "<Angebot> Website, Schritt 1 abgeschickt" und "Onlineabschluss <Angebot> Landingpage". */ notes?: { lead: string; contract: string };
   /** Vor Ort: Interessent aus Magicline (Suche im Team-Modus, components/ProbeSuche.tsx). Füllt das Formular; seine uuid wird identityToken,
-      der Vertrag hängt also am selben Kunden statt an einem zweiten. */ prefill?: Prefill }) {
+      der Vertrag hängt also am selben Kunden statt an einem zweiten. */ prefill?: Prefill;
+  /** Meldet den gewählten Start (YYYY-MM-DD), damit die Seite ihn neben dem Formular zeigen kann (/vor-ort, Angebotsspalte). */ onStartChange?: (iso: string) => void }) {
   const KEY = "skill-checkout-" + path.slice(1);
   const isPos = !!pos;
   /* Start: sofort oder später ("Deal sichern"), bis 8 Wochen. Nur mit startToday gibt es keine Wahl (derzeit nutzt das keine Seite). */
@@ -215,15 +216,22 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
     return () => { window.removeEventListener("pagehide", mark); document.removeEventListener("visibilitychange", onHide); };
   }, []);
   useEffect(() => { onStepChange?.(step); }, [step, onStepChange]);
-  useEffect(() => { if (pos?.startDate) { setForm(f => ({ ...f, startDate: pos.startDate })); setStartLater(pos.startDate > today()); } }, [pos?.startDate]);
+  useEffect(() => { if (pos?.startDate) { setForm(f => ({ ...f, startDate: pos.startDate })); setStartLater(pos.startDate > today()); if (pos.startDate > today()) lastLater.current = pos.startDate; } }, [pos?.startDate]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Vertragsstart am Abschlusstag: Datum immer auf heute halten, auch nach Wiederherstellung aus sessionStorage */
   useEffect(() => { if (onlyNow && form.startDate !== today()) setForm(f => ({ ...f, startDate: today() })); }, [onlyNow, form.startDate]);
   /* Sofort: heute. Später: das gewählte Datum, sonst der nächste Montag als Vorschlag, immer im Fenster bis 8 Wochen */
-  const chooseStart = (later: boolean) => {
-    setStartLater(later); setErrors(e => { if (!e.startDate) return e; const n = { ...e }; delete n.startDate; return n; });
-    setForm(f => ({ ...f, startDate: later ? (f.startDate > today() ? clampStart(f.startDate) : clampStart(nextMonday())) : today() }));
+  /* Das zuletzt gewählte spätere Datum bleibt gemerkt: Sofort → Später holt es zurück statt auf Montag zu springen (Prüfung 27.11.2026) */
+  const lastLater = useRef("");
+  const chooseStart = (wantLater: boolean) => {
+    setStartLater(wantLater); setErrors(e => { if (!e.startDate) return e; const n = { ...e }; delete n.startDate; return n; });
+    setForm(f => {
+      if (!wantLater) { if (f.startDate > today()) lastLater.current = f.startDate; return { ...f, startDate: today() }; }
+      const keep = [lastLater.current, f.startDate].find(d => !!d && d > today() && d <= maxStart());
+      return { ...f, startDate: keep || clampStart(nextMonday()) };
+    });
   };
   const later = startLater && !onlyNow;
+  useEffect(() => { onStartChange?.(later ? form.startDate : today()); }, [later, form.startDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const startLabel = later ? fmtLong(form.startDate) : `Heute, ${fmtLong(today())}`;
 
   const setStep = (n: number) => { userNav.current = true; setStepRaw(n); setErrors({}); setApiError(null); };
@@ -335,6 +343,8 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
   const sigSvg = () => { const c = canvasRef.current!; const w = c.offsetWidth, h = c.offsetHeight; const paths = strokes.current.map(s => `<path d="M${s.map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" L")}" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/>`).join(""); return btoa(unescape(encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${paths}</svg>`))); };
 
   const submit = async () => {
+    /* Start noch einmal prüfen: blieb die Seite über Nacht offen, kann ein gewähltes späteres Datum inzwischen vorbei sein (Prüfung 27.11.2026) */
+    if (later && (form.startDate <= today() || form.startDate > maxStart())) { setStep(2); setErrors({ startDate: form.startDate <= today() ? "Dein Startdatum ist inzwischen vorbei. Bitte neu wählen oder sofort starten." : "Start höchstens 8 Wochen im Voraus" }); return; }
     const e = validate(3); setErrors(e); setSigError(strokes.current.length ? "" : "Bitte unterschreibe im Feld");
     if (Object.keys(e).length || !strokes.current.length) {
       /* Fehler stehen oft weit oberhalb des Knopfs (IBAN, Kontoinhaber): Hinweis direkt am Knopf und zum ersten Fehler springen */
@@ -468,10 +478,11 @@ export default function StartCheckout({ term, offerName, path, priceLine, months
             )}
             {payMethod === "sepa" && <Field label="IBAN" error={errors.iban} hint={ibanOk ? "IBAN geprüft" : "Wird beim Tippen geprüft"}><Input inputMode="text" autoComplete="off" value={form.iban} onChange={onIban} placeholder="DE12 3456 7890 1234 5678 90" hasError={!!errors.iban} ok={ibanOk} /></Field>}
             {payMethod === "sepa" && <Field label="Kontoinhaber" error={errors.accountHolder}><Input value={form.accountHolder} onChange={set("accountHolder")} autoComplete="name" placeholder="Max Muster" hasError={!!errors.accountHolder} /></Field>}
-            {summary && summary.length > 0 && (
+            {/* Zusammenfassung mit dem gewählten Start, auch auf Seiten ohne eigene Zeilen (/back39): der Kunde sieht den Start vor der Unterschrift */}
+            {(
               <div className="border-l-4 border-[#FBFF00] bg-[#2A3133] p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">Zusammenfassung</p>
-                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">{[...summary.filter(r => r.label !== "Start"), { label: "Start", value: startLabel }].map(r => <div key={r.label} className="contents"><dt className="text-white/50">{r.label}</dt><dd className="font-bold text-white">{r.value}</dd></div>)}</dl>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">{[...(summary || []).filter(r => r.label !== "Start"), { label: "Start", value: startLabel }].map(r => <div key={r.label} className="contents"><dt className="text-white/50">{r.label}</dt><dd className="font-bold text-white">{r.value}</dd></div>)}</dl>
               </div>
             )}
             {payMethod === "card" && <p className="border-l-4 border-[#FBFF00] bg-[#2A3133] p-4 text-xs leading-relaxed text-white/70">Nach der Unterschrift geht es zu Stripe. Dort zahlst du das Abo per Karte, Apple Pay oder Google Pay, {priceLine}. Danach kommst du automatisch zurück.</p>}
